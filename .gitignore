@@ -12,3 +12,7 @@ CW/
 # local Cloud Run settings that include the Firebase web config
 infra/cloudrun.local.env.yaml
 web/out/
+
+# test credentials for the live UAT script
+tools/uat_credentials.txt
+data/
