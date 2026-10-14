@@ -78,7 +78,7 @@ The first visit starts the first-time flow. "Start over" in Plant settings bring
 ## Tests
 
 ```bash
-python -m tests.foreman_test        # 34 checks on Warden, the Cedar gate, the Verifier, contracts and the fallback. No Gemini needed
+python -m tests.foreman_test        # 38 checks on Warden, the Cedar gate, the Verifier, contracts and the fallback. No Gemini needed
 node tests/e2e.mjs                  # drives the whole app in real Chrome: first visit, Guide, tour, Operations, Warden, Probes, deck
 ```
 
