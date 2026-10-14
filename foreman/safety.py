@@ -212,6 +212,18 @@ def apply(scored, approved_by=None, run=None):
 
 # ------------------------------------------------------------------ the backtest on recorded incidents
 CACHE = os.path.join(core.DATA, "jig_backtest.json")
+SEED = os.path.join(core.ROOT, "seed", "jig_backtest.json")   # the result computed on the 465 recorded incidents, shipped with the app
+
+
+def _cache_file():
+    """The backtest result to use: one computed here, else the shipped one. An empty result is never used."""
+    for path in (CACHE, SEED):
+        try:
+            if os.path.exists(path) and json.load(open(path)).get("items"):
+                return path
+        except Exception:
+            pass
+    return None
 JOB = {"state": "idle", "done": 0, "total": 0, "error": None}
 FAULT_KIND = {"CPU": "scale_out", "memory": "restart_service", "disk I/O": "move_volume", "sockets": "inspect", "load": "scale_out", "latency": "inspect", "error rate": "rollback_change"}
 
@@ -236,6 +248,8 @@ def _compute_backtest():
         JOB["done"] = i + 1
         if i % 25 == 0:
             json.dump({"partial": True, "items": items}, open(CACHE + ".part", "w"))
+    if not [i for i in items if "score" in i]:
+        raise RuntimeError("no incident could be scored (the incident data is not on this machine)")
     out = {"built_at": time.time(), "n": len([i for i in items if "score" in i]), "items": [i for i in items if "score" in i], "source": "seed/rca_library.json (the 465 recorded RCAEval incidents, real fault-injection cases)"}
     json.dump(out, open(CACHE, "w"))
     JOB.update(state="done")
@@ -246,7 +260,7 @@ def start_backtest():
     with LOCK:
         if JOB["state"] == "running":
             return JOB
-        if os.path.exists(CACHE):
+        if _cache_file():
             JOB.update(state="done")
             return JOB
         threading.Thread(target=lambda: _safe_bt(), daemon=True, name="warden-backtest").start()
@@ -265,10 +279,11 @@ def backtest(floor=None, limit=None):
     s = settings()
     floor = s["floor"] if floor is None else int(floor)
     limit = s["limit"] if limit is None else int(limit)
-    if not os.path.exists(CACHE):
+    path = _cache_file()
+    if not path:
         start_backtest()
         return {"ready": False, "job": dict(JOB)}
-    d = json.load(open(CACHE))
+    d = json.load(open(path))
     items = d["items"]
 
     def verdict(sc):
