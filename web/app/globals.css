@@ -627,3 +627,6 @@ details>summary{cursor:pointer;color:var(--mut);padding:6px 0;list-style:none}de
 @keyframes tourpulse{0%{box-shadow:0 0 0 0 #f2b84b66}70%{box-shadow:0 0 0 10px #f2b84b00}100%{box-shadow:0 0 0 0 #f2b84b00}}
 input[type=email],input[type=password]{background:#121316;border:1px solid var(--line2);border-radius:10px;padding:9px 12px;outline:none;min-width:0}
 input[type=email]:focus,input[type=password]:focus{border-color:var(--amber)}
+
+/* The viewer package lists 3D first. We open in 2D, so the switch reads 2D / 3D. */
+[aria-label="Viewer layout"]{flex-direction:row-reverse}

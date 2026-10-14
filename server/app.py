@@ -18,6 +18,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ERP = f"http://127.0.0.1:{run_plant.ERP_PORT}"
 OPCUA = f"opc.tcp://127.0.0.1:{core.PORT}/tolerance/plant"
 app = FastAPI(title="Tolerance console")
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1024)   # JS, JSON and SVG shrink to a quarter
 from server.state import S
 S.update({"rep": None, "live": CR.Live(every=3.0), "oir": None, "bounds": None, "gw": None, "selector": None, "eval": None, "alert": None, "inc": None, "gemini_error": None})
 LOCK = threading.Lock()
@@ -388,7 +390,10 @@ async def sign_in_check(request, call_next):
 @app.middleware("http")
 async def no_cache_ui(request, call_next):
     resp = await call_next(request)
-    if not request.url.path.startswith("/api"):
+    path = request.url.path
+    if path.startswith("/_next/static/"):
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"   # file names carry a hash, so they never change
+    elif not path.startswith("/api"):
         resp.headers["Cache-Control"] = "no-cache"
     return resp
 

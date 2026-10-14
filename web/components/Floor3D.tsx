@@ -9,6 +9,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
+import Loader3D from '@/components/Loader3D';
 
 type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
 type Twin = { stations: Station[]; flows: any[]; has_data: boolean };
@@ -209,7 +210,11 @@ export default function Floor3D() {
   const [err, setErr] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [mode, setMode] = useState<ViewerStageMode>('3d');
+  // The floor opens in 2D, which is quick. The heavy 3D engine starts only when the person asks for 3D. Inside the deck (embed=1) it opens in 3D.
+  const embedded = typeof window !== 'undefined' && window.location.search.includes('embed=1');
+  const [mode, setMode] = useState<ViewerStageMode>(embedded ? '3d' : '2d');
+  const [want3d, setWant3d] = useState(embedded);
+  const started3d = useRef(false);
   const ids = useRef<Record<string, { pad: string; edge: string; beacon: string }>>({});
   const sig = useRef('');
   const anims = useRef<Anim[]>([]);
@@ -300,7 +305,7 @@ export default function Floor3D() {
           ids.current = sc.ids; anims.current = sc.anims; flowIds.current = sc.flowIds; planRef.current = { plan: sc.plan, nodes: sc.nodes }; nodeStation.current = sc.nodeStation; posOf.current = sc.posOf; setLegend(sc.legend);
           sc.flowIds.forEach((id: string) => { sc.nodes[id].visible = xrayRef.current; });
           applySceneGraphToEditor({ nodes: sc.nodes as any, rootNodeIds: sc.root as any } as any);
-          if (!remounted.current) { remounted.current = true; setTimeout(() => setVk((v) => v + 1), 3000); setTimeout(() => setShown(true), 4800); }
+          remounted.current = true;
         } else {
           tw.stations.forEach((s) => {
             const i = ids.current[s.id]; if (!i) return;
@@ -344,7 +349,7 @@ export default function Floor3D() {
 
   const assemble = useCallback(() => {
     const P = planRef.current; if (!P) return;
-    timers.current.forEach(clearTimeout); timers.current = [];
+    t3d.current.forEach(clearTimeout); timers.current = [];
     const up = useScene.getState().updateNode;
     const setVis = (ids: string[], v: boolean) => ids.forEach((id) => up(id as any, { visible: v } as any));
     const drop = (ids: string[]) => {
@@ -382,7 +387,15 @@ export default function Floor3D() {
     if (new URLSearchParams(window.location.search).has('assemble') && !(window as any).__assembled) { (window as any).__assembled = true; setTimeout(assemble, 1500); }
   }, [ready, legend, assemble]);
 
-  const onMode = useCallback((m: ViewerStageMode) => { if (m !== '3d') useEditor.getState().setFirstPersonMode(false); setMode(m); }, []);
+  const onMode = useCallback((m: ViewerStageMode) => { if (m !== '3d') useEditor.getState().setFirstPersonMode(false); if (m === '3d') setWant3d(true); setMode(m); }, []);
+  // Once the 3D scene is ready the viewer is remounted once (it draws more reliably the second time), then the loader goes away.
+  const t3d = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    if (!want3d || !sceneReady || started3d.current) return;
+    started3d.current = true;   // the timers must outlive this effect: the remount flips sceneReady and would cancel them
+    t3d.current = [setTimeout(() => setVk((v) => v + 1), 3000), setTimeout(() => setShown(true), 4800)];
+  }, [want3d, sceneReady]);
+  useEffect(() => () => t3d.current.forEach(clearTimeout), []);
 
   if (err) return <div className="fempty"><h2>3D could not start</h2><p className="sub">{err}</p></div>;
   if (empty) return <div className="fempty"><h2>Your factory floor in 3D</h2><p className="sub">Connect a machine state log and every machine appears here.</p><a className="btn" href="/connect">Connect data</a></div>;
@@ -390,7 +403,7 @@ export default function Floor3D() {
   if (!ready) return <div className="mut" style={{ padding: 20 }}>Loading 3D…</div>;
   return (
     <div className="dark absolute inset-0 overflow-hidden bg-neutral-950 text-foreground">
-      {!shown && <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-neutral-950 text-white/80"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-amber-400" /><div className="text-sm">Building the factory from live data…</div></div>}
+      {mode === '3d' && !shown && <Loader3D />}
       {isFirstPerson ? <Hud /> : mode === '3d' && <ViewerControlsBar onWalkthroughToggle={() => { flushSync(() => useEditor.getState().setFirstPersonMode(true)); }} />}
       {mode === '3d' && !isFirstPerson && <ViewerHoverLabel />}
       {(() => {
@@ -432,8 +445,8 @@ export default function Floor3D() {
         {mode === '3d' && xray && legend.length > 0 && <div className="hidden rounded-xl border border-white/15 bg-neutral-950/75 p-2.5 text-xs text-white backdrop-blur sm:block"><div className="mb-1 text-[11px] uppercase tracking-wider text-white/70">Data feeds</div>{legend.map((l) => <div key={l.label} className="flex items-center gap-2 py-0.5"><i className="inline-block h-2 w-5 rounded-full" style={{ background: l.color }} />{l.label}</div>)}</div>}
       </div>
       <LabelLayer items={labels} els={labelEls} host={labelHost} onPick={setSel} />
-      <ViewerStage className="absolute inset-0" mode={mode} onModeChange={onMode} showCompass showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
-        <Viewer key={vk} defaultRender={{ shading: 'rendered' }} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
+      <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} onModeChange={onMode} showCompass showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
+        {want3d && <Viewer key={vk} defaultRender={{ shading: 'rendered' }} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
           <SceneEnvironment />
           <ViewerSelectionManager />
           <ParametricViewerRooms />
@@ -441,7 +454,7 @@ export default function Floor3D() {
           <LabelProjector items={labels} els={labelEls} host={labelHost} />
           {isFirstPerson && <FirstPersonControls />}
           <SceneCameraControls sceneReady={sceneReady} selectable={false} />
-        </Viewer>
+        </Viewer>}
       </ViewerStage>
     </div>
   );

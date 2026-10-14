@@ -1,8 +1,8 @@
 # End-to-end run
 
-Run at 2026-10-14T20:13:08.440Z. Chrome headless, 1440x900, against the real backend and web app.
+Run at 2026-10-14T21:13:40.108Z. Chrome headless, 1440x900, against the real backend and web app.
 
-**26 of 27 steps passed.**
+**27 of 27 steps passed.**
 
 ## PASS: Backend and web app are up
 8 agents
@@ -62,10 +62,10 @@ no documents shown before the user adds any
 
 ![12 The tour ends](13-12-the-tour-ends.png)
 
-## PASS: 13 The 3D factory
-1 canvas (headless Chrome may draw it blank)
+## PASS: 13 The floor opens in 2D; 3D shows a loader
+no Split: true; loader shown: true
 
-![13 The 3D factory](14-13-the-3d-factory.png)
+![13 The floor opens in 2D; 3D shows a loader](14-13-the-floor-opens-in-2d-3d-shows-a-load.png)
 
 ## PASS: 14 Operations: agents diagnose, verify, plan, score
 Verifier verdict and Warden scores shown
@@ -86,7 +86,7 @@ INCIDENTS
 
 ![17 Warden: score an action that breaks a hard limit](18-17-warden-score-an-action-that-breaks-a-.png)
 
-## FAIL: 18 Probes: a path fault is found
+## PASS: 18 Probes: a path fault is found
 
 ![18 Probes: a path fault is found](19-18-probes-a-path-fault-is-found.png)
 

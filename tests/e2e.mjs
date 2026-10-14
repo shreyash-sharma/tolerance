@@ -104,7 +104,12 @@ await step("11 The Guide reveals the other sections one by one", async () => {
 await step("12 The tour ends", async () => { await click("Finish"); await sleep(1500); return !(await text()).includes("OF 6"); });
 await go("/floor");
 await sleep(7000);
-await step("13 The 3D factory", async () => { const c = await ev("document.querySelectorAll('canvas').length"); return { ok: c > 0, note: `${c} canvas (headless Chrome may draw it blank)` }; });
+await step("13 The floor opens in 2D; 3D shows a loader", async () => {
+  const t0 = await text(); const noSplit = !/Split/.test(t0);
+  const clicked = await clickUntil("3D", ["Rendering the 3D factory"], 15000);
+  const t1 = await text(); const loader = t1.includes("Rendering the 3D factory") && t1.includes("first time");
+  return { ok: noSplit && clicked && loader, note: `no Split: ${noSplit}; loader shown: ${loader}` };
+});
 
 await post("/jig/warden/reset");
 // raise the limit so that actions need a person: this makes the approval path run for real
@@ -145,7 +150,7 @@ await go("/compile");
 await step("20 Compiled model: facts with their quotes", async () => { const ok = await waitText("FACTS", 30000); const t = await text(); return { ok: ok && t.includes("Northfield Assembly Plant"), note: "plant name and facts shown" }; });
 await go("/deck");
 await step("21 Deck: title", async () => (await text()).includes("Tolerance"));
-for (const [k, n, needle] of [["3", "platform", "Seven agents"], ["5", "operations", "Verifier"], ["6", "warden", "two lines"], ["8", "gemma", "Gemma"]]) {
+for (const [k, n, needle] of [["3", "platform", "Eight agents"], ["5", "operations", "Verifier"], ["6", "warden", "two lines"], ["8", "gemma", "Gemma"]]) {
   await step(`22 Deck slide ${k}: ${n}`, async () => { await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: k, text: k }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: k }); await sleep(2500); return (await text()).includes(needle); });
 }
 await step("23 Deck appendix: diagrams", async () => { await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "End" }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "End" }); await sleep(500); await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight" }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight" }); await sleep(2000); return await ev("!!document.querySelector('img[src*=\"01-platform\"]')"); });

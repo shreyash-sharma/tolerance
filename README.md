@@ -22,7 +22,7 @@ A new plant gives Tolerance its name and its documents. Eight agents read them, 
 
 ## The 3D factory
 
-The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor.
+The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.
 
 <p align="center"><img src="docs/images/screens/00-floor-3d.jpg" alt="The 3D factory: warehouse shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
 
@@ -32,7 +32,7 @@ These are interactive in the app and in the deck (they move). Here they are as s
 
 | | |
 |---|---|
-| <img src="docs/images/figures/gauge.png" alt="The tolerance gauge: a dial indicator measuring parts against a tolerance band"><br>**The tolerance gauge.** A part is measured against its tolerance band: in or out. | <img src="docs/images/figures/platform.png" alt="One platform, seven agents standing on a shared base"><br>**One platform.** The agents stand on one shared base: one gateway, one policy, one record. |
+| <img src="docs/images/figures/gauge.png" alt="The tolerance gauge: a dial indicator measuring parts against a tolerance band"><br>**The tolerance gauge.** A part is measured against its tolerance band: in or out. | <img src="docs/images/figures/platform.png" alt="One platform, eight agents standing on a shared base"><br>**One platform.** The agents stand on one shared base: one gateway, one policy, one record. |
 | <img src="docs/images/figures/interlock.png" alt="The interlock: a gate on a rail where read calls pass and a write call waits for a person"><br>**The interlock.** Every tool call reaches one gate. Reads pass. A write stops and waits for a person. | <img src="docs/images/figures/warden.png" alt="The Warden gates: two gates on a rail, the floor and the limit"><br>**The Warden gates.** The first gate is your floor, the second is your limit. A score between them waits for a person. |
 | <img src="docs/images/figures/selector.png" alt="The selector: a learner that chooses which evidence to read first"><br>**The selector.** A contextual bandit learns which evidence to read first, and a confirmed diagnosis rewards the choice. | |
 
@@ -58,7 +58,7 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 
 | | |
 |---|---|
-| <img src="docs/images/screens/14-deck-platform.png" alt="Deck slide: seven agents, one gateway"><br>The platform | <img src="docs/images/screens/15-deck-operations.png" alt="Deck slide: the Verifier catches the agent's mistake"><br>Operations: the Verifier catches a wrong number |
+| <img src="docs/images/screens/14-deck-platform.png" alt="Deck slide: eight agents, one gateway"><br>The platform | <img src="docs/images/screens/15-deck-operations.png" alt="Deck slide: the Verifier catches the agent's mistake"><br>Operations: the Verifier catches a wrong number |
 | <img src="docs/images/screens/16-deck-warden.png" alt="Deck slide: you set the two lines"><br>Warden | <img src="docs/images/screens/17-deck-roadmap.png" alt="Deck slide: next, a Gemma that knows your plant"><br>Roadmap |
 
 ## What a person sees
@@ -73,6 +73,9 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 Settings has "Show me around" and "Start over".
 
 ## The agents (Foreman)
+
+<p align="center"><img src="docs/images/figures/agent-team.png" alt="The agent team: the owner and the Guide, the onboarding and operations teams, shared services, connectors and machines" width="900"></p>
+
 
 Foreman is the layer that runs the agents: a contract card per agent, a visible record of every step, one policy gateway, and a record and replay for model calls. Every agent uses Gemini in at least one step. Plain code is labelled as such (model-driven, rule-driven, or mixed).
 
