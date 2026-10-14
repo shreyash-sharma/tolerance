@@ -1,0 +1,116 @@
+'use client';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { api, post } from '@/lib/api';
+import { usePlant } from '@/lib/plant';
+import { useAuth, signOutUser } from '@/lib/auth';
+import LoginScreen from '@/components/first/LoginScreen';
+import FirstRun from '@/components/first/FirstRun';
+
+const NAV: [string, string, string][] = [
+  ['/floor', 'Floor', 'M3 5h18v14H3zM3 12h18M9 5v14'],
+  ['/operations', 'Operations', 'M13 3L4 14h7l-1 7 9-11h-7z'],
+  ['/safety', 'Warden', 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6zM9 12l2 2 4-4'],
+  ['/agents', 'Agents', 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z'],
+  ['/probes', 'Probes', 'M12 12m-2 0a2 2 0 104 0 2 2 0 10-4 0M12 12m-6 0a6 6 0 1012 0 6 6 0 10-12 0M12 12m-10 0a10 10 0 1020 0 10 10 0 10-20 0'],
+  ['/compile', 'Compiled model', 'M4 6h16M4 12h10M4 18h6M17 14l3 3-3 3'],
+];
+
+type Ws = { name: string; sources: any[]; model: any; version: any; incidents_open: number; compiled: number; gemini: boolean; log_time: string | null };
+
+/** The Guide's tour: sections appear one at a time, and the Guide says what each is for. */
+function Tour({ steps, index, setIndex, onDone }: { steps: { path: string; title: string; text: string }[]; index: number; setIndex: (i: number) => void; onDone: () => void }) {
+  const s = steps[index];
+  if (!s) return null;
+  const last = index === steps.length - 1;
+  return (
+    <div role="dialog" aria-label="Guide tour" style={{ position: 'fixed', right: 24, bottom: 24, width: 360, zIndex: 50, background: '#1d1e22', border: '1px solid var(--amber)', borderRadius: 18, padding: '16px 18px', boxShadow: '0 20px 60px #000a' }}>
+      <div className="dim" style={{ fontSize: 11, letterSpacing: '.12em', fontWeight: 700 }}>GUIDE · {index + 1} OF {steps.length}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, margin: '4px 0' }}>{s.title}</div>
+      <p style={{ margin: '0 0 12px', lineHeight: 1.5 }}>{s.text}</p>
+      <div className="row sb">
+        <button className="btn g sm" onClick={onDone}>Skip the tour</button>
+        <button className="btn sm" onClick={() => (last ? onDone() : setIndex(index + 1))}>{last ? 'Finish' : 'Next'}</button>
+      </div>
+    </div>
+  );
+}
+
+export default function Shell({ children, full = false }: { children: React.ReactNode; full?: boolean }) {
+  const path = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+  const ready = auth.status === 'off' || auth.status === 'in';
+  const { data, reload } = usePlant(ready);
+  const stage = data?.plant.stage;
+  const [ws, setWs] = useState<Ws | null>(null);
+  const [menu, setMenu] = useState(false);
+  const [ti, setTi] = useState(0);
+  useEffect(() => { try { setTi(Number(sessionStorage.getItem('tour-i') || 0)); } catch {} }, []);
+  const setTour = (i: number) => { setTi(i); try { sessionStorage.setItem('tour-i', String(i)); } catch {} };
+  const firstTime = stage === 'name' || stage === 'files' || stage === 'guide' || stage === 'layout';
+  useEffect(() => {
+    if (firstTime || !stage) return;
+    let live = true;
+    const load = () => api<Ws>('/ws').then((w) => live && setWs(w)).catch(() => {});
+    load();
+    const t = setInterval(load, 4000);
+    return () => { live = false; clearInterval(t); };
+  }, [firstTime, stage]);
+  const steps = data?.plant.tour || [];
+  useEffect(() => { if (stage === 'tour' && steps[ti] && path !== steps[ti].path) router.push(steps[ti].path); }, [stage, ti, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (window.location.search.includes('embed=1')) document.documentElement.classList.add('embed'); }, []);
+
+  if (auth.status === 'out') return <LoginScreen />;
+  if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;
+  if (firstTime) return <FirstRun data={data} reload={reload} />;
+
+  const finishTour = async () => { await post('/jig/plant/stage', { stage: 'done' }); setTour(0); reload(); };
+  const startTour = async () => { setMenu(false); setTour(0); await post('/jig/guide/layout/confirm', { ok: '1' }); reload(); };
+  const startOver = async () => { if (!window.confirm('Start over? Your documents, answers and plan are removed. Warden’s two lines stay.')) return; await post('/jig/plant/reset'); try { sessionStorage.clear(); } catch {} window.location.href = '/'; };
+  const visible = stage === 'tour' ? NAV.filter((_, i) => i <= ti) : NAV;
+  const hl = stage === 'tour' ? steps[ti]?.path : null;
+  const pageTitle = NAV.find((x) => x[0] === path)?.[1] ?? 'Tolerance';
+  const live = ws?.sources.some((s) => s.live && s.syncs > 0);
+  const row = ([href, label, d]: [string, string, string]) => (
+    <Link key={href} href={href} className={`${path === href ? 'on' : ''} ${hl === href ? 'tour-hl' : ''}`} aria-label={label} title={label} aria-current={path === href ? 'page' : undefined}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+      <span>{label}</span>
+    </Link>
+  );
+  return (
+    <div className="app">
+      <aside className="side">
+        <div className="logo">
+          <svg viewBox="-24 -24 48 48"><g fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M-9 -20C13 -12 -13 -4 9 4S-9 18 9 22" stroke="#9fe6bf" strokeWidth="3.4" /><path d="M9 -20L-9 -8L9 4L-9 16L9 22" stroke="#ffd391" strokeWidth="3.4" /><path d="M-6 -12H6M-3 4H3M-6 17H6" stroke="#f0eee4" strokeOpacity=".6" strokeWidth="1.4" /></g></svg>
+          <b>Tolerance<span>.</span></b>
+        </div>
+        <div className="ws"><b>{data.plant.name}</b><small>Compiled from {data.docs.length} document{data.docs.length === 1 ? '' : 's'}</small></div>
+        <nav className="nav">{visible.map(row)}</nav>
+        <div className="grow" />
+        <div style={{ position: 'relative' }}>
+          <button className="btn g sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenu((v) => !v)} aria-expanded={menu}>Plant settings</button>
+          {menu && (
+            <div className="card" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>
+              {auth.status === 'in' && <div className="dim" style={{ fontSize: 12, padding: '2px 6px' }}>{auth.user?.guest ? 'Guest session' : auth.user?.email}</div>}
+              <button className="btn g sm" onClick={startTour}>Show me around</button>
+              {auth.status === 'in' && <button className="btn g sm" onClick={() => signOutUser()}>Sign out</button>}
+              <button className="btn red sm" onClick={startOver}>Start over</button>
+            </div>
+          )}
+        </div>
+      </aside>
+      <div className="main">
+        <header className="top">
+          <h1>{pageTitle}</h1>
+          <span className="sp" />
+          <span className={`pill ${live ? 'live' : ''}`}><i /><span>{ws?.log_time ? `plant clock ${String(ws.log_time).slice(0, 16).replace('T', ' ')}` : live ? 'live' : 'no live data'}</span></span>
+          <span className={`pill ${ws?.gemini ? 'live' : 'warn'}`}><i /><span>{ws?.gemini ? 'Gemini connected' : 'Gemini not set'}</span></span>
+        </header>
+        <main className={`page ${full ? 'full' : ''}`}>{children}</main>
+      </div>
+      {stage === 'tour' && steps.length > 0 && <Tour steps={steps} index={Math.min(ti, steps.length - 1)} setIndex={setTour} onDone={finishTour} />}
+    </div>
+  );
+}

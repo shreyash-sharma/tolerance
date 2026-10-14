@@ -1,0 +1,25 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "name": "msg",
+      "queueName": "genealogy-jobs"
+    },
+    {
+      "type": "docstore",
+      "direction": "in",
+      "collection": "scans"
+    },
+    {
+      "type": "docstore",
+      "direction": "out",
+      "collection": "genealogy"
+    },
+    {
+      "type": "queue",
+      "direction": "out",
+      "queueName": "genealogy-ready"
+    }
+  ],
+  "owner": "traceability-team"
+}

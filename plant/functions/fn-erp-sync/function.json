@@ -1,0 +1,20 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "name": "msg",
+      "queueName": "genealogy-ready"
+    },
+    {
+      "type": "docstore",
+      "direction": "in",
+      "collection": "genealogy"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "api": "erp"
+    }
+  ],
+  "owner": "integration-team"
+}

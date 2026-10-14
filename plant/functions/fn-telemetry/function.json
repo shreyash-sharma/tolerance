@@ -1,0 +1,15 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "name": "msg",
+      "queueName": "telemetry-ingest"
+    },
+    {
+      "type": "docstore",
+      "direction": "out",
+      "collection": "telemetry"
+    }
+  ],
+  "owner": "connected-vehicle-team"
+}

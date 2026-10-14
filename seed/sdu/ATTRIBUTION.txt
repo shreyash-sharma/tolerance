@@ -1,0 +1,4 @@
+Operational state logs from the Industry 4.0 Lab, University of Southern Denmark.
+Zenodo record 5078737, licensed CC BY 4.0. Files: I4.0Lab_state_log.csv, I4.0Lab_state_log_failures.csv (unmodified).
+
+SECOM (seed/samples/inspection_results_secom.csv): UCI Machine Learning Repository, "SECOM" semiconductor manufacturing process data (McCann & Johnston, 2008), CC BY 4.0, https://archive.ics.uci.edu/dataset/179/secom . 1567 production units, 590 process sensors, pass/fail inspection result with timestamp. Columns renamed (sensor_NNN, unit_id, inspected_at, inspection_result); values unmodified.

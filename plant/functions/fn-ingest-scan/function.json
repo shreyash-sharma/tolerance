@@ -1,0 +1,20 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "name": "msg",
+      "queueName": "scan-events"
+    },
+    {
+      "type": "docstore",
+      "direction": "out",
+      "collection": "scans"
+    },
+    {
+      "type": "queue",
+      "direction": "out",
+      "queueName": "genealogy-jobs"
+    }
+  ],
+  "owner": "traceability-team"
+}

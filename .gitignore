@@ -1,0 +1,14 @@
+data/
+data_build/
+data_test/
+.venv/
+__pycache__/
+data_real/
+.env
+
+# third-party research material, not for publication
+CW/
+
+# local Cloud Run settings that include the Firebase web config
+infra/cloudrun.local.env.yaml
+web/out/

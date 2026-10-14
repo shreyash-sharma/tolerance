@@ -1,0 +1,11 @@
+{
+  "bindings": [
+    {
+      "type": "docstore",
+      "direction": "out",
+      "collection": "scans_v2"
+    }
+  ],
+  "owner": "unknown",
+  "note": "declared in the manifest, never observed running"
+}
