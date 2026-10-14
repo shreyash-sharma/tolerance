@@ -2,6 +2,7 @@
 A run that reaches Gemini is recorded. The next identical run replays the recording (steps visible, labelled "recorded"), so a demo works
 when the quota is out or the network is down. Pass live=True to force a live call."""
 import concurrent.futures as cf
+import contextvars
 import hashlib, json, time
 
 from fabric import agents as FA
@@ -17,7 +18,8 @@ _POOL = cf.ThreadPoolExecutor(max_workers=8, thread_name_prefix="gemini")
 
 def _bounded(fn, seconds):
     """Run a Gemini call with a hard time limit. A slow or stuck call must never freeze an agent: the caller falls back to its rule-based path."""
-    fut = _POOL.submit(fn)
+    ctx = contextvars.copy_context()   # the call runs for the same visitor
+    fut = _POOL.submit(ctx.run, fn)
     try:
         return fut.result(timeout=seconds)
     except cf.TimeoutError:

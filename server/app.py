@@ -361,6 +361,12 @@ async def sign_in_check(request, call_next):
         user = auth.verify(h[7:]) if h.lower().startswith("bearer ") else None
         if not user:
             return JSONResponse({"detail": "sign in required"}, status_code=401)
+        from server import quota
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()) or (request.client.host if request.client else "")
+        try:
+            quota.touch(user["uid"], user["guest"], ip)
+        except quota.Denied as e:
+            return JSONResponse({"detail": str(e)}, status_code=e.status)
         tok = store.UID.set(user["uid"])
         try:
             return await call_next(request)

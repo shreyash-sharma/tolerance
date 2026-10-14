@@ -39,6 +39,9 @@ export async function authHeader(): Promise<Record<string, string>> {
   try { return { Authorization: 'Bearer ' + (await fb.auth.currentUser.getIdToken()) }; } catch { return {}; }
 }
 
+// For the end-to-end test: lets it call the API as the person who is signed in.
+if (typeof window !== 'undefined') (window as any).__tolerance_token = authHeader;
+
 const MSG: Record<string, string> = {
   'auth/invalid-credential': 'That email and password do not match.',
   'auth/invalid-email': 'That email address is not valid.',

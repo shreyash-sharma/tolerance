@@ -164,6 +164,14 @@ def count_call():
     if _DAY["n"] >= cap:
         raise RuntimeError(f"demo quota reached: {cap} Gemini calls today")
     _DAY["n"] += 1
+    try:   # the per-visitor quota (cloud only: the single-user mode is "local")
+        from workspace import store
+        uid = store.UID.get()
+        if uid != "local":
+            from server import quota
+            quota.charge_gemini(uid)
+    except ImportError:
+        pass
     return _DAY["n"]
 
 

@@ -147,6 +147,39 @@ def main():
             tt = ST.UID.set(u); ST.reset(); ST.UID.reset(tt)
     check("the single-user mode is a separate store", ST.UID.get() == "local")
 
+
+    # --- the public site's limits: quota per visitor, access codes, new sessions per network address
+    from server import quota
+    os.environ["ACCESS_CODES"] = "early-bird-code"; quota.CODES[:] = ["early-bird-code"]
+    quota._users.clear(); quota._ips.clear()
+    quota.NEW_PER_HOUR_PER_IP = 3
+    for i in range(3):
+        quota.touch(f"g{i}", True, "1.2.3.4")
+    try:
+        quota.touch("g99", True, "1.2.3.4"); check("a fourth new guest from one address in an hour is refused", False)
+    except quota.Denied:
+        check("a fourth new guest from one address in an hour is refused", True)
+    quota.touch("other", True, "5.6.7.8")
+    check("a different address is not affected", True)
+    for i in range(quota.CAPS["guest"]["gemini"]):
+        quota.charge_gemini("g0")
+    try:
+        quota.charge_gemini("g0"); check("a guest cannot pass the AI call cap", False)
+    except RuntimeError:
+        check("a guest cannot pass the AI call cap", True)
+    try:
+        quota.redeem("g0", "wrong"); check("a wrong access code is refused", False)
+    except quota.Denied:
+        check("a wrong access code is refused", True)
+    quota.redeem("g0", "early-bird-code")
+    quota.charge_gemini("g0")
+    check("a valid access code raises the cap", quota.usage("g0")["tier"] == "code" and quota.usage("g0")["gemini_cap"] > quota.CAPS["guest"]["gemini"])
+    try:
+        quota.charge_upload("g1", 3_000_000, 0); check("an upload over the guest limit is refused", False)
+    except quota.Denied:
+        check("an upload over the guest limit is refused", True)
+    quota._users.clear(); quota._ips.clear(); quota.NEW_PER_HOUR_PER_IP = 12
+
     # --- contracts
     cat = core.catalog()
     check("eight agents are registered", len(cat) == 8, len(cat))

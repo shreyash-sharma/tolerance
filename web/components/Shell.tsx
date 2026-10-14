@@ -46,6 +46,8 @@ export default function Shell({ children, full = false }: { children: React.Reac
   const stage = data?.plant.stage;
   const [ws, setWs] = useState<Ws | null>(null);
   const [menu, setMenu] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeMsg, setCodeMsg] = useState('');
   const [ti, setTi] = useState(0);
   useEffect(() => { try { setTi(Number(sessionStorage.getItem('tour-i') || 0)); } catch {} }, []);
   const setTour = (i: number) => { setTi(i); try { sessionStorage.setItem('tour-i', String(i)); } catch {} };
@@ -66,6 +68,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
   if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;
   if (firstTime) return <FirstRun data={data} reload={reload} />;
 
+  const applyCode = async () => { setCodeMsg(''); try { await post('/jig/redeem', { code }); setCode(''); setCodeMsg('Access code accepted.'); reload(); } catch (e: any) { setCodeMsg(String(e.message || e)); } };
   const finishTour = async () => { await post('/jig/plant/stage', { stage: 'done' }); setTour(0); reload(); };
   const startTour = async () => { setMenu(false); setTour(0); await post('/jig/guide/layout/confirm', { ok: '1' }); reload(); };
   const startOver = async () => { if (!window.confirm('Start over? Your documents, answers and plan are removed. Warden’s two lines stay.')) return; await post('/jig/plant/reset'); try { sessionStorage.clear(); } catch {} window.location.href = '/'; };
@@ -94,6 +97,14 @@ export default function Shell({ children, full = false }: { children: React.Reac
           {menu && (
             <div className="card" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>
               {auth.status === 'in' && <div className="dim" style={{ fontSize: 12, padding: '2px 6px' }}>{auth.user?.guest ? 'Guest session' : auth.user?.email}</div>}
+              {data.usage && <div className="mut" style={{ fontSize: 12, padding: '0 6px' }}>{data.usage.gemini_used} of {data.usage.gemini_cap} AI calls used{data.usage.tier === 'code' ? ' (access code)' : ''}</div>}
+              {auth.status === 'in' && data.usage && data.usage.tier !== 'code' && (
+                <div style={{ display: 'grid', gap: 4, padding: '2px 4px' }}>
+                  <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Access code" aria-label="Access code" style={{ width: '100%' }} />
+                  <button className="btn g sm" onClick={applyCode} disabled={!code.trim()}>Apply code</button>
+                  {codeMsg && <div className="dim" style={{ fontSize: 12 }}>{codeMsg}</div>}
+                </div>
+              )}
               <button className="btn g sm" onClick={startTour}>Show me around</button>
               {auth.status === 'in' && <button className="btn g sm" onClick={() => signOutUser()}>Sign out</button>}
               <button className="btn red sm" onClick={startOver}>Start over</button>
@@ -108,6 +119,9 @@ export default function Shell({ children, full = false }: { children: React.Reac
           <span className={`pill ${live ? 'live' : ''}`}><i /><span>{ws?.log_time ? `plant clock ${String(ws.log_time).slice(0, 16).replace('T', ' ')}` : live ? 'live' : 'no live data'}</span></span>
           <span className={`pill ${ws?.gemini ? 'live' : 'warn'}`}><i /><span>{ws?.gemini ? 'Gemini connected' : 'Gemini not set'}</span></span>
         </header>
+        {data.usage && data.usage.gemini_used >= data.usage.gemini_cap && (
+          <div role="status" style={{ background: '#3a2a12', borderBottom: '1px solid var(--amber)', padding: '10px 26px', fontSize: 14 }}>You have used all {data.usage.gemini_cap} AI calls for this {data.usage.tier === 'guest' ? 'guest session' : 'account'}. The agents now use their built-in rules. Open Plant settings to enter an access code for more.</div>
+        )}
         <main className={`page ${full ? 'full' : ''}`}>{children}</main>
       </div>
       {stage === 'tour' && steps.length > 0 && <Tour steps={steps} index={Math.min(ti, steps.length - 1)} setIndex={setTour} onDone={finishTour} />}

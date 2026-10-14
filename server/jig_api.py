@@ -56,6 +56,11 @@ async def docs_upload(file: UploadFile = File(...)):
     data = await file.read()
     if len(data) > 8_000_000:
         raise HTTPException(413, "file too large")
+    from server import quota
+    try:
+        quota.charge_upload(store.UID.get(), len(data), len([d for d in DE.list_docs() if d["origin"] == "upload"]))
+    except quota.Denied as e:
+        raise HTTPException(e.status, str(e))
     try:
         DE.save_upload(file.filename or "upload.txt", data)
     except Exception as e:
@@ -168,7 +173,9 @@ class SayBody(BaseModel):
 def plant_get():
     from documents import engine as DE
     p = PL.get()
-    return j({"plant": p, "docs": [{k: d[k] for k in ("name", "kind", "chars", "origin")} for d in DE.list_docs()], "connectors": GD.CONNECTORS, "guide": GD.state()})
+    from server import quota
+    from workspace import store as _st
+    return j({"plant": p, "docs": [{k: d[k] for k in ("name", "kind", "chars", "origin")} for d in DE.list_docs()], "connectors": GD.CONNECTORS, "guide": GD.state(), "usage": quota.usage(_st.UID.get())})
 
 
 @router.post("/plant/name")
@@ -244,3 +251,13 @@ def auth_config():
     """Tells the screens whether sign-in is on, and gives the public web settings of the Firebase project."""
     from server import auth
     return j({"enabled": auth.REQUIRED, "config": auth.CONFIG if auth.REQUIRED else None})
+
+
+@router.post("/redeem")
+def redeem(code: str = Form(...)):
+    """An access code gives a bigger quota and skips the new-session limit."""
+    from server import quota
+    try:
+        return j({"ok": True, "usage": quota.redeem(store.UID.get(), code)})
+    except quota.Denied as e:
+        raise HTTPException(e.status, str(e))

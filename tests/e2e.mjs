@@ -7,11 +7,13 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = join(HERE, "..", "docs", "e2e");
+const OUT = process.env.E2E_OUT || join(HERE, "..", "docs", "e2e");
 mkdirSync(OUT, { recursive: true });
 const WEB = process.env.WEB || "http://127.0.0.1:48410", API = WEB + "/api";   // the backend serves the exported pages and the API on one port
 const CHROME = ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"].find(existsSync);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Live site mode: LIVE_AUTH=guest or LIVE_AUTH=email (with LIVE_EMAIL and LIVE_PASSWORD in the environment). Unset on a laptop, where there is no sign-in.
+const LIVE_AUTH = process.env.LIVE_AUTH || "";
 const results = [];
 let shot = 0;
 
@@ -46,16 +48,31 @@ const step = async (name, fn) => {
   results.push({ name, ok, note, file, s: ((Date.now() - t0) / 1000).toFixed(1) });
   console.log((ok ? "PASS " : "FAIL ") + name + (note ? "  (" + note + ")" : ""));
 };
-const post = async (p, form) => (await fetch(API + p, { method: "POST", body: form ? new URLSearchParams(form) : undefined })).json();
-const get = async (p) => (await fetch(API + p)).json();
+const hdr = async () => { try { return (await ev("window.__tolerance_token ? window.__tolerance_token() : {}")) || {}; } catch { return {}; } };
+const post = async (p, form) => (await fetch(API + p, { method: "POST", headers: await hdr(), body: form ? new URLSearchParams(form) : new Uint8Array(0) })).json();
+const get = async (p) => (await fetch(API + p, { headers: await hdr() })).json();
 
 // ---- the run
 const setVal = (sel, v) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); const proto = e.tagName === 'TEXTAREA' ? HTMLTextAreaElement : HTMLInputElement; Object.getOwnPropertyDescriptor(proto.prototype, 'value').set.call(e, ${JSON.stringify(v)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+if (LIVE_AUTH) {
+  await go("/");
+  await step("0 The login screen, then sign in (" + LIVE_AUTH + ")", async () => {
+    if (!(await waitText("Welcome back.", 40000))) return { ok: false, note: "no login screen" };
+    if (LIVE_AUTH === "guest") { await clickUntil("Continue as guest", ["What is your plant called?"], 40000); }
+    else {
+      const fill = (sel, v) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, ${JSON.stringify(v)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+      await fill("input[type=email]", process.env.LIVE_EMAIL); await fill("input[type=password]", process.env.LIVE_PASSWORD);
+      await clickUntil("Sign in", ["What is your plant called?", "that email and password"], 30000);
+    }
+    return await waitText("What is your plant called?", 40000) || (await waitText("Welcome", 100) && false);
+  });
+}
 await step("Backend and web app are up", async () => { const a = await get("/jig/agents"); const w = await fetch(WEB + "/floor"); return { ok: a.agents.length === 8 && w.ok, note: `${a.agents.length} agents` }; });
 
 // a brand-new user: no plant, no documents
 await post("/jig/plant/reset");
 await go("/");
+if (LIVE_AUTH) await sleep(2500);
 await step("1 First visit: only one question, no menu", async () => { const t = await text(); const side = await ev("!!document.querySelector('aside.side')"); return { ok: t.includes("What is your plant called?") && !side, note: "no left panel" }; });
 await step("2 The plant name is typed", async () => { await setVal("input", "Northfield Assembly Plant"); await click("Continue"); return await ev("new Promise(r => setTimeout(() => r(!!document.querySelector('iframe')), 2500))"); });
 await sleep(2000);

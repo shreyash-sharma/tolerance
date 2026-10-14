@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
 export type Plant = { name: string; stage: 'name' | 'files' | 'guide' | 'layout' | 'tour' | 'done'; use_sample: boolean; connectors: string[]; phase: string | null; goal: string | null; layout: any; tour: { path: string; title: string; text: string }[] | null; chat: any[] };
-export type PlantData = { plant: Plant; docs: { name: string; kind: string; chars: number; origin: string }[]; connectors: { id: string; title: string; about: string }[]; guide: { chat: any[]; busy: boolean; what: string; error: string | null } };
+export type PlantData = { plant: Plant; docs: { name: string; kind: string; chars: number; origin: string }[]; connectors: { id: string; title: string; about: string }[]; guide: { chat: any[]; busy: boolean; what: string; error: string | null }; usage?: { tier: 'guest' | 'member' | 'code'; gemini_used: number; gemini_cap: number } | null };
 
 /** The plant record, kept fresh. Fast while the Guide works, slow otherwise. */
 export function usePlant(enabled = true) {
