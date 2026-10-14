@@ -1,8 +1,8 @@
 # End-to-end run
 
-Run at 2026-10-14T19:04:57.588Z. Chrome headless, 1440x900, against the real backend and web app.
+Run at 2026-10-14T20:13:08.440Z. Chrome headless, 1440x900, against the real backend and web app.
 
-**27 of 27 steps passed.**
+**26 of 27 steps passed.**
 
 ## PASS: Backend and web app are up
 8 agents
@@ -18,10 +18,10 @@ no left panel
 
 ![2 The plant name is typed](03-2-the-plant-name-is-typed.png)
 
-## PASS: 3 The Symbiotic Brain takes over the name
-18 letters lit at this moment
+## PASS: 3 The spark takes over the plant name
+reveal gone
 
-![3 The Symbiotic Brain takes over the name](04-3-the-symbiotic-brain-takes-over-the-nam.png)
+![3 The spark takes over the plant name](04-3-the-spark-takes-over-the-plant-name.png)
 
 ## PASS: 4 The drop zone asks for files
 no documents shown before the user adds any
@@ -54,7 +54,7 @@ no documents shown before the user adds any
 ![10 The tour starts: only Floor is in the menu](11-10-the-tour-starts-only-floor-is-in-the-.png)
 
 ## PASS: 11 The Guide reveals the other sections one by one
-6 menu items after five steps
+6 menu items
 
 ![11 The Guide reveals the other sections one by one](12-11-the-guide-reveals-the-other-sections-.png)
 
@@ -86,7 +86,7 @@ INCIDENTS
 
 ![17 Warden: score an action that breaks a hard limit](18-17-warden-score-an-action-that-breaks-a-.png)
 
-## PASS: 18 Probes: a path fault is found
+## FAIL: 18 Probes: a path fault is found
 
 ![18 Probes: a path fault is found](19-18-probes-a-path-fault-is-found.png)
 

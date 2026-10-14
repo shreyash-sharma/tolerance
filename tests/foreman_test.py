@@ -180,6 +180,13 @@ def main():
         check("an upload over the guest limit is refused", True)
     quota._users.clear(); quota._ips.clear(); quota.NEW_PER_HOUR_PER_IP = 12
 
+
+    # --- the sample pack is read from its recorded readings even when a fresh server knows fewer stations
+    from documents import engine as DE
+    seeds = [d for d in DE.list_docs(include_seed=True) if d["origin"] == "seed"]
+    ok = all(DE.extract(d, ["AGV", "C2", "TR", "WH1", "WH2"])["by"] == "recorded Gemini run" for d in seeds)
+    check("every sample document has a recorded reading, whatever the live station list is", ok and len(seeds) == 8, f"{len(seeds)} documents")
+
     # --- contracts
     cat = core.catalog()
     check("eight agents are registered", len(cat) == 8, len(cat))

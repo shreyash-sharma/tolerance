@@ -122,11 +122,16 @@ def _verify(raw, doc, flagged):
     return out
 
 
+SAMPLE_STATIONS = ("AGV", "C1", "C2", "TR", "WH1", "WH2")   # the stations of the sample plant when its documents were recorded
+
+
 def extract(doc, stations):
     flagged = scan(doc["text"])
     clean = _sanitized(doc["text"], flagged)
     key = "doc:" + hashlib.sha256((clean + json.dumps(sorted(VOCAB)) + ",".join(stations)).encode()).hexdigest()[:20]
     cached = demo_cache.get(key)
+    if not cached and doc.get("origin") == "seed":   # the sample pack is fixed text: use its recorded reading even if a fresh server knows fewer stations yet
+        cached = demo_cache.get("doc:" + hashlib.sha256((clean + json.dumps(sorted(VOCAB)) + "," .join(SAMPLE_STATIONS)).encode()).hexdigest()[:20])
     if cached:
         return {"claims": cached["claims"], "by": "recorded Gemini run", "flagged": flagged}
     from fabric.agents import gemini_available, make_client, gen_with_retry

@@ -188,7 +188,7 @@ def gen_with_retry(client, tries=6, max_wait=65, **kw):
             return client.models.generate_content(**kw)
         except Exception as e:
             msg = str(e)
-            quota = "429" in msg or "RESOURCE_EXHAUSTED" in msg
+            quota = "429" in msg or "RESOURCE_EXHAUSTED" in msg or ("404" in msg and "NOT_FOUND" in msg)   # a model this service does not have is skipped too
             if quota or "503" in msg or "UNAVAILABLE" in msg:
                 m = re.search(r"retry in ([0-9.]+)s", msg)
                 wait = float(m.group(1)) + 1 if m else 8 * (i + 1)

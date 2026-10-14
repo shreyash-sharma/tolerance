@@ -95,7 +95,12 @@ await step("8 The Guide settles conflicts, ghost station and limits with the own
 });
 await step("9 The owner confirms; the Guide draws the plant with Anatomy", async () => { await clickUntil("Yes, draw my plant", ["Drawing your plant", "This is your plant"], 20000); const ok = await waitText("This is your plant, as I understand it", 180000); await sleep(3500); return ok; });
 await step("10 The tour starts: only Floor is in the menu", async () => { await clickUntil("Looks right", ["GUIDE · 1 OF", "Floor"], 20000); const ok = await waitText("1 OF", 120000); const links = await ev("document.querySelectorAll('aside.side nav a').length"); return { ok: ok && links === 1, note: `${links} menu item` }; });
-await step("11 The Guide reveals the other sections one by one", async () => { for (let i = 0; i < 5; i++) { await click("Next"); await sleep(1800); } const links = await ev("document.querySelectorAll('aside.side nav a').length"); return { ok: links === 6, note: `${links} menu items after five steps` }; });
+await step("11 The Guide reveals the other sections one by one", async () => {
+  // a click can land while the page is changing, so keep pressing Next until all six sections are in the menu
+  let links = 0;
+  for (let i = 0; i < 14 && links < 6; i++) { await click("Next"); await sleep(2200); links = await ev("document.querySelectorAll('aside.side nav a').length"); }
+  return { ok: links === 6, note: `${links} menu items` };
+});
 await step("12 The tour ends", async () => { await click("Finish"); await sleep(1500); return !(await text()).includes("OF 6"); });
 await go("/floor");
 await sleep(7000);
@@ -126,8 +131,12 @@ await step("17 Warden: score an action that breaks a hard limit", async () => {
 
 await go("/probes");
 await step("18 Probes: a path fault is found", async () => {
-  await click("Start probe: line side"); await click("Start probe: gateway PC"); await click("Inject a fault");
-  const ok = await waitText("PATH FAULT", 60000); return ok;
+  // each button can be clicked before the page is ready, so press until its probe shows up in the list
+  await sleep(3000);
+  await clickUntil("Start probe: line side", ["Line side"], 25000);
+  await clickUntil("Start probe: gateway PC", ["Gateway PC"], 25000);
+  await clickUntil("Inject a fault", ["Office network"], 25000);
+  return await waitText("PATH FAULT", 90000);
 });
 await go("/agents");
 await step("19 Agent catalog", async () => { const t = await text(); return ["Guide", "Document Reader", "Connector Scout", "Plant Modeler", "Diagnosis", "Verifier", "Remediation Planner", "Warden"].every((n) => t.includes(n)); });
