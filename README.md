@@ -6,6 +6,61 @@ A new plant gives Tolerance its name and its documents. Eight agents read them, 
 
 > Status: working prototype that runs locally. The Cloud Run deployment is scripted (`deploy.sh`, `Dockerfile`, `DEPLOY.md`) and the live address is added here after the first deploy.
 
+## The idea in three diagrams
+
+**The platform.** Eight agents on Foreman, with shared services, one policy gateway, MCP connectors and probes, and the machines.
+
+<p align="center"><img src="docs/diagrams/01-platform.svg" alt="The Tolerance platform: assistant and router, the agent team on Foreman, shared services, the policy gateway, MCP connectors and probes, machines" width="760"></p>
+
+**The journey.** From dropped documents to a decision at the gate.
+
+<p align="center"><img src="docs/diagrams/02-demo-journey.svg" alt="Drop documents, connect machines, confirm the overview, build the 3D, a fault is found, the gate decides" width="760"></p>
+
+**The safety gate (Warden).** Hard limits from your documents come first and are never overridden. Then Warden scores the action from 0 to 100 against the two lines you set.
+
+<p align="center"><img src="docs/diagrams/03-safety-gate.svg" alt="Planner proposes an action, hard limits block it or pass it, Warden scores it, then refused, you approve, or runs itself" width="700"></p>
+
+## The 3D factory
+
+The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor.
+
+<p align="center"><img src="docs/images/screens/00-floor-3d.jpg" alt="The 3D factory: warehouse shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
+
+## Animated figures (Anatomy)
+
+These are interactive in the app and in the deck (they move). Here they are as stills. Each one shows a real mechanism of the product, drawn with the [Anatomy](https://github.com/wheresryan22/anatomy) kit.
+
+| | |
+|---|---|
+| <img src="docs/images/figures/gauge.png" alt="The tolerance gauge: a dial indicator measuring parts against a tolerance band"><br>**The tolerance gauge.** A part is measured against its tolerance band: in or out. | <img src="docs/images/figures/platform.png" alt="One platform, seven agents standing on a shared base"><br>**One platform.** The agents stand on one shared base: one gateway, one policy, one record. |
+| <img src="docs/images/figures/interlock.png" alt="The interlock: a gate on a rail where read calls pass and a write call waits for a person"><br>**The interlock.** Every tool call reaches one gate. Reads pass. A write stops and waits for a person. | <img src="docs/images/figures/warden.png" alt="The Warden gates: two gates on a rail, the floor and the limit"><br>**The Warden gates.** The first gate is your floor, the second is your limit. A score between them waits for a person. |
+| <img src="docs/images/figures/selector.png" alt="The selector: a learner that chooses which evidence to read first"><br>**The selector.** A contextual bandit learns which evidence to read first, and a confirmed diagnosis rewards the choice. | |
+
+The first-time flow also draws the owner's own plant in this style, from what the Guide learned (see "Your plant, drawn" below).
+
+## The app, screen by screen
+
+The first-time flow, as a new visitor sees it. These screenshots come from the end-to-end test on the live site (`node tests/e2e.mjs`), which saves one for every step.
+
+| | |
+|---|---|
+| <img src="docs/images/screens/01-login.png" alt="Login: Google, email and password, or continue as guest"><br>**1. Sign in** with Google or email, or continue as a guest. Each visitor gets a private plant. | <img src="docs/images/screens/02-plant-name.png" alt="What is your plant called?"><br>**2. The plant name.** The only question on the first screen. No menu yet. |
+| <img src="docs/images/screens/03-spark-reveal.png" alt="A spark sweeps across the plant name and fills the letters with colour"><br>**3. A spark takes over the name.** It sweeps across the name and the letters fill with colour. | <img src="docs/images/screens/04-drop-zone.png" alt="Drop your documents here"><br>**4. Drop your documents.** Manuals, work instructions, safety rules, emails. A sample pack is there for people who have none. |
+| <img src="docs/images/screens/05-guide.png" alt="The Guide chats with the owner"><br>**5. The Guide talks with the owner.** It reads the documents, asks which data to connect, and asks what the plant makes. | <img src="docs/images/screens/06-plant-drawn.png" alt="Your plant as the Guide understands it, drawn with Anatomy"><br>**6. Your plant, drawn.** Gemini turns the confirmed understanding into a layout, and Anatomy draws it. | 
+| <img src="docs/images/screens/07-tour.png" alt="The tour: only Floor is in the menu and the Guide explains it"><br>**7. The tour.** The menu grows one section at a time while the Guide says what each is for. | <img src="docs/images/screens/08-operations.png" alt="Operations: what happened, what we suggest, and whether it needs approval"><br>**8. Operations.** What happened, what we suggest, and who must approve it. The agents' work is one click away. |
+| <img src="docs/images/screens/09-warden.png" alt="Warden: two sliders and a backtest on 465 past incidents"><br>**9. Warden.** You set two lines. The chart shows what they would have done on 465 recorded incidents. | <img src="docs/images/screens/10-warden-hard-limit.png" alt="Warden blocks an action that breaks a hard limit from the documents"><br>**10. A hard limit.** An action above a limit from your own documents is blocked, whatever its score. |
+| <img src="docs/images/screens/11-probes.png" alt="Probes: three places see the same machine, one path is cut"><br>**11. Probes.** Several places test the same machine. If only one fails, the fault is on its path. | <img src="docs/images/screens/12-agents.png" alt="The agent catalog: eight agents with what each may touch"><br>**12. Agents.** Eight agents, each with a card: what it may touch and what it must never do. |
+| <img src="docs/images/screens/13-compiled-model.png" alt="The compiled model: every fact with the exact quote it came from"><br>**13. The compiled model.** Every fact keeps the exact words it came from. | |
+
+## The pitch deck
+
+A three-minute deck that runs in the browser at `/deck`, with the live app embedded.
+
+| | |
+|---|---|
+| <img src="docs/images/screens/14-deck-platform.png" alt="Deck slide: seven agents, one gateway"><br>The platform | <img src="docs/images/screens/15-deck-operations.png" alt="Deck slide: the Verifier catches the agent's mistake"><br>Operations: the Verifier catches a wrong number |
+| <img src="docs/images/screens/16-deck-warden.png" alt="Deck slide: you set the two lines"><br>Warden | <img src="docs/images/screens/17-deck-roadmap.png" alt="Deck slide: next, a Gemma that knows your plant"><br>Roadmap |
+
 ## What a person sees
 
 1. **Plant name.** The only question on the first screen. No menu, no panels.
