@@ -74,7 +74,7 @@ await post("/jig/plant/reset");
 await go("/");
 if (LIVE_AUTH) await sleep(2500);
 await step("1 First visit: only one question, no menu", async () => { const t = await text(); const side = await ev("!!document.querySelector('aside.side')"); return { ok: t.includes("What is your plant called?") && !side, note: "no left panel" }; });
-await step("2 The plant name is typed", async () => { await setVal("input", "Northfield Assembly Plant"); await click("Continue"); return await ev("new Promise(r => setTimeout(() => r(!!document.querySelector('iframe')), 2500))"); });
+await step("2 The plant name is typed", async () => { await setVal("input", "Northfield Assembly Plant"); await click("Continue"); return await ev("new Promise(r => setTimeout(() => r(!!document.querySelector('[data-reveal]')), 2000))"); });
 await sleep(2000);
 await step("3 The spark takes over the plant name", async () => { const t0 = Date.now(); let seen = false; while (Date.now() - t0 < 12000) { if (await ev("!!document.querySelector('[data-reveal]')")) { seen = true; break; } await sleep(300); } await sleep(1500); const p = await ev("(() => { const e = document.querySelector('[data-reveal]'); return e ? e.getAttribute('data-reveal') : 'gone'; })()"); return { ok: seen, note: `reveal ${p}` }; });
 await step("4 The drop zone asks for files", async () => { const ok = await waitText("Drop your documents here", 30000); const none = !(await text()).includes("sample document"); return { ok: ok && none, note: "no documents shown before the user adds any" }; });

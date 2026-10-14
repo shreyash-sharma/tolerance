@@ -356,6 +356,16 @@ async def sign_in_check(request, call_next):
     from server import auth
     from workspace import store
     path = request.url.path
+    if auth.REQUIRED and path == "/api/probes/report":   # a probe program inside this container, with the internal key
+        from server import probe_api
+        import hmac
+        if hmac.compare_digest(request.headers.get("x-probe-key", ""), probe_api.SECRET):
+            tok = store.UID.set(request.headers.get("x-probe-owner", "local"))
+            try:
+                return await call_next(request)
+            finally:
+                store.UID.reset(tok)
+        return JSONResponse({"detail": "sign in required"}, status_code=401)
     if auth.REQUIRED and path.startswith("/api/") and path not in auth.PUBLIC:
         h = request.headers.get("authorization", "")
         user = auth.verify(h[7:]) if h.lower().startswith("bearer ") else None

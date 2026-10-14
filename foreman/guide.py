@@ -147,6 +147,8 @@ def start():
         return state()
 
     def work():
+        JOB["what"] = "Connecting the machine data"
+        ensure_data()   # the saved document readings are keyed by the station names, so the stations must be known first
         JOB["what"] = "Reading your documents"
         st = DE.run_all()
         facts = {"plant": p["name"], "documents": [{"name": d["name"], "claims": d["claims"]} for d in st["docs"]], "claims": len(st["claims"]), "conflicts": len(st["conflicts"]),
@@ -200,6 +202,7 @@ def ensure_data():
             pass
     try:
         from physical import service as PH
+        DE._ST["t"] = 0   # forget the cached station list
         return len(PH.lake_df()) > 0
     except Exception:
         return False

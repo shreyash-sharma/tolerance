@@ -1,5 +1,5 @@
 """Platform side of the probes: check-in, reports, and the comparison of what each vantage point sees."""
-import subprocess, sys, threading, time
+import os, secrets, subprocess, sys, threading, time
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -12,7 +12,17 @@ PROCS = {}
 ROOT = __import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__)))
 
 
+SECRET = secrets.token_hex(16)   # lets the probe programs, which run inside this container, report without a visitor token
+MAX_PER_VISITOR, MAX_TOTAL = 3, 12
+
+
+def _me():
+    from workspace import store
+    return store.UID.get()
+
+
 class Report(BaseModel):
+    owner: str = "local"
     name: str
     where: str = ""
     os: str = ""
@@ -49,9 +59,10 @@ def compare(probes):
 @router.post("/report")
 def report(r: Report):
     with LOCK:
-        p = PROBES.setdefault(r.name, {"name": r.name, "first_seen": time.time(), "reports": 0})
+        k = (r.owner, r.name)
+        p = PROBES.setdefault(k, {"name": r.name, "owner": r.owner, "first_seen": time.time(), "reports": 0})
         p.update(where=r.where, os=r.os, every=r.every, tests=r.tests, last_seen=time.time(), reports=p["reports"] + 1)
-        h = HIST.setdefault(r.name, [])
+        h = HIST.setdefault(k, [])
         h.append({"at": time.time(), "ok": all(t["ok"] for t in r.tests)})
         del h[:-60]
     return {"ok": True}
@@ -60,7 +71,8 @@ def report(r: Report):
 @router.get("")
 def status():
     with LOCK:
-        probes = [dict(p, history=HIST.get(p["name"], [])[-30:], managed=p["name"] in PROCS and PROCS[p["name"]].poll() is None) for p in PROBES.values()]
+        me = _me()
+        probes = [dict(p, history=HIST.get((me, p["name"]), [])[-30:], managed=(me, p["name"]) in PROCS and PROCS[(me, p["name"])].poll() is None) for p in PROBES.values() if p.get("owner") == me]
     now = time.time()
     for p in probes:
         p["alive"] = now - p["last_seen"] <= 3 * p["every"] + 2
@@ -69,25 +81,33 @@ def status():
 
 @router.post("/start")
 def start(name: str, where: str = "", cut: str = "", every: float = 6):
-    """Start a probe as its own process on this machine. Used to demonstrate several vantage points from one laptop."""
+    """Start a probe as its own process on this machine. Used to demonstrate several vantage points from one laptop. Each visitor has their own."""
     if not name.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(400, "bad name")
+    me = _me()
     with LOCK:
-        old = PROCS.get(name)
+        for k in [k for k, p in PROCS.items() if p.poll() is not None]:
+            PROCS.pop(k, None)
+        old = PROCS.get((me, name))
         if old and old.poll() is None:
             old.terminate()
-        args = [sys.executable, "-m", "probe.agent", "--name", name, "--where", where or name, "--every", str(every)]
+        mine = [k for k in PROCS if k[0] == me and k[1] != name]
+        if len(mine) >= MAX_PER_VISITOR or len(PROCS) >= MAX_TOTAL:
+            raise HTTPException(429, "Too many probes are running. Stop one first.")
+        port = os.environ.get("PORT", "48410")   # the cloud gives the port; a laptop uses 48410
+        args = [sys.executable, "-m", "probe.agent", "--name", name, "--where", where or name, "--every", str(every), "--owner", me, "--server", f"http://127.0.0.1:{port}"]
         if cut:
             args += ["--cut", cut]
-        PROCS[name] = subprocess.Popen(args, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        PROCS[(me, name)] = subprocess.Popen(args, cwd=ROOT, env=dict(os.environ, PROBE_KEY=SECRET), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return {"ok": True}
 
 
 @router.post("/stop")
 def stop(name: str):
+    me = _me()
     with LOCK:
-        p = PROCS.pop(name, None)
+        p = PROCS.pop((me, name), None)
         if p and p.poll() is None:
             p.terminate()
-        PROBES.pop(name, None)
+        PROBES.pop((me, name), None)
     return {"ok": True}

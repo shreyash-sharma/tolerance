@@ -59,12 +59,16 @@ def main():
     ap.add_argument("--server", default="http://127.0.0.1:48410")
     ap.add_argument("--every", type=float, default=10.0)
     ap.add_argument("--cut", default="", help="comma list of tests to fail on purpose: opcua, erp")
+    ap.add_argument("--owner", default="local", help="the visitor this probe belongs to")
+    ap.add_argument("--max-minutes", type=float, default=30, help="stop after this long")
     a = ap.parse_args()
     cut = {x for x in a.cut.split(",") if x}
-    me = {"name": a.name, "where": a.where or socket.gethostname(), "os": platform.platform(), "every": a.every}
-    while True:
+    me = {"owner": a.owner, "name": a.name, "where": a.where or socket.gethostname(), "os": platform.platform(), "every": a.every}
+    key = os.environ.get("PROBE_KEY", "")
+    t_end = time.time() + a.max_minutes * 60
+    while time.time() < t_end:
         try:
-            httpx.post(a.server + "/api/probes/report", json={**me, "tests": run_tests(cut), "at": time.time()}, timeout=10)
+            httpx.post(a.server + "/api/probes/report", json={**me, "tests": run_tests(cut), "at": time.time()}, headers={"X-Probe-Key": key, "X-Probe-Owner": a.owner}, timeout=10)
         except Exception as e:
             print("report failed:", e)
         time.sleep(a.every)
