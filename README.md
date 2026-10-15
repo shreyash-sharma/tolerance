@@ -20,9 +20,13 @@ A new plant gives Tolerance its name and its documents. Eight agents read them, 
 
 <p align="center"><img src="docs/diagrams/03-safety-gate.svg" alt="Planner proposes an action, hard limits block it or pass it, Warden scores it, then refused, you approve, or runs itself" width="700"></p>
 
+## The ingestion step
+
+After the owner gives the documents, the Guide shows what it understood (facts with their quotes, stations, limits, conflicts, hidden orders removed). Then it asks where the data lives and shows every source family with an honest label: **live in this build**, **plugs in with your URL**, or **through a bridge**. The owner can also name an MCP server or a read-only database address; passwords are cut out and never stored. Sources that are not live here are written down for setup.
+
 ## The 3D factory
 
-The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.
+The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. The 3D bar has only controls that work on a floor: Walk, Turn, Top view, Reset view, Data flows (the X-ray layer), Labels and Replay build. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.
 
 <p align="center"><img src="docs/images/screens/00-floor-3d.jpg" alt="The 3D factory: warehouse shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
 

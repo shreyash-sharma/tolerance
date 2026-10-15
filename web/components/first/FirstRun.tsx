@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, post } from '@/lib/api';
 import { layoutHtml } from '@/lib/anatomy';
 import NameReveal from './NameReveal';
+import IngestCard from './IngestCard';
 import { authHeader } from '@/lib/auth';
 import type { PlantData } from '@/lib/plant';
 import AnatomyFrame from './AnatomyFrame';
@@ -121,6 +122,7 @@ function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onA
       <div style={{ maxWidth: '88%', background: mine ? '#f2b84b22' : '#ffffff0a', border: `1px solid ${mine ? '#f2b84b55' : 'var(--line)'}`, borderRadius: 18, padding: '12px 16px', lineHeight: 1.55 }}>
         {!mine && <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 2 }}>GUIDE</div>}
         <div>{m.text}</div>
+        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
         {last && !mine && card?.type === 'connectors' && (
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
             {card.options.map((c: any) => (
@@ -168,7 +170,11 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
   const [err, setErr] = useState('');
   const busy = data.guide.busy;
   const started = useRef(false);
-  useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.length, busy]);
+  useEffect(() => {
+    const card = document.getElementById('ingest-card');   // the long ingest card opens at its top, so the owner reads what was understood first
+    if (!busy && card && chat[chat.length - 1]?.card?.type === 'ingest') card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [chat.length, busy]);
   useEffect(() => { if (!started.current && chat.length === 0 && !busy) { started.current = true; post('/jig/guide/start').then(reload).catch(() => {}); } }, [chat.length, busy, reload]);
   const send = async (action?: any, t?: string) => {
     setErr('');
@@ -185,7 +191,7 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
         <div>
           <div style={eyebrow}>{p.name}</div>
           <h1 style={{ ...h1, fontSize: 34 }}>Let us go through it together.</h1>
-          <div className="card" style={{ padding: '8px 22px', minHeight: 340, maxHeight: '58vh', overflow: 'auto' }}>
+          <div className="card" style={{ padding: '8px 22px', minHeight: 340, maxHeight: '70vh', overflow: 'auto' }}>
             {chat.map((m, i) => <Bubble key={i} m={m} last={i === chat.length - 1 && !busy} onAct={send} disabled={busy} conn={data.connectors} />)}
             {busy && <div className="mut" style={{ margin: '12px 0' }}><span className="pill live"><i /><span>{data.guide.what || 'Working'}…</span></span></div>}
             <div ref={end} />

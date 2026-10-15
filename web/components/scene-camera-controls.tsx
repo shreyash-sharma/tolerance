@@ -97,7 +97,10 @@ export function SceneCameraControls({
     }
     let n = 0
     const timer = setInterval(() => { fit(); if (++n >= 20) clearInterval(timer) }, 1000)
-    return () => clearInterval(timer)
+    // The Reset view button: forget that the person moved the camera and fit again.
+    const reset = () => { opened.current = false; fit(); opened.current = true }
+    window.addEventListener('tolerance:reset-view', reset)
+    return () => { clearInterval(timer); window.removeEventListener('tolerance:reset-view', reset) }
   }, [sceneReady, camera, nodeCount])
 
   // The header's breadcrumb and floor list frame what they select.

@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BlockNode, BuildingNode, ColumnNode, emitter, HvacEquipmentNode, ItemNode, ShelfNode, WallNode, LevelNode, SiteNode, SlabNode, createBoxBlockTopology, initSpatialGridSync, loadPlugin, useScene } from '@pascal-app/core';
-import { applySceneGraphToEditor, FirstPersonControls, ParametricViewerRooms, useEditor, useViewerFloorDisplay, ViewerControlsBar, ViewerHoverLabel, ViewerSelectionManager, ViewerStage, type ViewerStageMode, WalkthroughHud, useFirstPersonHud } from '@pascal-app/editor';
+import { applySceneGraphToEditor, FirstPersonControls, ParametricViewerRooms, useEditor, useViewerFloorDisplay, ViewerHoverLabel, ViewerSelectionManager, ViewerStage, type ViewerStageMode, WalkthroughHud, useFirstPersonHud } from '@pascal-app/editor';
 import { builtinPlugin } from '@pascal-app/nodes';
 import { InteractiveSystem, SceneEnvironment, Viewer, useViewer } from '@pascal-app/viewer';
 import { flushSync } from 'react-dom';
@@ -10,6 +10,7 @@ import { Vector3 } from 'three';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
 import Loader3D from '@/components/Loader3D';
+import { Footprints, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
 
 type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
 type Twin = { stations: Station[]; flows: any[]; has_data: boolean };
@@ -68,6 +69,29 @@ function LabelProjector({ items, els, host }: { items: Label[]; els: React.Mutab
 }
 
 /** Name tags. A failed machine gets a large red tag. */
+function Btn({ icon, label, on, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
+  return <button type="button" aria-pressed={on} onClick={onClick} className={`flex min-w-[66px] flex-col items-center gap-1 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[11px] font-medium transition-colors ${on ? 'bg-amber-400 text-black' : 'text-white/85 hover:bg-white/10'}`}>{icon}<span>{label}</span></button>;
+}
+
+/** The 3D controls. Only controls that do something on a factory floor: walk, turn, top view, reset, data flows, labels, replay. */
+function FloorBar({ onWalk, xray, onXray, labels, onLabels, onReplay }: { onWalk: () => void; xray: boolean; onXray: () => void; labels: boolean; onLabels: () => void; onReplay: () => void }) {
+  const [top, setTop] = useState(false);
+  const ic = { size: 18, strokeWidth: 1.8 } as const;
+  return (
+    <div role="toolbar" aria-label="3D controls" className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-neutral-950/85 p-1.5 shadow-2xl backdrop-blur-xl">
+      <Btn icon={<Footprints {...ic} />} label="Walk" onClick={onWalk} />
+      <Btn icon={<RotateCcw {...ic} />} label="Turn left" onClick={() => emitter.emit('camera-controls:orbit-ccw' as any, undefined as any)} />
+      <Btn icon={<RotateCw {...ic} />} label="Turn right" onClick={() => emitter.emit('camera-controls:orbit-cw' as any, undefined as any)} />
+      <Btn icon={<ArrowUpFromLine {...ic} />} label="Top view" on={top} onClick={() => { setTop((v) => !v); emitter.emit('camera-controls:top-view' as any, undefined as any); }} />
+      <Btn icon={<Home {...ic} />} label="Reset view" onClick={() => { setTop(false); window.dispatchEvent(new Event('tolerance:reset-view')); }} />
+      <i className="mx-1 h-8 w-px bg-white/15" />
+      <Btn icon={<Layers {...ic} />} label="Data flows" on={xray} onClick={onXray} />
+      <Btn icon={<Tag {...ic} />} label="Labels" on={labels} onClick={onLabels} />
+      <Btn icon={<Play {...ic} />} label="Replay build" onClick={onReplay} />
+    </div>
+  );
+}
+
 function LabelLayer({ items, els, host, onPick }: { items: Label[]; els: React.MutableRefObject<Map<string, HTMLElement>>; host: React.RefObject<HTMLDivElement | null>; onPick: (id: string) => void }) {
   return (
     <div ref={host} className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
@@ -220,6 +244,7 @@ export default function Floor3D() {
   const anims = useRef<Anim[]>([]);
   const flowIds = useRef<string[]>([]);
   const [vk, setVk] = useState(0);
+  const [showLabels, setShowLabels] = useState(true);
   const [labels, setLabels] = useState<Label[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const labelSig = useRef('');
@@ -404,7 +429,7 @@ export default function Floor3D() {
   return (
     <div className="dark absolute inset-0 overflow-hidden bg-neutral-950 text-foreground">
       {mode === '3d' && !shown && <Loader3D />}
-      {isFirstPerson ? <Hud /> : mode === '3d' && <ViewerControlsBar onWalkthroughToggle={() => { flushSync(() => useEditor.getState().setFirstPersonMode(true)); }} />}
+      {isFirstPerson ? <Hud /> : mode === '3d' && shown && <FloorBar onWalk={() => { flushSync(() => useEditor.getState().setFirstPersonMode(true)); }} xray={xray} onXray={() => setXray((v) => !v)} labels={showLabels} onLabels={() => setShowLabels((v) => !v)} onReplay={assemble} />}
       {mode === '3d' && !isFirstPerson && <ViewerHoverLabel />}
       {(() => {
         const st = twinRef.current?.stations.find((x) => x.id === sel);
@@ -440,12 +465,10 @@ export default function Floor3D() {
         );
       })()}
       <div className={`absolute right-4 z-20 flex flex-col items-end gap-2 ${mode === '3d' ? 'top-36 sm:top-16 md:top-4' : 'top-16'}`}>
-        {mode === '3d' && <button className="hidden rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-medium text-white backdrop-blur sm:block" onClick={assemble}>Replay assembly</button>}
-        <button aria-pressed={xray} className={`rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur ${xray ? 'border-amber-300 bg-amber-400 text-black' : 'border-white/20 bg-neutral-950/75 text-white'}`} onClick={() => setXray((v) => !v)}>X-ray · data flows {xray ? 'on' : 'off'}</button>
-        {mode === '3d' && xray && legend.length > 0 && <div className="hidden rounded-xl border border-white/15 bg-neutral-950/75 p-2.5 text-xs text-white backdrop-blur sm:block"><div className="mb-1 text-[11px] uppercase tracking-wider text-white/70">Data feeds</div>{legend.map((l) => <div key={l.label} className="flex items-center gap-2 py-0.5"><i className="inline-block h-2 w-5 rounded-full" style={{ background: l.color }} />{l.label}</div>)}</div>}
+        {mode === '3d' && !isFirstPerson && xray && legend.length > 0 && <div className="hidden rounded-xl border border-white/15 bg-neutral-950/75 p-2.5 text-xs text-white backdrop-blur sm:block"><div className="mb-1 text-[11px] uppercase tracking-wider text-white/70">Data feeds</div>{legend.map((l) => <div key={l.label} className="flex items-center gap-2 py-0.5"><i className="inline-block h-2 w-5 rounded-full" style={{ background: l.color }} />{l.label}</div>)}</div>}
       </div>
-      <LabelLayer items={labels} els={labelEls} host={labelHost} onPick={setSel} />
-      <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} onModeChange={onMode} showCompass showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
+      <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
+      <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} onModeChange={onMode} showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
         {want3d && <Viewer key={vk} defaultRender={{ shading: 'rendered' }} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
           <SceneEnvironment />
           <ViewerSelectionManager />

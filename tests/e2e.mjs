@@ -78,7 +78,12 @@ await step("2 The plant name is typed", async () => { await setVal("input", "Nor
 await sleep(2000);
 await step("3 The spark takes over the plant name", async () => { const t0 = Date.now(); let seen = false; while (Date.now() - t0 < 12000) { if (await ev("!!document.querySelector('[data-reveal]')")) { seen = true; break; } await sleep(300); } await sleep(1500); const p = await ev("(() => { const e = document.querySelector('[data-reveal]'); return e ? e.getAttribute('data-reveal') : 'gone'; })()"); return { ok: seen, note: `reveal ${p}` }; });
 await step("4 The drop zone asks for files", async () => { const ok = await waitText("Drop your documents here", 30000); const none = !(await text()).includes("sample document"); return { ok: ok && none, note: "no documents shown before the user adds any" }; });
-await step("5 Sample pack chosen, the Guide starts reading", async () => { await clickUntil("use the sample pack", ["Let the Guide read 8"], 20000); await clickUntil("Let the Guide read 8", ["Reading your documents", "which data should I look at"], 20000); return await waitText("which data should I look at", 180000); });
+await step("5 Sample pack chosen, the Guide starts reading", async () => { await clickUntil("use the sample pack", ["Let the Guide read 8"], 20000); await clickUntil("Let the Guide read 8", ["Reading your documents", "WHAT I UNDERSTOOD"], 20000); return await waitText("WHAT I UNDERSTOOD", 180000); });
+await step("5b The Guide shows what it understood and every source it can reach", async () => {
+  const ok = await waitText("WHAT I UNDERSTOOD", 180000); const t = await text();
+  const need = ["WHERE DOES YOUR DATA LIVE", "Live in this build", "Plugs in with your URL", "Through a bridge", "MQTT", "OPC UA", "MCP server"].filter((x) => !t.includes(x));
+  return { ok: ok && need.length === 0, note: need.length ? "missing: " + need.join(", ") : "facts, limits, sources and badges shown" };
+});
 await step("6 The Guide asks for connectors and looks at them", async () => { await clickUntil("Let the Guide look at these", ["Looking at the data sources", "What does this plant make"], 20000); return await waitText("What does this plant make", 180000); });
 await step("7 The Guide asks what the plant makes", async () => { await setVal("textarea", "EV battery packs."); await click("Send"); return await waitText("Your documents disagree", 120000) || await waitText("is in your documents", 5000); });
 await step("8 The Guide settles conflicts, ghost station and limits with the owner", async () => {
@@ -108,7 +113,8 @@ await step("13 The floor opens in 2D; 3D shows a loader", async () => {
   const t0 = await text(); const noSplit = !/Split/.test(t0);
   const clicked = await clickUntil("3D", ["Rendering the 3D factory"], 15000);
   const t1 = await text(); const loader = t1.includes("Rendering the 3D factory") && t1.includes("first time");
-  return { ok: noSplit && clicked && loader, note: `no Split: ${noSplit}; loader shown: ${loader}` };
+  await waitText("Walk", 60000); const bar = await text(); const gone = !/Stacked|Exploded|Cutaway|Full height/.test(bar); const has = ["Walk", "Reset view", "Data flows", "Labels", "Replay build"].every((x) => bar.includes(x));
+  return { ok: noSplit && clicked && loader && gone && has, note: `no Split: ${noSplit}; loader shown: ${loader}; own controls: ${has}` };
 });
 
 await post("/jig/warden/reset");

@@ -1,8 +1,8 @@
 # End-to-end run
 
-Run at 2026-10-14T21:13:40.108Z. Chrome headless, 1440x900, against the real backend and web app.
+Run at 2026-10-15T02:43:50.584Z. Chrome headless, 1440x900, against the real backend and web app.
 
-**27 of 27 steps passed.**
+**28 of 28 steps passed.**
 
 ## PASS: Backend and web app are up
 8 agents
@@ -32,93 +32,98 @@ no documents shown before the user adds any
 
 ![5 Sample pack chosen, the Guide starts reading](06-5-sample-pack-chosen-the-guide-starts-re.png)
 
+## PASS: 5b The Guide shows what it understood and every source it can reach
+facts, limits, sources and badges shown
+
+![5b The Guide shows what it understood and every source it can reach](07-5b-the-guide-shows-what-it-understood-an.png)
+
 ## PASS: 6 The Guide asks for connectors and looks at them
 
-![6 The Guide asks for connectors and looks at them](07-6-the-guide-asks-for-connectors-and-look.png)
+![6 The Guide asks for connectors and looks at them](08-6-the-guide-asks-for-connectors-and-look.png)
 
 ## PASS: 7 The Guide asks what the plant makes
 
-![7 The Guide asks what the plant makes](08-7-the-guide-asks-what-the-plant-makes.png)
+![7 The Guide asks what the plant makes](09-7-the-guide-asks-what-the-plant-makes.png)
 
 ## PASS: 8 The Guide settles conflicts, ghost station and limits with the owner
 
-![8 The Guide settles conflicts, ghost station and limits with the owner](09-8-the-guide-settles-conflicts-ghost-stat.png)
+![8 The Guide settles conflicts, ghost station and limits with the owner](10-8-the-guide-settles-conflicts-ghost-stat.png)
 
 ## PASS: 9 The owner confirms; the Guide draws the plant with Anatomy
 
-![9 The owner confirms; the Guide draws the plant with Anatomy](10-9-the-owner-confirms-the-guide-draws-the.png)
+![9 The owner confirms; the Guide draws the plant with Anatomy](11-9-the-owner-confirms-the-guide-draws-the.png)
 
 ## PASS: 10 The tour starts: only Floor is in the menu
 1 menu item
 
-![10 The tour starts: only Floor is in the menu](11-10-the-tour-starts-only-floor-is-in-the-.png)
+![10 The tour starts: only Floor is in the menu](12-10-the-tour-starts-only-floor-is-in-the-.png)
 
 ## PASS: 11 The Guide reveals the other sections one by one
 6 menu items
 
-![11 The Guide reveals the other sections one by one](12-11-the-guide-reveals-the-other-sections-.png)
+![11 The Guide reveals the other sections one by one](13-11-the-guide-reveals-the-other-sections-.png)
 
 ## PASS: 12 The tour ends
 
-![12 The tour ends](13-12-the-tour-ends.png)
+![12 The tour ends](14-12-the-tour-ends.png)
 
 ## PASS: 13 The floor opens in 2D; 3D shows a loader
-no Split: true; loader shown: true
+no Split: true; loader shown: true; own controls: true
 
-![13 The floor opens in 2D; 3D shows a loader](14-13-the-floor-opens-in-2d-3d-shows-a-load.png)
+![13 The floor opens in 2D; 3D shows a loader](15-13-the-floor-opens-in-2d-3d-shows-a-load.png)
 
 ## PASS: 14 Operations: agents diagnose, verify, plan, score
 Verifier verdict and Warden scores shown
 
-![14 Operations: agents diagnose, verify, plan, score](15-14-operations-agents-diagnose-verify-pla.png)
+![14 Operations: agents diagnose, verify, plan, score](16-14-operations-agents-diagnose-verify-pla.png)
 
 ## PASS: 15 A person approves an action that needs one
 
-![15 A person approves an action that needs one](16-15-a-person-approves-an-action-that-need.png)
+![15 A person approves an action that needs one](17-15-a-person-approves-an-action-that-need.png)
 
 ## PASS: 16 Warden: backtest and the two lines
 465
 INCIDENTS
 
-![16 Warden: backtest and the two lines](17-16-warden-backtest-and-the-two-lines.png)
+![16 Warden: backtest and the two lines](18-16-warden-backtest-and-the-two-lines.png)
 
 ## PASS: 17 Warden: score an action that breaks a hard limit
 
-![17 Warden: score an action that breaks a hard limit](18-17-warden-score-an-action-that-breaks-a-.png)
+![17 Warden: score an action that breaks a hard limit](19-17-warden-score-an-action-that-breaks-a-.png)
 
 ## PASS: 18 Probes: a path fault is found
 
-![18 Probes: a path fault is found](19-18-probes-a-path-fault-is-found.png)
+![18 Probes: a path fault is found](20-18-probes-a-path-fault-is-found.png)
 
 ## PASS: 19 Agent catalog
 
-![19 Agent catalog](20-19-agent-catalog.png)
+![19 Agent catalog](21-19-agent-catalog.png)
 
 ## PASS: 20 Compiled model: facts with their quotes
 plant name and facts shown
 
-![20 Compiled model: facts with their quotes](21-20-compiled-model-facts-with-their-quote.png)
+![20 Compiled model: facts with their quotes](22-20-compiled-model-facts-with-their-quote.png)
 
 ## PASS: 21 Deck: title
 
-![21 Deck: title](22-21-deck-title.png)
+![21 Deck: title](23-21-deck-title.png)
 
 ## PASS: 22 Deck slide 3: platform
 
-![22 Deck slide 3: platform](23-22-deck-slide-3-platform.png)
+![22 Deck slide 3: platform](24-22-deck-slide-3-platform.png)
 
 ## PASS: 22 Deck slide 5: operations
 
-![22 Deck slide 5: operations](24-22-deck-slide-5-operations.png)
+![22 Deck slide 5: operations](25-22-deck-slide-5-operations.png)
 
 ## PASS: 22 Deck slide 6: warden
 
-![22 Deck slide 6: warden](25-22-deck-slide-6-warden.png)
+![22 Deck slide 6: warden](26-22-deck-slide-6-warden.png)
 
 ## PASS: 22 Deck slide 8: gemma
 
-![22 Deck slide 8: gemma](26-22-deck-slide-8-gemma.png)
+![22 Deck slide 8: gemma](27-22-deck-slide-8-gemma.png)
 
 ## PASS: 23 Deck appendix: diagrams
 
-![23 Deck appendix: diagrams](27-23-deck-appendix-diagrams.png)
+![23 Deck appendix: diagrams](28-23-deck-appendix-diagrams.png)

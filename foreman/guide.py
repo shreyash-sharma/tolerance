@@ -45,6 +45,50 @@ CONNECTORS = [
 ]
 
 
+# What the ingestion layer can reach. status: live = wired and running in this build; plug = the same connector with your own URL (Connect page); bridge = through an adapter, not wired here.
+SUPPORT = [
+    {"group": "Databases and files", "items": [
+        {"id": "databases", "title": "Machine states and databases", "about": "The sample plant's machine state log, in SQL. Read only.", "status": "live"},
+        {"id": "sql", "title": "PostgreSQL, MySQL, SQL Server, Oracle", "about": "Any SQLAlchemy URL. Snapshot first, then only new rows.", "status": "plug"},
+        {"id": "files", "title": "S3, GCS, Azure files", "about": "CSV, JSONL and Parquet files, new files by modified time.", "status": "plug"},
+        {"id": "warehouse", "title": "BigQuery, Snowflake, Databricks", "about": "History that already sits in a warehouse.", "status": "bridge"},
+        {"id": "mongo", "title": "MongoDB", "about": "Collections as tables.", "status": "bridge"},
+    ]},
+    {"group": "Machines and controllers", "items": [
+        {"id": "opcua", "title": "OPC UA line controllers", "about": "Live values from the line controllers. Read only.", "status": "live"},
+        {"id": "mqtt", "title": "MQTT and Sparkplug B", "about": "Machine telemetry from an IoT broker.", "status": "bridge"},
+        {"id": "plc", "title": "Modbus, Siemens S7, Rockwell", "about": "Direct PLC registers, through a protocol adapter.", "status": "bridge"},
+        {"id": "kafka", "title": "Kafka and Redpanda", "about": "Event streams from the plant network.", "status": "bridge"},
+    ]},
+    {"group": "Plant systems", "items": [
+        {"id": "telemetry", "title": "Machine and service telemetry", "about": "Failure history of every station. Read only.", "status": "live"},
+        {"id": "pcb", "title": "Inspection results", "about": "Pass and fail records per unit. Read only.", "status": "live"},
+        {"id": "rest", "title": "ERP and MES over REST", "about": "Orders and genealogy from SAP, Opcenter or any OpenAPI service.", "status": "plug"},
+        {"id": "historian", "title": "Historians (AVEVA PI, Ignition)", "about": "Time series kept by the plant historian.", "status": "bridge"},
+        {"id": "cmms", "title": "Maintenance systems (Maximo, others)", "about": "Work orders and spare parts.", "status": "bridge"},
+    ]},
+]
+LIVE_IDS = {c["id"] for c in CONNECTORS}
+
+
+def understood(st):
+    """What the document readers understood, in numbers and in the plant's own words, for the owner to check."""
+    claims = st["claims"]
+    seen, picks = set(), []
+    for c in claims:
+        k = c["predicate"]
+        if k in seen or not c.get("quote"):
+            continue
+        seen.add(k)
+        picks.append({"subject": c.get("subject_resolved") or c["subject"], "predicate": c["predicate"], "value": c["value"], "quote": c["quote"], "doc": c["doc"]})
+        if len(picks) == 6:
+            break
+    stations = sorted({c["subject_resolved"] for c in claims if c.get("known") and c["subject_resolved"] != "ORDER"})
+    return {"documents": [{"name": d["name"], "kind": d["kind"], "claims": d["claims"]} for d in st["docs"]][:10], "facts": len(claims), "stations": stations,
+            "limits": len(st.get("guardrails", [])), "conflicts": len(st["conflicts"]), "ghosts": [g["name"] for g in st["ghosts"]], "gaps": len(st["gaps"]),
+            "injections": len(st["injections"]), "samples": picks}
+
+
 def _say(text, card=None):
     PL.update(lambda p: p["chat"].append({"role": "guide", "text": text, "card": card, "at": time.time()}))
 
@@ -157,17 +201,26 @@ def start():
         out, _ = _ask(VOICE + " Say what you found in the documents in three short sentences. Mention any conflict, missing station or removed hidden instruction. Then say you will ask the owner a few questions after looking at the data sources. Reply as JSON: {\"message\": \"...\"}.", facts, default)
         PL.update(lambda x: x.update(phase="connect"))
         _say(str(out.get("message") or default["message"]), None)
-        _say("First, which data should I look at? I only read. I never write.", {"type": "connectors", "options": CONNECTORS})
+        _say("Here is what I understood. Please check it. Then tell me where your data lives. I only read. I never write.", {"type": "ingest", "understood": understood(st), "support": SUPPORT})
     _job("Reading your documents", work)
     return state()
 
 
-def connect(ids):
-    ids = [i for i in ids if i in {c["id"] for c in CONNECTORS}]
+def connect(ids, also=None, db_url="", mcp_url=""):
+    all_items = {i["id"]: i for g in SUPPORT for i in g["items"]}
+    also = [i for i in (also or []) if i in all_items and i not in LIVE_IDS]
+    ids = [i for i in ids if i in LIVE_IDS]
     if not ids:
-        raise ValueError("choose at least one connector")
-    PL.update(lambda p: p.update(connectors=ids))
-    _user("Connect: " + ", ".join(c["title"] for c in CONNECTORS if c["id"] in ids))
+        raise ValueError("choose at least one connector that is live in this build")
+    import re
+    db_url, mcp_url = (re.sub(r"//[^/@\s]*@", "//", str(x or "").strip())[:300] for x in (db_url, mcp_url))   # a password must never be stored, so any user:password part is cut
+    PL.update(lambda p: p.update(connectors=ids, wishes={"also": also, "db_url": db_url, "mcp_url": mcp_url}))
+    said = "Connect: " + ", ".join(c["title"] for c in CONNECTORS if c["id"] in ids)
+    if also:
+        said += ". Also in use: " + ", ".join(all_items[i]["title"] for i in also)
+    if mcp_url:
+        said += ". My MCP server is at " + mcp_url
+    _user(said)
 
     def work():
         JOB["what"] = "Connecting the machine data"
@@ -179,7 +232,10 @@ def connect(ids):
         default = {"message": "I looked through the connected data. " + "; ".join(f"{t['name']} holds {t['role']}" for t in tables[:5]) + "."}
         out, _ = _ask(VOICE + " The Connector Scout looked at the data sources. Say in two or three short sentences what the plant's data holds and what is missing. Reply as JSON: {\"message\": \"...\"}.",
                       {"connected": ids, "tables": tables, "missing": res.get("missing")}, default)
-        _say(str(out.get("message") or default["message"]) + " The machine data is a real manufacturing lab's state log, replayed as if it were live.")
+        extra = ""
+        if also or db_url or mcp_url:
+            extra = " I wrote down the rest you named (" + ", ".join(filter(None, [*(all_items[i]["title"] for i in also), "your database address" if db_url else "", "your MCP server" if mcp_url else ""])) + "). This build reads only the sample sources. After setup, the Connect page takes your own database address, and your MCP server joins the same gateway, behind the same Warden gate."
+        _say(str(out.get("message") or default["message"]) + " The machine data is a real manufacturing lab's state log, replayed as if it were live." + extra)
         PL.update(lambda p: p.update(phase="qa"))
         _next()
     _job("Looking at the data sources", work)
@@ -243,7 +299,7 @@ def say(text=None, action=None):
     if action:
         t = action.get("type")
         if t == "connect":
-            return connect(action.get("ids") or [])
+            return connect(action.get("ids") or [], action.get("also"), action.get("db_url", ""), action.get("mcp_url", ""))
         if t == "answer":
             label = str(action.get("label") or action.get("value"))
             if _apply(action.get("qid"), action.get("value")) is None:
@@ -358,4 +414,4 @@ def confirm_layout(ok=True):
 def state():
     p = PL.get()
     chat = p["chat"]
-    return {"plant": {k: p.get(k) for k in ("name", "stage", "use_sample", "connectors", "phase", "goal", "layout", "tour")}, "chat": chat, "busy": JOB["busy"], "what": JOB["what"], "error": JOB["error"]}
+    return {"plant": {k: p.get(k) for k in ("name", "stage", "use_sample", "connectors", "wishes", "phase", "goal", "layout", "tour")}, "chat": chat, "busy": JOB["busy"], "what": JOB["what"], "error": JOB["error"]}
