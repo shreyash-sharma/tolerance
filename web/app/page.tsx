@@ -13,7 +13,7 @@ const CSS = `
 .lp-nav nav{display:flex;gap:22px;margin-left:12px;font-size:14.5px;color:var(--mut)}
 .lp-nav nav a{text-decoration:none}.lp-nav nav a:hover{color:var(--ivory)}
 .lp-hero{background:radial-gradient(1000px 520px at 78% -10%,#23201a 0%,transparent 60%),radial-gradient(900px 500px at 10% 0%,#162320 0%,transparent 55%)}
-.lp-hero .lp-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:56px;align-items:center;padding-top:72px;padding-bottom:72px}
+.lp-hero .lp-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:56px;align-items:start;padding-top:56px;padding-bottom:64px}
 .lp-eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:700}
 .lp h1{font-size:clamp(38px,5vw,60px);line-height:1.04;letter-spacing:-.045em;font-weight:600;margin:14px 0 18px}
 .lp h2{font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.04em;font-weight:600;margin:0 0 14px}
@@ -88,6 +88,8 @@ export default function Landing() {
               <li><i>✓</i><span>A hard limit from your own documents is never crossed, whatever the score.</span></li>
               <li><i>✓</i><span>Plain rules check your systems. No model decides a result.</span></li>
             </ul>
+            <div className="lp-shot" style={{ marginTop: 30 }}><img src="/landing/floor-plan.png" alt="The live floor plan with data feeds and the status panel" /></div>
+            <p style={{ marginTop: 14 }}><a href="#how" style={{ color: 'var(--amber)', fontWeight: 600 }}>See how it works ↓</a></p>
           </div>
           <div className="lp-card"><AuthCard compact /></div>
         </div>
