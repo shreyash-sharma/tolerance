@@ -102,7 +102,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
         <div style={{ position: 'relative' }}>
           <button className="btn g sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenu((v) => !v)} aria-expanded={menu}>Plant settings</button>
           {menu && (
-            <div className="card" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>
+            <div className="card plant-menu" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>
               {auth.status === 'in' && <div className="dim" style={{ fontSize: 12, padding: '2px 6px' }}>{auth.user?.guest ? 'Guest session' : auth.user?.email}</div>}
               {data.usage && <div className="mut" style={{ fontSize: 12, padding: '0 6px' }}>{data.usage.gemini_used} of {data.usage.gemini_cap} AI calls used{data.usage.tier === 'code' ? ' (access code)' : ''}</div>}
               {auth.status === 'in' && data.usage && data.usage.tier !== 'code' && (
