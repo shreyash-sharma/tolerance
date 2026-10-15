@@ -9,7 +9,7 @@ type Group = { group: string; items: Item[] };
 
 const BADGE: Record<Item['status'], { label: string; color: string }> = {
   live: { label: 'Live in this build', color: '#7be0a6' },
-  plug: { label: 'Plugs in with your URL', color: '#f2b84b' },
+  plug: { label: 'Connects with your address', color: '#f2b84b' },
   bridge: { label: 'Through a bridge', color: '#8fb4ff' },
 };
 const plain = (s: string) => s.replace(/_/g, ' ');
@@ -45,10 +45,22 @@ type Acts = {
   onMcp: (b: { url: string; token: string; name: string; quote: string }) => Promise<any>;
 };
 
+const SCHEME: Record<string, string> = { postgres: 'postgresql', mysql: 'mysql', mssql: 'mssql', oracle: 'oracle', mongo: 'mongodb', mqtt: 'mqtt', kafka: 'kafka' };
+/** The address the documents give, written the way the system wants it: scheme, host and port, and the database when the documents name one. */
+function prefill(n: Named) {
+  const h = n.hint || '';
+  if (!h) return '';
+  if (/:\/\//.test(h)) return h;
+  const sc = SCHEME[n.type];
+  if (!sc) return '';
+  const db = ['postgres', 'mysql', 'mssql', 'oracle'].includes(n.type) && n.names[0] ? '/' + n.names[0] : n.type === 'mongo' ? '/' : '';
+  return `${sc}://${h}${db}`;
+}
+
 /** One system the documents name: the sentence that names it, then exactly what to give for it, with a Test button that logs in and reads. A plant has many of each kind, so every one gets its own card. */
 function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
   const probe = PROBE[n.type];
-  const [val, setVal] = useState(/:\/\//.test(n.hint || '') ? n.hint : '');
+  const [val, setVal] = useState(prefill(n));
   const [secret, setSecret] = useState('');
   const [topic, setTopic] = useState('');
   const [test, setTest] = useState<Probe | null>(null);
@@ -108,15 +120,14 @@ function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, act
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5 }}><span className="mut">Skipped for now.</span><button type="button" className="btn g sm" onClick={() => onOutcome(null)}>Ask me again</button></div>
       ) : (
         <>
-          <div className="mut" style={{ fontSize: 13 }}>{n.ask}</div>
+          {!live && <div className="mut" style={{ fontSize: 13 }}>{n.ask}</div>}
           {live && (
             <div style={{ display: 'grid', gap: 8 }}>
-              <input value={val} onChange={(e) => { setVal(e.target.value); setTest(null); }} placeholder={PLACEHOLDER[n.type] || 'address'} aria-label={`Address for ${n.name}`} autoComplete="off" />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {n.type !== 'opcua' && <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setTest(null); }} placeholder={asToken ? 'Token, if it needs one' : 'Password'} aria-label={`${asToken ? 'Token' : 'Password'} for ${n.name}`} autoComplete="new-password" style={{ flex: '1 1 200px' }} />}
-                {(n.type === 'mqtt' || n.type === 'kafka') && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={n.type === 'mqtt' ? 'Topic, like plant/#' : 'Topic'} aria-label={`Topic for ${n.name}`} style={{ flex: '1 1 160px' }} />}
+              <div style={{ display: 'grid', gridTemplateColumns: n.type === 'opcua' ? '1fr' : 'minmax(0,1.7fr) minmax(0,1fr)', gap: 8 }}>
+                <input value={val} onChange={(e) => { setVal(e.target.value); setTest(null); }} placeholder={PLACEHOLDER[n.type] || 'address'} aria-label={`Address for ${n.name}`} autoComplete="off" />
+                {n.type !== 'opcua' && <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setTest(null); }} placeholder={asToken ? 'Token, if it needs one' : 'Password'} aria-label={`${asToken ? 'Token' : 'Password'} for ${n.name}`} autoComplete="new-password" />}
               </div>
-              {n.type !== 'opcua' && <div className="dim" style={{ fontSize: 12 }}>The {asToken ? 'token' : 'password'} is kept encrypted and is never shown again. A user that can only read is best.</div>}
+              {(n.type === 'mqtt' || n.type === 'kafka') && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={n.type === 'mqtt' ? 'Topic to listen to, like plant/#' : 'Topic to read'} aria-label={`Topic for ${n.name}`} />}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button type="button" className="btn g sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doTest}>{st.busy === 'test' ? 'Testing…' : 'Test'}</button>
                 <button type="button" className="btn sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doConnect}>{st.busy === 'connect' ? 'Connecting…' : 'Connect'}</button>
@@ -215,7 +226,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
             <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700 }}>YOUR DOCUMENTS NAME {(u.systems || []).length} {(u.systems || []).length === 1 ? 'SYSTEM' : 'SYSTEMS'}</div>
             <div className="mut" style={{ fontSize: 12.5 }}>{settled} of {cards.length} dealt with</div>
           </div>
-          <div className="mut" style={{ fontSize: 13, marginBottom: 8 }}>I found each one in your own words. A plant has many databases and many servers, so each one gets its own card. Connect it, write it down, or skip it. I only read. I never write.</div>
+          <div className="mut" style={{ fontSize: 13, marginBottom: 8 }}>I found each one in your own words. A plant has many databases and many servers, so each one gets its own card. Connect it, write it down, or skip it. I only read. I never write. Passwords and tokens are kept encrypted and are never shown again, so a user that can only read is best.</div>
           <div style={{ display: 'grid', gap: 10 }}>
             {cards.map((n) => (
               <NamedSystem key={n.id} n={n} disabled={disabled} outcome={outcomes[n.id] || undefined} acts={acts}

@@ -226,7 +226,7 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
         <div>
           <div style={eyebrow}>{p.name}</div>
           <h1 style={{ ...h1, fontSize: 34 }}>Let us go through it together.</h1>
-          <div className="card" style={{ padding: '8px 22px', minHeight: 340, maxHeight: '70vh', overflow: 'auto' }}>
+          <div className="card" style={{ padding: '8px 22px', minHeight: 340, maxHeight: chat[chat.length - 1]?.card?.type === 'ingest' ? 'none' : '70vh', overflow: 'auto' }}>
             {chat.map((m, i) => <Bubble key={i} m={m} last={i === chat.length - 1 && !busy} onAct={send} disabled={busy} conn={data.connectors} />)}
             {busy && <div className="mut" style={{ margin: '12px 0' }}><span className="pill live"><i /><span>{data.guide.what || 'Working'}…</span></span></div>}
             <div ref={end} />
