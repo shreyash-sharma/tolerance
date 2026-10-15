@@ -2,7 +2,7 @@
 from rca import policy
 from fabric import gateway
 
-PRINCIPALS = ("rca", "console", "reader", "scout", "modeler", "diagnosis", "verifier", "planner", "warden", "lineq", "broker")
+PRINCIPALS = ("rca", "console", "reader", "scout", "modeler", "diagnosis", "verifier", "planner", "warden", "lineq", "broker", "playbook")
 _gw = {}
 
 

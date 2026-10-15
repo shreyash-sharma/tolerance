@@ -295,7 +295,22 @@ def run_operations(station, live=False):
             sc["applied"] = rec
             out["proposals"].append(sc)
         w.finish({"n": len(out["proposals"])}, "rule")
+        try:   # a person is needed: tell them where they work, not only in the app
+            from foreman import notify
+            need = [p for p in out["proposals"] if p["decision"] == "approve" and not p.get("applied")]
+            if need:
+                notify.dispatch(f"Approval needed: {station}", f"{len(need)} action(s) wait for a person on {station}. " + "; ".join(f"{p['label']} (score {p['score']})" for p in need[:3]) + ". " + (need[0].get("reason") or "")[:240])
+            blocked = [p for p in out["proposals"] if p.get("violations")]
+            if blocked:
+                notify.dispatch(f"Warden blocked an action: {station}", "; ".join(f"{p['label']}: {p['violations'][0]}" for p in blocked[:2]))
+        except Exception:
+            pass
         out.update(diagnosis=diag, verification=ver, plan_run=plan_run["id"], warden_run=w.id, settings=safety.settings())
+        try:   # the owner's own playbooks run after the agents, and pass through the same gate
+            from foreman import playbook
+            out["playbooks"] = playbook.run_enabled_for(station)
+        except Exception:
+            out["playbooks"] = []
         top.finish(out, "mixed")
         return top.public()
     except Exception as e:

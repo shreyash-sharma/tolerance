@@ -144,6 +144,25 @@ function machineParts(kind: string, parent: string, ox: number, oz: number, s: S
   return out;
 }
 
+/** The owner's saved scene, read back into what the live floor needs. Stations are found by name; anything the owner deleted is simply skipped. */
+function sceneFromSaved(saved: any, tw: Twin) {
+  const nodes: Record<string, any> = JSON.parse(JSON.stringify(saved.nodes));
+  const byName: Record<string, string> = {};
+  Object.values(nodes).forEach((n: any) => { if (typeof n?.name === 'string') byName[n.name] = n.id; });
+  const ids: Record<string, { pad: string; edge: string; beacon: string }> = {};
+  const posOf: Record<string, [number, number]> = {};
+  const nodeStation: Record<string, string> = {};
+  tw.stations.forEach((s) => {
+    const edge = byName[`${s.name} status edge`], beacon = byName[`${s.name} beacon`];
+    if (!edge || !beacon) return;
+    ids[s.id] = { pad: edge, edge, beacon };
+    nodeStation[edge] = s.id; nodeStation[beacon] = s.id;
+    const p = nodes[edge].position; posOf[s.id] = [p[0], p[2] - 1.9];
+  });
+  const flowIds = Object.values(nodes).filter((n: any) => n?.name === 'flow' || n?.name === 'pulse' || n?.name === 'Source hub').map((n: any) => n.id as string);
+  return { nodes, root: saved.rootNodeIds as string[], ids, anims: [] as Anim[], flowIds, legend: [] as Legend, plan: [] as any[], hallIds: [] as string[], nodeStation, posOf };
+}
+
 export function buildScene(tw: Twin) {
   const nodes: Record<string, any> = {};
   const add = (n: any) => { nodes[n.id] = n; return n; };
@@ -243,6 +262,7 @@ export default function Floor3D() {
   const sig = useRef('');
   const anims = useRef<Anim[]>([]);
   const flowIds = useRef<string[]>([]);
+  const savedScene = useRef<any>(undefined);
   const [vk, setVk] = useState(0);
   const [showLabels, setShowLabels] = useState(true);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -323,10 +343,11 @@ export default function Floor3D() {
         if (lsig !== labelSig.current) { labelSig.current = lsig; setLabels(lab); }
         tw.stations.forEach((x) => { if (x.state === 'failed' && prev.current[x.id] && prev.current[x.id] !== 'failed') { flyTo(x.id); setSel(x.id); setAlertSid(x.id); } prev.current[x.id] = x.state; });
         tw.stations.forEach((x) => { states.current[x.id] = x.state; });
-        const layout = tw.stations.map((s) => `${s.id}:${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.name}:${s.ghost || ''}`).join('|');
+        if (savedScene.current === undefined) { try { savedScene.current = (await api<any>('/jig/floor')).scene || null; } catch { savedScene.current = null; } }
+        const layout = savedScene.current ? 'saved:' + tw.stations.map((s) => s.id).join(',') : tw.stations.map((s) => `${s.id}:${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.name}:${s.ghost || ''}`).join('|');
         if (layout !== sig.current) {
           sig.current = layout;
-          const sc = buildScene(tw);
+          const sc = savedScene.current ? sceneFromSaved(savedScene.current, tw) : buildScene(tw);
           ids.current = sc.ids; anims.current = sc.anims; flowIds.current = sc.flowIds; planRef.current = { plan: sc.plan, nodes: sc.nodes }; nodeStation.current = sc.nodeStation; posOf.current = sc.posOf; setLegend(sc.legend);
           sc.flowIds.forEach((id: string) => { sc.nodes[id].visible = xrayRef.current; });
           applySceneGraphToEditor({ nodes: sc.nodes as any, rootNodeIds: sc.root as any } as any);
@@ -467,6 +488,7 @@ export default function Floor3D() {
       <div className={`absolute right-4 z-20 flex flex-col items-end gap-2 ${mode === '3d' ? 'top-36 sm:top-16 md:top-4' : 'top-16'}`}>
         {mode === '3d' && !isFirstPerson && xray && legend.length > 0 && <div className="hidden rounded-xl border border-white/15 bg-neutral-950/75 p-2.5 text-xs text-white backdrop-blur sm:block"><div className="mb-1 text-[11px] uppercase tracking-wider text-white/70">Data feeds</div>{legend.map((l) => <div key={l.label} className="flex items-center gap-2 py-0.5"><i className="inline-block h-2 w-5 rounded-full" style={{ background: l.color }} />{l.label}</div>)}</div>}
       </div>
+      <a href="/floor/edit" className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit floor</a>
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
       <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} onModeChange={onMode} showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
         {want3d && <Viewer key={vk} defaultRender={{ shading: 'rendered' }} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>

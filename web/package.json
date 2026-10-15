@@ -28,6 +28,7 @@
     "react": "^19",
     "react-colorful": "^5.8.1",
     "react-dom": "^19",
+    "reactflow": "^11.11.4",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
     "three": "0.186.0",

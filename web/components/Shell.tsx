@@ -15,6 +15,8 @@ const NAV: [string, string, string][] = [
   ['/agents', 'Agents', 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z'],
   ['/probes', 'Probes', 'M12 12m-2 0a2 2 0 104 0 2 2 0 10-4 0M12 12m-6 0a6 6 0 1012 0 6 6 0 10-12 0M12 12m-10 0a10 10 0 1020 0 10 10 0 10-20 0'],
   ['/compile', 'Compiled model', 'M4 6h16M4 12h10M4 18h6M17 14l3 3-3 3'],
+  ['/sentinel', 'Sentinel', 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5'],
+  ['/playbooks', 'Playbooks', 'M5 5h5v5H5zM14 14h5v5h-5zM10 7.5h4a2 2 0 012 2V14'],
 ];
 
 type Ws = { name: string; sources: any[]; model: any; version: any; incidents_open: number; compiled: number; gemini: boolean; log_time: string | null };

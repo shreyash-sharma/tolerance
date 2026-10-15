@@ -26,6 +26,14 @@ Tolerance uses the open-source parts and public data below. Each keeps its own l
 
 Licences above are from our notes on each project and should be re-checked against the package metadata before a release.
 
+## Added libraries
+
+| Library | Use | Licence |
+|---|---|---|
+| reactflow 11 | The playbook canvas | MIT |
+
+The Sentinel rule engine, the playbooks and the notification channels are new code. Their shape follows the author's own Kanshi project (assertions, reflexes, notification providers); no code from the third-party projects kept inside that repository is used.
+
 ## Data
 
 | Data | Source | Licence |

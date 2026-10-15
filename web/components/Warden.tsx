@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Channels from '@/components/Channels';
 import { api, post } from '@/lib/api';
 
 const ZONE: Record<string, string> = { refuse: '#ef6b57', approve: '#f2b84b', auto: '#8fd0a4', blocked: '#ef6b57' };
@@ -118,6 +119,7 @@ export default function Warden() {
           ))}
         </div>
       </div>
+      <Channels />
     </div>
   );
 }

@@ -24,6 +24,13 @@ A new plant gives Tolerance its name and its documents. Eight agents read them, 
 
 After the owner gives the documents, the Guide shows what it understood (facts with their quotes, stations, limits, conflicts, hidden orders removed). Then it asks where the data lives and shows every source family with an honest label: **live in this build**, **plugs in with your URL**, or **through a bridge**. The owner can also name an MCP server or a read-only database address; passwords are cut out and never stored. Sources that are not live here are written down for setup.
 
+## The floor editor, Sentinel, playbooks and channels
+
+- **Floor editor** (`/floor/edit`): the full Pascal editor opens on the floor the Guide drew, with a "what I learnt" panel beside it (stations, facts, limits, conflicts, data). The owner edits all of it. Saving keeps the scene on the server and moves or removes the matching stations in the plant model. The live floor then shows the owner's scene, with live colours and labels.
+- **Sentinel** (`/sentinel`): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, or what the documents say. It can suggest checks for your connected data. A rule that starts failing tells your channels. Web and port checks reach public addresses only.
+- **Playbooks** (`/playbooks`): the owner draws what should happen when a station fails: a trigger, checks, a decision and actions. Checks read through the same policy gateway as the agents. Any action that changes the plant is scored by Warden first.
+- **Channels** (on the Warden page): Slack, Teams, Discord, Telegram or any webhook. "A person must approve", blocked actions, failing Sentinel rules and playbook messages reach people where they work. Addresses stay on the server.
+
 ## The 3D factory
 
 The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. The 3D bar has only controls that work on a floor: Walk, Turn, Top view, Reset view, Data flows (the X-ray layer), Labels and Replay build. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.

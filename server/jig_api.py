@@ -1,7 +1,8 @@
 """API of the Tolerance platform: the agent catalog, onboarding, operations and Warden."""
 import json, threading
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from foreman import core, safety, agents as AGS, plant as PL, guide as GD
 from workspace import store
@@ -96,6 +97,164 @@ def plan_confirm(ok: int = Form(1), note: str = Form("")):
         return j(AGS.confirm_plan(bool(ok), note))
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+# ----- the owner's edited floor (a Pascal scene graph kept per visitor)
+@router.get("/floor")
+def floor_get():
+    d = store.load()
+    return j({"scene": d.get("floor_scene"), "saved_at": d.get("floor_saved_at")})
+
+
+@router.put("/floor")
+async def floor_put(request: Request):
+    body = await request.body()
+    if len(body) > 3_000_000:
+        raise HTTPException(413, "the floor is too large to save (3 MB at most)")
+    try:
+        scene = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "not valid JSON")
+    if not isinstance(scene, dict) or not isinstance(scene.get("nodes"), dict) or not isinstance(scene.get("rootNodeIds"), list):
+        raise HTTPException(400, "that is not a floor scene")
+    d = store.load()
+    d["floor_scene"], d["floor_saved_at"] = scene, __import__("time").time()
+    store.save(d)
+    return j({"ok": True, "nodes": len(scene["nodes"])})
+
+
+@router.delete("/floor")
+def floor_reset():
+    d = store.load()
+    d.pop("floor_scene", None)
+    d.pop("floor_saved_at", None)
+    store.save(d)
+    return j({"ok": True})
+
+
+# ----- playbooks: what should happen when a station fails, drawn by the owner
+class PlaybookBody(BaseModel):
+    id: str = ""
+    name: str = ""
+    enabled: bool = True
+    nodes: list
+    edges: list
+
+
+@router.get("/playbooks")
+def playbooks_get():
+    from foreman import playbook as PB
+    return j({**PB.list_public(), "starter": PB.starter()})
+
+
+@router.post("/playbooks")
+def playbooks_save(b: PlaybookBody):
+    from foreman import playbook as PB
+    try:
+        PB.save(b.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return j(PB.list_public())
+
+
+@router.delete("/playbooks/{pid}")
+def playbooks_remove(pid: str):
+    from foreman import playbook as PB
+    PB.remove(pid)
+    return j(PB.list_public())
+
+
+@router.post("/playbooks/{pid}/run")
+def playbooks_run(pid: str, station: str = Form(...)):
+    from foreman import playbook as PB
+    try:
+        return j(PB.run_by_id(pid, station))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+# ----- Sentinel: plain rules on the plant's systems and claims
+class RuleBody(BaseModel):
+    name: str = ""
+    kind: str
+    target: dict = {}
+    assertions: list
+    severity: str = "warn"
+
+
+def _sentinel(fn, *a):
+    from sentinel import guard
+    try:
+        return j(fn(*a))
+    except (ValueError, guard.Refused) as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/sentinel")
+def sentinel_get():
+    from sentinel import service as SV
+    return j(SV.public())
+
+
+@router.post("/sentinel/rules")
+def sentinel_add(b: RuleBody):
+    from sentinel import service as SV
+    _sentinel(SV.add, b.name, b.kind, b.target, b.assertions, b.severity)
+    return j(SV.public())
+
+
+@router.delete("/sentinel/rules/{rid}")
+def sentinel_remove(rid: str):
+    from sentinel import service as SV
+    SV.remove(rid)
+    return j(SV.public())
+
+
+@router.post("/sentinel/propose")
+def sentinel_propose():
+    from sentinel import service as SV
+    SV.propose()
+    return j(SV.run_all())
+
+
+@router.post("/sentinel/run")
+def sentinel_run():
+    from sentinel import service as SV
+    return j(SV.run_all())
+
+
+# ----- channels: where Warden tells a person
+@router.get("/channels")
+def channels_get():
+    from foreman import notify
+    return j({"channels": notify.public(), "types": notify.TYPES})
+
+
+@router.post("/channels")
+def channels_add(type: str = Form(...), name: str = Form(""), url: str = Form(""), token: str = Form(""), chat_id: str = Form("")):
+    from foreman import notify
+    try:
+        notify.add(type, name, url, token, chat_id)
+    except notify.Refused as e:
+        raise HTTPException(400, str(e))
+    return j({"channels": notify.public()})
+
+
+@router.delete("/channels/{cid}")
+def channels_remove(cid: str):
+    from foreman import notify
+    notify.remove(cid)
+    return j({"channels": notify.public()})
+
+
+@router.post("/channels/{cid}/test")
+def channels_test(cid: str):
+    from foreman import notify
+    try:
+        r = notify.test(cid)
+    except notify.Refused as e:
+        raise HTTPException(400, str(e))
+    return j({**r, "channels": notify.public()})
 
 
 # ----- operations
