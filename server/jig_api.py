@@ -145,6 +145,14 @@ def wishes_add(mcp_url: str = Form("")):
 
 
 # ----- the owner's edited floor (a Pascal scene graph kept per visitor)
+@router.get("/feeds")
+def feeds_get():
+    """Every connected system with the stations it carries data for. The floor draws these as icons joined to their stations."""
+    from server import ws_api
+    from workspace import feeds
+    return j({"feeds": feeds.feeds(ws_api.twin_cached())})
+
+
 @router.get("/floor")
 def floor_get():
     d = store.load()

@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { AlertTriangle, ChevronUp, ShieldCheck, X, Zap } from 'lucide-react';
 import { api } from '@/lib/api';
 import { glow, useAttention } from '@/lib/attention';
+import { useFeeds } from '@/lib/feeds';
+import FeedIcon from '@/components/FeedIcon';
+import FeedStrip from '@/components/FeedStrip';
 
 type Station = { id: string; name: string; state: string; ghost?: string; p_fail?: number | null; failures?: number | null; mttr_s?: number | null; availability?: number | null; binds?: { table: string }[] };
 type Rule = { id: string; name: string; stations: string[]; last?: { ok: boolean; maintenance?: string | null } | null };
@@ -16,6 +19,7 @@ type Filter = 'failed' | 'risk' | 'data' | 'busy' | null;
 /** The floating panel at the bottom of the floor. It tracks the plant live, and each chip is a way into the same place as an item in the left menu: hover it and that item glows. */
 export default function FloorDock({ sel, onSelect, xray, onXray, onShow3d }: { sel: string | null; onSelect: (id: string | null) => void; xray: boolean; onXray: () => void; onShow3d: (id: string) => void }) {
   const att = useAttention();
+  const feeds = useFeeds();
   const [stations, setStations] = useState<Station[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [impacted, setImpacted] = useState<Record<string, string[]>>({});
@@ -54,6 +58,8 @@ export default function FloorDock({ sel, onSelect, xray, onXray, onShow3d }: { s
   );
 
   return (
+    <>
+    <FeedStrip stations={stations} sel={sel} onSelect={onSelect} />
     <section aria-label="Plant status" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 16, width: 'min(900px, calc(100% - 32px))', zIndex: 25, background: 'rgba(16,18,22,.94)', backdropFilter: 'blur(14px)', border: '1px solid var(--line)', borderRadius: 18, boxShadow: '0 18px 60px rgba(0,0,0,.55)', color: 'var(--ivory)' }}>
       {failedNames.length > 0 && (
         <div className="row sb" style={{ padding: '8px 14px', background: 'rgba(239,107,87,.14)', borderBottom: '1px solid rgba(239,107,87,.4)', borderRadius: '18px 18px 0 0', fontSize: 13.5 }}>
@@ -86,7 +92,11 @@ export default function FloorDock({ sel, onSelect, xray, onXray, onShow3d }: { s
                 <span className="mut">Time up</span><b>{pct(cur.availability)}</b>
                 <span className="mut">Mean repair time</span><b>{cur.mttr_s != null ? `${cur.mttr_s} s` : 'n/a'}</b>
               </div>
-              <div style={{ fontSize: 13.5 }}><span className="dim">Data it uses: </span>{(cur.binds || []).length ? (cur.binds || []).map((b) => b.table).join(', ') : 'none tied yet'}</div>
+              <div style={{ fontSize: 13.5 }}>
+                <span className="dim">Data it uses: </span>
+                {feeds.filter((f) => f.stations.includes(cur.name)).map((f) => <span key={f.id} title={`${f.name} (${f.system_name})`} style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 6 }}><FeedIcon system={f.system} size={24} /></span>)}
+                {!feeds.some((f) => f.stations.includes(cur.name)) && ((cur.binds || []).length ? (cur.binds || []).map((b) => b.table).join(', ') : 'none tied yet')}
+              </div>
               <div style={{ fontSize: 13.5 }}>
                 <span className="dim">Sentinel rules: </span>
                 {mine.length === 0 ? <Link href="/sentinel" style={{ color: '#f2b84b' }}>none yet, add one</Link> : mine.map((r) => <span key={r.id} style={{ marginRight: 10 }}><span style={{ color: r.last && !r.last.ok && !r.last.maintenance ? '#ef6b57' : '#7be0a6' }}>●</span> {r.name}</span>)}
@@ -114,5 +124,6 @@ export default function FloorDock({ sel, onSelect, xray, onXray, onShow3d }: { s
         </span>
       </div>
     </section>
+    </>
   );
 }

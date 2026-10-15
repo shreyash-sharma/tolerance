@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRightLeft, Bot, Cog, ScanLine, Truck, Warehouse, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useFeeds } from '@/lib/feeds';
+import FeedIcon from '@/components/FeedIcon';
 
 type Station = { id: string; name: string; asset?: string | null; x: number; y: number; state: string; ghost?: string; p_fail?: number | null; failures?: number | null; mttr_s?: number | null; mtbf_min?: number | null; availability?: number | null; binds?: { table: string }[] };
 type Twin = { stations: Station[]; flows: { a: string; b: string }[]; has_data: boolean };
@@ -31,6 +33,8 @@ export default function FloorMap({ onShow3d }: { onShow3d: (id: string) => void 
   const [docFlows, setDocFlows] = useState<{ from: string; to: string }[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [filter, setFilter] = useState<'failed' | 'risk' | 'data' | 'busy' | null>(null);
+  const feeds = useFeeds();
+  const [hoverFeed, setHoverFeed] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +61,7 @@ export default function FloorMap({ onShow3d }: { onShow3d: (id: string) => void 
     const lo = (a: number[]) => (a.length ? Math.min(...a) : 0), hi = (a: number[]) => (a.length ? Math.max(...a) : 1);
     return { x0: lo(xs), x1: hi(xs), y0: lo(ys), y1: hi(ys) };
   }, [stations]);
+  const X0 = feeds.length ? 24 : 12;   // leave room on the left for the systems that feed the plant
   const nx = (v: number) => (box.x1 - box.x0 < 0.02 ? 0.5 : (v - box.x0) / (box.x1 - box.x0));
   const ny = (v: number) => (box.y1 - box.y0 < 0.02 ? 0.5 : (v - box.y0) / (box.y1 - box.y0));
   const pos = new Map(stations.map((s) => [s.id, s]));
@@ -92,14 +97,38 @@ export default function FloorMap({ onShow3d }: { onShow3d: (id: string) => void 
               {links.map((f, i) => {
                 const a = pos.get(f.a), b = pos.get(f.b);
                 if (!a || !b) return null;
-                const x1 = 12 + nx(a.x) * 76, y1 = 18 + ny(a.y) * 56, x2 = 12 + nx(b.x) * 76, y2 = 18 + ny(b.y) * 56;
+                const x1 = X0 + nx(a.x) * (88 - X0), y1 = 18 + ny(a.y) * 56, x2 = X0 + nx(b.x) * (88 - X0), y2 = 18 + ny(b.y) * 56;
                 return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a424d" strokeWidth="1.4" strokeDasharray="3 2" vectorEffect="non-scaling-stroke" markerEnd="url(#fm-arrow)" />;
               })}
             </svg>
           )}
+          {feeds.length > 0 && (
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              {feeds.map((f, i) => {
+                const fy = 12 + (feeds.length === 1 ? 38 : (i * 76) / (feeds.length - 1));
+                const lit = hoverFeed === f.id || (!!cur && f.stations.includes(cur.name));
+                if (!lit) return null;   // lines show for the feed you point at, or the station you picked
+                return f.stations.map((n) => {
+                  const st = stations.find((z) => z.name === n);
+                  if (!st) return null;
+                  return <line key={f.id + n} x1={6} y1={fy} x2={X0 + nx(st.x) * (88 - X0)} y2={18 + ny(st.y) * 56} stroke="#f2b84b" strokeWidth={1.8} strokeDasharray="1 3" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+                });
+              })}
+            </svg>
+          )}
+          {feeds.map((f, i) => {
+            const fy = 12 + (feeds.length === 1 ? 38 : (i * 76) / (feeds.length - 1));
+            return (
+              <button key={f.id} type="button" title={`${f.name} · ${f.stations.length} stations`} onClick={(e) => e.stopPropagation()} onMouseEnter={() => setHoverFeed(f.id)} onMouseLeave={() => setHoverFeed(null)}
+                style={{ position: 'absolute', left: 14, top: `${fy}%`, transform: 'translateY(-50%)', background: 'none', border: 'none', padding: 0, cursor: 'default', textAlign: 'center', color: 'var(--ivory)' }}>
+                <FeedIcon system={f.system} size={44} dot={f.status} />
+                <div className="mut" style={{ fontSize: 10.5, marginTop: 3, maxWidth: 74, lineHeight: 1.2 }}>{f.system_name}<br />{f.stations.length} stations</div>
+              </button>
+            );
+          })}
           {stations.map((s) => {
             const Icon = kindOf(s), c = COLOR[s.state] || COLOR.unknown, on = matches(s), isSel = sel === s.id;
-            const left = `${12 + nx(s.x) * 76}%`, top = `${18 + ny(s.y) * 56}%`;
+            const left = `${X0 + nx(s.x) * (88 - X0)}%`, top = `${18 + ny(s.y) * 56}%`;
             const show = s.state === 'failed' || risky(s) || isSel || stations.length <= 60;   // names under the dots, until there are too many to read
             if (compact) {
               return (
@@ -140,7 +169,10 @@ export default function FloorMap({ onShow3d }: { onShow3d: (id: string) => void 
             </div>
             <div>
               <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 4 }}>DATA IT USES</div>
-              <div style={{ fontSize: 13.5 }}>{(cur.binds || []).length ? (cur.binds || []).map((b) => b.table).join(', ') : 'No source tied to it yet'}</div>
+              <div style={{ display: 'grid', gap: 6, fontSize: 13.5 }}>
+                {feeds.filter((f) => f.stations.includes(cur.name)).map((f) => <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FeedIcon system={f.system} size={26} /><span>{f.name}</span></div>)}
+                {!feeds.some((f) => f.stations.includes(cur.name)) && ((cur.binds || []).length ? (cur.binds || []).map((b) => b.table).join(', ') : 'No source tied to it yet')}
+              </div>
             </div>
             <div>
               <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 4 }}>SENTINEL RULES THAT TOUCH IT</div>

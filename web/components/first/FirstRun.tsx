@@ -118,10 +118,18 @@ function FilesStep({ data, reload }: { data: PlantData; reload: () => void }) {
 }
 
 // ------------------------------------------------------------------ 3. the guide
+async function sampleEstate() {
+  const r = await fetch('/api/ws/sources/sample?which=synthetic', { method: 'POST', headers: await authHeader() });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  const d = await r.json();
+  const src = await (await fetch('/api/ws/sources', { headers: await authHeader() })).json();
+  return { machine: d.machine, read: (src.sources || []).map((x: any) => ({ name: x.name, system: x.system, rows: x.rows })) };
+}
+
 async function uploadLog(f: File) {
   const fd = new FormData();
   fd.append('file', f);
-  fd.append('name', 'Machine log');
+  fd.append('name', f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '));
   const r = await fetch('/api/ws/sources/upload', { method: 'POST', headers: await authHeader(), body: fd });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
@@ -137,7 +145,7 @@ function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onA
       <div style={{ maxWidth: '88%', background: mine ? '#f2b84b22' : '#ffffff0a', border: `1px solid ${mine ? '#f2b84b55' : 'var(--line)'}`, borderRadius: 18, padding: '12px 16px', lineHeight: 1.55 }}>
         {!mine && <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 2 }}>GUIDE</div>}
         <div>{m.text}</div>
-        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onUpload={uploadLog} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
+        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onUpload={uploadLog} onSample={sampleEstate} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
         {last && !mine && card?.type === 'connectors' && (
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
             {card.options.map((c: any) => (

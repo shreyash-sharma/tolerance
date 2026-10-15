@@ -57,6 +57,85 @@ def csv_resource(path, table):
     return rows()
 
 
+def _ejson(v):
+    """MongoDB extended JSON to plain values: {"$oid": ...}, {"$date": ...} and the number wrappers."""
+    if isinstance(v, dict):
+        if len(v) == 1:
+            k, x = next(iter(v.items()))
+            if k in ("$oid", "$date", "$numberInt", "$numberLong", "$numberDouble", "$numberDecimal", "$uuid"):
+                if isinstance(x, dict) and "$numberLong" in x:
+                    x = x["$numberLong"]
+                if k in ("$numberInt", "$numberLong"):
+                    return int(x)
+                if k in ("$numberDouble", "$numberDecimal"):
+                    return float(x)
+                return x
+        return {k: _ejson(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_ejson(x) for x in v]
+    return v
+
+
+def _flat(d, pre=""):
+    out = {}
+    for k, v in d.items():
+        key = slug(pre + str(k))
+        if isinstance(v, dict):
+            out.update(_flat(v, key + "_"))
+        elif isinstance(v, list):
+            out[key] = json.dumps(v)
+        else:
+            out[key] = v
+    return out
+
+
+def mongo_resource(path, table):
+    """A MongoDB export (mongoexport JSON lines, or one JSON array). Documents become rows, nested fields become columns, and _id / $date wrappers are unwrapped.
+    Append-only: a growing export file only adds the lines after the ones already loaded."""
+    @dlt.resource(name=table, write_disposition="append")
+    def rows():
+        st = dlt.current.resource_state()
+        done = st.get("lines_done", 0)
+        with open(path, encoding="utf-8") as f:
+            head = f.read(1)
+            f.seek(0)
+            if head == "[":
+                docs = json.load(f)
+                new, n = docs[done:], len(docs)
+            else:
+                lines = [ln for ln in f if ln.strip()]
+                new, n = [json.loads(ln) for ln in lines[done:]], len(lines)
+        batch = [_flat(_ejson(d)) for d in new if isinstance(d, dict)]
+        if batch:
+            yield batch
+        st["lines_done"] = n
+    return rows()
+
+
+# what kind of system a source is, for the icons on the floor
+SYSTEMS = {
+    "mes": ("MES", "Machine states"), "erp": ("ERP", "Orders and materials"), "mongo": ("MongoDB", "Document database"), "postgres": ("PostgreSQL", "SQL database"),
+    "sql": ("SQL database", "SQL database"), "opcua": ("OPC UA", "Line controllers"), "mqtt": ("MQTT", "IoT broker"), "api": ("API", "REST API"), "files": ("Files", "Files"),
+    "traces": ("Traces", "Service traces"), "docs": ("Documents", "Plant documents"), "other": ("Data", "Data"),
+}
+
+
+def system_of(rec):
+    """A person's tag wins. Else the file or name says it (mongo, erp, sap, mqtt, opc...), else the kind of source."""
+    p = rec.get("params", {})
+    if p.get("system") in SYSTEMS:
+        return p["system"]
+    hay = f"{rec.get('name', '')} {os.path.basename(p.get('path', '') or '')} {p.get('url', '')}".lower()
+    for key, words in (("mongo", ("mongo",)), ("erp", ("erp", "sap", "odoo", "netsuite", "work_order", "workorder")), ("mqtt", ("mqtt", "iot", "sparkplug", "sensor")), ("opcua", ("opc",)),
+                       ("mes", ("mes", "machine", "station")), ("postgres", ("postgres", "psycopg"))):
+        if any(w in hay for w in words):
+            return key
+    b = rec.get("params", {}).get("id")
+    if rec["kind"] == "builtin":
+        return {"mes": "mes", "docs": "docs", "queue": "mes", "erp": "erp", "erppg": "erp", "opcua": "opcua", "traces": "traces"}.get(b, "other")
+    return {"api": "api", "db_url": "sql", "sqlite": "sql", "csv": "files", "json": "mongo", "archive": "other"}.get(rec["kind"], "other")
+
+
 def api_resource(url, table):
     import httpx
 
@@ -115,7 +194,7 @@ def add(kind, name, **params):
     sid = store.new_id("src")
 
     def f(d):
-        rec = {"id": sid, "name": name, "kind": kind, "params": params, "live": kind in ("builtin", "api", "csv", "sqlite", "db_url"), "created": time.time(), "syncs": 0, "rows": 0, "last": None,
+        rec = {"id": sid, "name": name, "kind": kind, "params": params, "live": kind in ("builtin", "api", "csv", "sqlite", "db_url", "json"), "created": time.time(), "syncs": 0, "rows": 0, "last": None,
                "last_new": None, "tables": {}, "error": None, "history": []}
         d["sources"].append(rec)
         return rec
@@ -152,6 +231,8 @@ def sync(sid):
                     src = archive_resources()
                 elif s["kind"] == "csv":
                     src = csv_resource(s["params"]["path"], nm)
+                elif s["kind"] == "json":
+                    src = mongo_resource(s["params"]["path"], nm)
                 elif s["kind"] == "api":
                     src = api_resource(s["params"]["url"], nm)
                 else:

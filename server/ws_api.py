@@ -29,6 +29,7 @@ def j(o):
 def src_public(s):
     s = dict(s)
     s["lag"] = SRC.lag(s)
+    s["system"] = SRC.system_of(s)
     s["age_s"] = round(time.time() - s["last"], 1) if s.get("last") else None
     return s
 
@@ -73,11 +74,11 @@ def adopt_state_log():
 
 
 @router.post("/sources/upload")
-async def upload(file: UploadFile = File(...), name: str = Form("")):
+async def upload(file: UploadFile = File(...), name: str = Form(""), system: str = Form("")):
     fn = file.filename or "upload"
     ext = os.path.splitext(fn)[1].lower()
-    if ext not in (".csv", ".db", ".sqlite", ".sqlite3"):
-        raise HTTPException(400, "Upload a .csv or a SQLite file (.db / .sqlite). For other systems add a URL.")
+    if ext not in (".csv", ".db", ".sqlite", ".sqlite3", ".json", ".jsonl", ".ndjson"):
+        raise HTTPException(400, "Upload a .csv, a SQLite file (.db / .sqlite) or a MongoDB export (.json / .jsonl). For other systems add a URL.")
     data = await file.read()
     if len(data) > 25_000_000:
         raise HTTPException(413, "file too large (25 MB at most)")
@@ -86,8 +87,8 @@ async def upload(file: UploadFile = File(...), name: str = Form("")):
     path = os.path.join(SRC.UPLOADS, f"{CR._safe(store.UID.get())}_{SRC.slug(nm)}{ext}")
     with open(path, "wb") as f:
         f.write(data)
-    kind = "csv" if ext == ".csv" else "sqlite"
-    s = SRC.add(kind, nm, path=path)
+    kind = "csv" if ext == ".csv" else "json" if ext in (".json", ".jsonl", ".ndjson") else "sqlite"
+    s = SRC.add(kind, nm, path=path, **({"system": system} if system in SRC.SYSTEMS else {}))
     r = SRC.sync(s["id"])
     SRC.LIVE.start()
     machine = None
@@ -155,6 +156,19 @@ def add_sample(which: str = "incidents"):
             path = os.path.join(core.ROOT, "seed", "samples", "inspection_results_secom.csv")
             s_ = SRC.add("csv", "Inspection results (real, SECOM)", path=path)
             out.append(SRC.sync(s_["id"]))
+        elif which == "synthetic":
+            from workspace import synthetic as SE
+            CR.set_own_lake()
+            d = os.path.join(SRC.UPLOADS, "synthetic_" + CR._safe(store.UID.get()))
+            files = SE.build(d)
+            for key, (nm, system) in SE.SYSTEMS.items():
+                p = files[key]
+                kind = "csv" if p.endswith(".csv") else "json" if p.endswith(".jsonl") else "sqlite"
+                s_ = SRC.add(kind, nm, path=p, system=system)
+                out.append(SRC.sync(s_["id"]))
+            SRC.LIVE.start()
+            machine = adopt_state_log()
+            return j({"synced": out, "machine": machine})
         elif which == "estate":
             A.ensure_sample_plant()
             ids = [("mes", "Machine states (live)"), ("docs", "Plant documents"), ("queue", "Event queues"), ("erp", "ERP API"), ("opcua", "Line controllers (OPC UA)"), ("traces", "Service traces")]

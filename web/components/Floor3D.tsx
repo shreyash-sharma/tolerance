@@ -271,7 +271,7 @@ export default function Floor3D() {
   // The floor opens in 2D, which is quick. The heavy 3D engine starts only when the person asks for 3D. Inside the deck (embed=1) it opens in 3D.
   const embedded = typeof window !== 'undefined' && window.location.search.includes('embed=1');
   const [mode, setMode] = useState<ViewerStageMode>(embedded ? '3d' : '2d');
-  const [cards, setCards] = useState(false);   // 2D shows the plan; Cards is the optional status map
+  const [cards, setCards] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'cards');   // 2D shows the plan; Cards is the optional status map
   const [want3d, setWant3d] = useState(embedded);
   const started3d = useRef(false);
   const ids = useRef<Record<string, { pad: string; edge: string; beacon: string }>>({});

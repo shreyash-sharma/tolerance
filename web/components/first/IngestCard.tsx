@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import FeedIcon from '@/components/FeedIcon';
 
 type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[] };
 type Item = { id: string; title: string; about: string; status: 'live' | 'plug' | 'bridge' };
@@ -23,16 +24,31 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
   const [also, setAlso] = useState<string[]>([]);
   const [db, setDb] = useState('');
   const [mcp, setMcp] = useState('');
-  const [up, setUp] = useState<{ busy: boolean; err: string; machine: any; quality?: any }>({ busy: false, err: '', machine: null });
-  const pick = async (f: File | undefined) => {
-    if (!f) return;
-    setUp({ busy: true, err: '', machine: null });
+  const [up, setUp] = useState<{ busy: boolean; err: string; machine: any; quality?: any; read: { name: string; system: string; rows: number }[] }>({ busy: false, err: '', machine: null, read: [] });
+  const pick = async (files: FileList | null) => {
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    setUp((u) => ({ ...u, busy: true, err: '' }));
+    let machine: any = null, quality: any = null, err = '';
+    const read: { name: string; system: string; rows: number }[] = [];
+    for (const f of list) {
+      try {
+        const r = await onUpload(f);
+        read.push({ name: r.source?.name || f.name, system: r.source?.system || 'other', rows: r.source?.rows || 0 });
+        if (r.machine?.stations?.length) machine = r.machine;
+        if (r.quality) quality = r.quality;
+      } catch (e: any) { err = `${f.name}: ${String(e.message || e)}`; }
+    }
+    if (machine || quality || read.length) setSel([]);
+    setUp((u) => ({ busy: false, err, machine: machine || u.machine, quality: quality || u.quality, read: [...u.read, ...read] }));
+  };
+  const sample = async () => {
+    setUp((u) => ({ ...u, busy: true, err: '' }));
     try {
-      const r = await onUpload(f);
-      if (r.machine?.stations?.length) { setSel([]); setUp({ busy: false, err: '', machine: r.machine, quality: r.quality }); }
-      else if (r.quality) { setSel([]); setUp({ busy: false, err: '', machine: null, quality: r.quality }); }
-      else setUp({ busy: false, err: r.machine?.error || 'I could not find machine states in that file. I need a time, a machine name and a state.', machine: null });
-    } catch (e: any) { setUp({ busy: false, err: String(e.message || e), machine: null }); }
+      const r = await onSample();
+      setSel([]);
+      setUp((u) => ({ busy: false, err: '', machine: r.machine || null, quality: undefined, read: r.read || u.read }));
+    } catch (e: any) { setUp((u) => ({ ...u, busy: false, err: String(e.message || e) })); }
   };
   const toggle = (it: Item) => {
     if (it.status === 'live') setSel((v) => (v.includes(it.id) ? v.filter((x) => x !== it.id) : [...v, it.id]));
@@ -68,10 +84,14 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
         <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 4 }}>WHERE DOES YOUR DATA LIVE?</div>
         <div className="mut" style={{ fontSize: 13, marginBottom: 8 }}>Tick what the plant uses. I only read. I never write. Sources that are not live here are written down for setup.</div>
         <div style={{ border: '1px dashed var(--line)', borderRadius: 12, padding: '10px 14px', marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Your own machine log <span className="mut" style={{ fontWeight: 400 }}>(CSV or SQLite file)</span></div>
-          <div className="mut" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>One row per change of state: a time, a machine name and a state. States can be numbers or words such as RUN, IDLE and FAULT. It replaces the sample data for your plant.</div>
-          <input type="file" accept=".csv,.db,.sqlite,.sqlite3" disabled={up.busy || disabled} onChange={(e) => pick(e.target.files?.[0])} />
-          {up.busy && <div className="mut" style={{ marginTop: 6 }}>Reading your log…</div>}
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Your own data files <span className="mut" style={{ fontWeight: 400 }}>(CSV, SQLite, or a MongoDB export)</span></div>
+          <div className="mut" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>One row per change of state: a time, a machine name and a state. States can be numbers or words such as RUN, IDLE and FAULT. It replaces the sample data for your plant. Add more files from other systems at the same time: an ERP export, a MongoDB export (JSON lines), an IoT log. Each one shows on the floor as its own feed.</div>
+          <input type="file" multiple accept=".csv,.db,.sqlite,.sqlite3,.json,.jsonl,.ndjson" disabled={up.busy || disabled} onChange={(e) => pick(e.target.files)} />
+          <div style={{ marginTop: 8 }}><button type="button" className="btn g sm" disabled={up.busy || disabled} onClick={sample}>No files yet? Try a made-up plant with MES, MongoDB, ERP and IoT data</button></div>
+          {up.busy && <div className="mut" style={{ marginTop: 6 }}>Reading your data…</div>}
+          {up.read.length > 0 && <div style={{ marginTop: 8, display: 'grid', gap: 4, fontSize: 13 }}>
+            {up.read.map((r, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FeedIcon system={r.system} size={26} /><span><b>{r.name}</b> <span className="mut">· {r.rows.toLocaleString()} rows read</span></span></div>)}
+          </div>}
           {up.err && <div style={{ marginTop: 6, color: '#ef6b57', fontSize: 13 }}>{up.err}</div>}
           {up.quality && <div style={{ marginTop: 8, fontSize: 13 }}>
             <b style={{ color: '#7be0a6' }}>Read inspection data</b>: {up.quality.units.toLocaleString()} units, {(up.quality.fail_rate * 100).toFixed(2)}% fail, {up.quality.signals} signals{up.quality.has_time ? '' : ', no time column'}.<br />
@@ -111,7 +131,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
           <div className="mut" style={{ fontSize: 12 }}>An MCP server joins the same gateway. Every tool it brings passes the Warden gate like the others.</div>
         </div>
       </div>
-      <div><button className="btn" disabled={disabled || up.busy || (sel.length === 0 && !up.machine && !up.quality)} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
+      <div><button className="btn" disabled={disabled || up.busy || (sel.length === 0 && !up.machine && !up.quality && up.read.length === 0)} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
     </div>
   );
 }

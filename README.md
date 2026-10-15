@@ -46,6 +46,12 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 `/` is a public landing page. It shows what Tolerance does with the real screens, and has the way in built in: Sign in and Register tabs (Google, or email and password, with a password reset), and Continue as guest. A signed-in visitor goes straight to the floor, or to the page they asked for (`/?next=`). Add `?landing=1` to see the page while signed in.
 
+## Data feeds from many systems
+
+Upload several files at once and each one becomes a feed with its own icon: a machine log (MES), a MongoDB export (`.json` or `.jsonl`, as `mongoexport` writes it; `_id`, `$date` and number wrappers are unwrapped and nested fields become columns), an ERP database or CSV, an IoT log. Tolerance names the system from the file or from a tag, then finds which stations each feed carries data for by looking for station names in its columns. The icons sit down the left of the 2D plan (point at one for its rows, freshness and stations), and in the Cards view lines join a feed to its stations.
+
+No files yet? In the Guide, press "Try a made-up plant with MES, MongoDB, ERP and IoT data". It writes the files with `workspace/synthetic.py` (`python -m workspace.synthetic OUT_DIR` writes them to a folder), loads them into your own private database and draws the feeds. `python tests/feeds_test.py` checks the whole path. Honest limit: MongoDB is read from export files. A live connection to a MongoDB server is listed as a bridge, not built.
+
 ## Easier to use
 
 Some of the ideas for the interface come from the Kanshi project, which has a very clear monitoring UI.
