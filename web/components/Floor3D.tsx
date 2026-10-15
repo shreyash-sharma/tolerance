@@ -139,7 +139,7 @@ function machineParts(kind: string, parent: string, ox: number, oz: number, s: S
     out.push(box(parent, `${s.name} beam`, P(0, 1.7, 0), [2.5, 0.22, 0.26], body));
     out.push(box(parent, `${s.name} camera`, P(0, 1.45, 0), [0.32, 0.26, 0.32], panel));
   } else {
-    out.push(HvacEquipmentNode.parse({ parentId: parent, name: `${s.name} equipment`, position: [ox, y0 - 0.12, oz], equipmentType: 'air-handler', width: 2.2, depth: 1.4, height: 1.8 }));
+    out.push(HvacEquipmentNode.parse({ parentId: parent, name: `${s.name} equipment`, position: [ox, y0 - 0.12, oz], equipmentType: 'air-handler', width: 2, depth: 1.4, height: 1.8 }));
   }
   return out;
 }
@@ -339,7 +339,7 @@ export default function Floor3D() {
             useScene.getState().updateNode(i.beacon as any, { slots: { body: col } } as any);
           });
         }
-      } catch (e) { console.error('floor tick failed', e); if (!sig.current) setNote(`Waiting for the server… (${String(e).slice(0, 60)})`); }
+      } catch (e) { console.error('floor tick failed', e, JSON.stringify((e as any)?.issues ?? null).slice(0, 600)); if (!sig.current) setNote(`Waiting for the server… (${String(e).slice(0, 60)})`); }
     };
     tick();
     const t = setInterval(tick, 3000);

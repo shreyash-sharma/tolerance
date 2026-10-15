@@ -134,6 +134,8 @@ def build():
     for sid, s in tw["stations"].items():
         if s.get("custom"):
             stations.append({"id": sid, "name": s["name"], "asset": None, "auto": False, "x": s["x"], "y": s["y"], "state": "unknown", "spark": [], "binds": tw["binds"].get(sid, []), "kind": s.get("kind")})
+    if not assets:
+        stations += _signal_stations(removed)
     links = tw.get("links", {})
     open_inc = [i for i in d["incidents"] if i.get("kind") == "service" and i["status"] not in ("closed", "resolved")]
     for st_ in stations:
@@ -150,7 +152,42 @@ def build():
     for f in tw["flows"]:
         if f.get("by") == "user" and f["a"] in ids and f["b"] in ids:
             flows.append({"id": f"{f['a']}>{f['b']}", "a": f["a"], "b": f["b"], "by": "you", "status": f.get("status", "approved")})
-    return {"stations": stations, "flows": flows, "time": live and max(v["last"] for v in live.values()), "has_data": bool(assets), "tables": _tables()}
+    for a, b in zip(sig_ids, sig_ids[1:]) if (sig_ids := [x["id"] for x in stations if x.get("by_signal")]) else []:
+        if a.split("_")[0] == b.split("_")[0]:   # same line: parts move from one station to the next
+            flows.append({"id": f"{a}>{b}", "a": a, "b": b, "by": "order", "status": "suggested", "score": None, "lift": None, "lag_s": None})
+    return {"stations": stations, "flows": flows, "time": live and max(v["last"] for v in live.values()), "has_data": bool(assets) or any(x.get("by_signal") for x in stations), "tables": _tables()}
+
+
+def _signal_stations(removed):
+    """No machine log, but the inspection signals carry their station in the name (Bosch: L3_S29_F3461 is line 3, station 29). Draw those stations, in line order. Their state is unknown: nothing says whether they run."""
+    import re
+    try:
+        from mcpx import servers as MS
+        hit = next(iter(MS._find_inspection()), None)
+    except Exception:
+        hit = None
+    if not hit:
+        return []
+    per = {}
+    for c in hit["df"].columns:
+        m = re.match(r"^l(\d+)_s(\d+)_", str(c), re.I)
+        if m:
+            per.setdefault((int(m.group(1)), int(m.group(2))), []).append(c)
+    if not per:
+        return []
+    lines = sorted({k[0] for k in per})
+    out, row = [], 0
+    for ln in lines:
+        keys = sorted(k for k in per if k[0] == ln)
+        for i, k in enumerate(keys):
+            sid = f"st:L{k[0]}_S{k[1]}"
+            if sid in removed:
+                continue
+            r, col = row + i // 8, i % 8
+            out.append({"id": sid, "name": f"L{k[0]} S{k[1]}", "asset": None, "auto": True, "by_signal": True, "x": 0.1 + 0.8 * col / 7, "y": 0.08 + 0.84 * r / max(1, sum((len([x for x in per if x[0] == l]) + 7) // 8 for l in lines) - 1),
+                        "state": "unknown", "spark": [], "p_fail": None, "failures": None, "binds": [{"table": hit["table"], "rows": int(len(hit["df"])), "column": f"{len(per[k])} signals", "auto": True}]})
+        row += (len(keys) + 7) // 8
+    return out
 
 
 _Q = {}
