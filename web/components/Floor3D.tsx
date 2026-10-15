@@ -11,6 +11,7 @@ import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
 import Loader3D from '@/components/Loader3D';
 import FloorMap from '@/components/FloorMap';
+import FloorDock from '@/components/FloorDock';
 import { Footprints, Gauge, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
 
 type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
@@ -70,11 +71,12 @@ function LabelProjector({ items, els, host }: { items: Label[]; els: React.Mutab
 }
 
 /** Name tags. A failed machine gets a large red tag. */
-function ModeToggle({ mode, onChange }: { mode: ViewerStageMode; onChange: (m: ViewerStageMode) => void }) {
-  const b = (m: ViewerStageMode, label: string) => (
-    <button type="button" aria-pressed={mode === m} onClick={() => onChange(m)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${mode === m ? 'bg-white text-neutral-900' : 'text-white/80 hover:text-white'}`}>{label}</button>
+function ModeToggle({ mode, cards, onChange }: { mode: ViewerStageMode; cards: boolean; onChange: (m: 'plan' | 'cards' | '3d') => void }) {
+  const on = mode === '3d' ? '3d' : cards ? 'cards' : 'plan';
+  const b = (m: 'plan' | 'cards' | '3d', label: string, tip: string) => (
+    <button type="button" title={tip} aria-pressed={on === m} onClick={() => onChange(m)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${on === m ? 'bg-white text-neutral-900' : 'text-white/80 hover:text-white'}`}>{label}</button>
   );
-  return <div role="group" aria-label="View" className="dark absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/85 p-1 shadow-xl backdrop-blur-xl">{b('2d', '2D')}{b('3d', '3D')}</div>;
+  return <div role="group" aria-label="View" className="dark absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/85 p-1 shadow-xl backdrop-blur-xl">{b('plan', '2D', 'The floor plan')}{b('cards', 'Cards', 'One card per station')}{b('3d', '3D', 'The factory in 3D')}</div>;
 }
 
 function Btn({ icon, label, on, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
@@ -269,6 +271,7 @@ export default function Floor3D() {
   // The floor opens in 2D, which is quick. The heavy 3D engine starts only when the person asks for 3D. Inside the deck (embed=1) it opens in 3D.
   const embedded = typeof window !== 'undefined' && window.location.search.includes('embed=1');
   const [mode, setMode] = useState<ViewerStageMode>(embedded ? '3d' : '2d');
+  const [cards, setCards] = useState(false);   // 2D shows the plan; Cards is the optional status map
   const [want3d, setWant3d] = useState(embedded);
   const started3d = useRef(false);
   const ids = useRef<Record<string, { pad: string; edge: string; beacon: string }>>({});
@@ -465,6 +468,22 @@ export default function Floor3D() {
     window.addEventListener('webglcontextlost', lost, true);
     return () => { window.removeEventListener('webglcontextlost', lost, true); clearTimeout(t); };
   }, [want3d]);
+  // In 2D the station you pick in the list is picked on the plan, and a station you click on the plan opens in the list.
+  useEffect(() => {
+    if (mode !== '2d') return;
+    const id = sel ? ids.current[sel]?.edge : undefined;
+    try { useViewer.getState().setSelection({ selectedIds: id ? [id] : [] } as any); } catch { /* the plan just keeps its own selection */ }
+  }, [sel, mode]);
+  useEffect(() => {
+    if (mode !== '2d') return;
+    return useViewer.subscribe((st: any, prev: any) => {
+      const a = st.selection?.selectedIds;
+      if (a === prev.selection?.selectedIds) return;
+      const hit = (a || []).map((i: string) => nodeStation.current[i]).find(Boolean);
+      if (hit) setSel(hit);
+    });
+  }, [mode]);
+  const onView = useCallback((v: 'plan' | 'cards' | '3d') => { setCards(v === 'cards'); onMode(v === '3d' ? '3d' : '2d'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const onMode = useCallback((m: ViewerStageMode) => { if (m !== '3d') useEditor.getState().setFirstPersonMode(false); if (m === '3d') setWant3d(true); setMode(m); }, []);
   // Once the 3D scene is ready the viewer is remounted once (it draws more reliably the second time), then the loader goes away.
   const t3d = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -521,9 +540,11 @@ export default function Floor3D() {
       </div>
       <a href="/floor/edit" className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit floor</a>
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
-      <ModeToggle mode={mode} onChange={onMode} />
-      {mode === '2d' && <FloorMap onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
-      <ViewerStage className="absolute inset-0" mode="3d" modes={['3d']} showSwitcher={false} showCompass={mode === '3d'}>
+      <ModeToggle mode={mode} cards={cards} onChange={onView} />
+      {mode === '2d' && cards && <FloorMap onShow3d={(id) => { onMode('3d'); setCards(false); setSel(id); }} />}
+      {mode === '2d' && !cards && <FloorDock sel={sel} onSelect={setSel} xray={xray} onXray={() => setXray((v) => !v)} onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
+      <div className="absolute inset-0" style={{ right: 0 }}>
+      <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} showSwitcher={false} showCompass={mode === '3d'}>
         {want3d && <Viewer key={vk} defaultRender={{ shading: quality === 'full' ? 'rendered' : 'solid' }} disablePostFx={quality === 'fast'} maxFps={quality === 'fast' ? 40 : 50} renderPaused={sceneReady && (mode !== '3d' || hidden)} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
           <SceneEnvironment />
           <ViewerSelectionManager />
@@ -534,6 +555,7 @@ export default function Floor3D() {
           <SceneCameraControls sceneReady={sceneReady} selectable={false} />
         </Viewer>}
       </ViewerStage>
+      </div>
     </div>
   );
 }

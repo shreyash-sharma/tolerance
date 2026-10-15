@@ -40,7 +40,7 @@ export default function FloorMap({ onShow3d }: { onShow3d: (id: string) => void 
       api<any>('/ws/docs').then((d) => { if (!alive) return; setGhosts((d.ghosts || []).filter((g: any) => g.status !== 'ignored').map((g: any) => g.name)); setDocFlows(d.flows || []); }).catch(() => {});
     };
     loadTw(); loadMore();
-    const a = setInterval(loadTw, 3000), b = setInterval(loadMore, 15000);
+    const a = setInterval(loadTw, 4000), b = setInterval(loadMore, 20000);
     return () => { alive = false; clearInterval(a); clearInterval(b); };
   }, []);
 

@@ -441,10 +441,21 @@ def compile_run(note: str = Form("Compiled from the reviewed model")):
 
 
 # ------------------------------------------------------------------ factory twin
+_TWIN_CACHE = store.PerUser(lambda: {"t": 0.0, "v": None})
+
+
+def twin_cached():
+    """The station list. Several parts of a page ask for it every few seconds and building it takes a second or two, so one answer is shared for two seconds."""
+    from workspace import twin as T
+    c = _TWIN_CACHE._cur()
+    if c["v"] is None or time.time() - c["t"] > 2.0:
+        c["v"], c["t"] = T.build(), time.time()
+    return c["v"]
+
+
 @router.get("/twin")
 def twin_get():
-    from workspace import twin as T
-    return j(T.build())
+    return j(twin_cached())
 
 
 @router.get("/twin/live")
@@ -456,12 +467,14 @@ def twin_live(id: str, minutes: float = 30):
 @router.post("/twin/station")
 def twin_add(name: str = Form(...), x: float = Form(...), y: float = Form(...), kind: str = Form("")):
     from workspace import twin as T
+    _TWIN_CACHE._cur().update(t=0.0)   # a change to the model must show at once
     return j({"id": T.add_station(name, x, y, kind or None)})
 
 
 @router.post("/twin/move")
 def twin_move(id: str = Form(...), x: float = Form(...), y: float = Form(...)):
     from workspace import twin as T
+    _TWIN_CACHE._cur().update(t=0.0)   # a change to the model must show at once
     T.move(id, x, y)
     return j({"ok": True})
 
@@ -469,6 +482,7 @@ def twin_move(id: str = Form(...), x: float = Form(...), y: float = Form(...)):
 @router.post("/twin/rename")
 def twin_rename(id: str = Form(...), name: str = Form(...)):
     from workspace import twin as T
+    _TWIN_CACHE._cur().update(t=0.0)   # a change to the model must show at once
     T.rename(id, name)
     return j({"ok": True})
 
@@ -476,6 +490,7 @@ def twin_rename(id: str = Form(...), name: str = Form(...)):
 @router.delete("/twin/station")
 def twin_remove(id: str):
     from workspace import twin as T
+    _TWIN_CACHE._cur().update(t=0.0)   # a change to the model must show at once
     T.remove(id)
     return j({"ok": True})
 
@@ -483,6 +498,7 @@ def twin_remove(id: str):
 @router.post("/twin/flow")
 def twin_flow(a: str = Form(...), b: str = Form(...), status: str = Form("approved")):
     from workspace import twin as T
+    _TWIN_CACHE._cur().update(t=0.0)   # a change to the model must show at once
     T.set_flow(a, b, status)
     return j({"ok": True})
 

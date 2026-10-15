@@ -51,16 +51,18 @@ Some of the ideas for the interface come from the Kanshi project, which has a ve
 - **A bell** for what needs a person now: actions that wait for approval, and failing rules.
 - **A set-up list** under the plant name, with progress. Each step ticks itself when it is done.
 - **Calm lists.** Failing rules come first and stay open. Passing rules are one line, open with a click. An empty page says what to do next.
-- **Show the main thing, fold the rest.** The floor opens as a status map, not a technical plan. Operations opens on a list of the stations that need attention, each with one button. Warden shows your two lines and what was applied; the expert scoring tool and the channel form are folded away until you want them.
+- **It all feels connected.** The left menu shows counts where something needs a look (a failed station on Floor and Operations, a failing rule on Sentinel), and they match the bottom panel on the floor and the bell. One shared feed drives all three.
+- **Show the main thing, fold the rest.** The floor plan keeps its look; the controls float over it. Operations opens on a list of the stations that need attention, each with one button. Warden shows your two lines and what was applied; the expert scoring tool and the channel form are folded away until you want them.
 
-## The floor: a status map and a 3D factory
+## The floor: the plan, with controls, and a 3D factory
 
-The floor has two views, with a 2D / 3D switch at the top. Each has one job.
+The floor has a switch at the top: **2D**, **Cards** and **3D**.
 
-- **2D is the status map.** Four tiles say how many stations are running, failed, at risk, or have a data check failing. Click a tile to light up just those stations. Each station is one clear card. Click one for the failure risk, the data it uses, the Sentinel rules that touch it, and the next step: **Find the cause and fix it**, or **Show it in 3D**. It is calm on purpose. The technical plan (walls, columns, cables) is in the floor editor, not here.
+- **2D is the floor plan,** drawn from the confirmed plan, at full size, with the data feeds. A **floating panel at the bottom** tracks the plant live: four tiles (running, failed, at risk, data check failing) that filter the stations, and two chips that go the same way as items in the left menu, **to approve** (Operations) and **rules failing** (Sentinel). Point at one of those chips and the matching menu item glows. **Stations** opens a list with the ones needing attention first. Click a station for its failure risk, the data it uses, the Sentinel rules that touch it, and the next step: **Find the cause and fix it**, or **Show it in 3D**. When a station fails, a red line at the top of the panel offers the fix at once.
+- **Cards** is an optional status map with one card per station. For a big plant it shows named dots.
 - **3D is for looking around.** The factory assembles itself from the confirmed plan. Data flows show as cables, and a failing data check puts an amber warning on the stations it feeds.
 
-<p align="center"><img src="docs/images/screens/00-floor-map.png" alt="The floor as a status map: four tiles, one card per station, risk shown only where it matters" width="860"></p>
+<p align="center"><img src="docs/images/screens/00-floor-map.png" alt="The floor plan with the status tiles, the data-feed switch and the station list beside it" width="860"></p>
 <p align="center"><img src="docs/images/screens/00-floor-3d.png" alt="The 3D factory in Fast quality: shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
 
 **How 3D should be used, and why it is built this way.** The Pascal viewer is a full rendering engine with a heavy post-processing pipeline: ambient occlusion, global illumination, anti-aliasing and outlines. That is the main cost, and on a weak or shared graphics card it makes the page stall. So:

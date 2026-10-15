@@ -10,6 +10,7 @@ import FirstRun from '@/components/first/FirstRun';
 import CommandBar from '@/components/CommandBar';
 import Bell from '@/components/Bell';
 import SetupChecklist from '@/components/SetupChecklist';
+import { useAttention } from '@/lib/attention';
 
 const NAV: [string, string, string][] = [
   ['/floor', 'Floor', 'M3 5h18v14H3zM3 12h18M9 5v14'],
@@ -53,6 +54,8 @@ export default function Shell({ children, full = false }: { children: React.Reac
   const [menu, setMenu] = useState(false);
   const [code, setCode] = useState('');
   const [codeMsg, setCodeMsg] = useState('');
+  const att = useAttention();
+  const [skipped, setSkipped] = useState(false);   // the tour goes at once when skipped, even if the server is slow to answer
   const [ti, setTi] = useState(0);
   useEffect(() => { try { setTi(Number(sessionStorage.getItem('tour-i') || 0)); } catch {} }, []);
   const setTour = (i: number) => { setTi(i); try { sessionStorage.setItem('tour-i', String(i)); } catch {} };
@@ -74,11 +77,12 @@ export default function Shell({ children, full = false }: { children: React.Reac
   if (firstTime) return <FirstRun data={data} reload={reload} />;
 
   const applyCode = async () => { setCodeMsg(''); try { await post('/jig/redeem', { code }); setCode(''); setCodeMsg('Access code accepted.'); reload(); } catch (e: any) { setCodeMsg(String(e.message || e)); } };
-  const finishTour = async () => { await post('/jig/plant/stage', { stage: 'done' }); setTour(0); reload(); };
-  const startTour = async () => { setMenu(false); setTour(0); await post('/jig/guide/layout/confirm', { ok: '1' }); reload(); };
+  const finishTour = async () => { setSkipped(true); setTour(0); for (let i = 0; i < 3; i++) { try { await post('/jig/plant/stage', { stage: 'done' }); break; } catch { await new Promise((r) => setTimeout(r, 800)); } } reload(); };
+  const startTour = async () => { setMenu(false); setSkipped(false); setTour(0); await post('/jig/guide/layout/confirm', { ok: '1' }); reload(); };
   const startOver = async () => { if (!window.confirm('Start over? Your documents, answers and plan are removed. Warden’s two lines stay.')) return; await post('/jig/plant/reset'); try { sessionStorage.clear(); } catch {} window.location.href = '/'; };
-  const visible = stage === 'tour' ? NAV.filter((_, i) => i <= ti) : NAV;
-  const hl = stage === 'tour' ? steps[ti]?.path : null;
+  const touring = stage === 'tour' && !skipped;
+  const visible = touring ? NAV.filter((_, i) => i <= ti) : NAV;
+  const hl = touring ? steps[ti]?.path : null;
   const here = (path || '').replace(/\/+$/, '') || '/';   // the exported pages end with a slash
   const pageTitle = NAV.find((x) => x[0] === here)?.[1] ?? (here.startsWith('/floor') ? 'Floor' : 'Tolerance');
   const live = ws?.sources.some((s) => s.live && s.syncs > 0);
@@ -86,6 +90,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
     <Link key={href} href={href} className={`${here === href ? 'on' : ''} ${hl === href ? 'tour-hl' : ''}`} aria-label={label} title={label} aria-current={here === href ? 'page' : undefined}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
       <span>{label}</span>
+      {(() => { const n = ({ '/floor': att.counts.failed, '/operations': att.counts.approvals + att.counts.failed, '/sentinel': att.counts.rules } as Record<string, number>)[href] || 0; return n > 0 ? <em className="nav-badge" aria-label={`${n} need a look`}>{n}</em> : null; })()}
     </Link>
   );
   return (
@@ -133,7 +138,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
         )}
         <main className={`page ${full ? 'full' : ''}`}>{children}</main>
       </div>
-      {stage === 'tour' && steps.length > 0 && <Tour steps={steps} index={Math.min(ti, steps.length - 1)} setIndex={setTour} onDone={finishTour} />}
+      {touring && steps.length > 0 && <Tour steps={steps} index={Math.min(ti, steps.length - 1)} setIndex={setTour} onDone={finishTour} />}
     </div>
   );
 }

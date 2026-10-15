@@ -2,22 +2,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell as BellIcon } from 'lucide-react';
-import { api } from '@/lib/api';
-
-type Item = { kind: string; text: string; link: string };
+import { refreshAttention, useAttention } from '@/lib/attention';
 
 /** What needs a person now: actions that wait for approval, and Sentinel rules that are failing. It looks again every half minute. */
 export default function Bell() {
-  const [data, setData] = useState<{ count: number; items: Item[] }>({ count: 0, items: [] });
+  const data = useAttention();
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    const load = () => api<any>('/jig/attention').then((d) => alive && setData(d)).catch(() => {});
-    load();
-    const t = setInterval(load, 30000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
-  useEffect(() => { if (open) api<any>('/jig/attention').then(setData).catch(() => {}); }, [open]);
+  useEffect(() => { if (open) refreshAttention(); }, [open]);
   return (
     <div style={{ position: 'relative' }}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-label={`Needs a person: ${data.count}`} aria-expanded={open} style={{ position: 'relative', border: '1px solid var(--line)', borderRadius: 10, padding: 7, background: 'transparent', color: 'var(--ivory)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>

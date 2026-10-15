@@ -637,3 +637,9 @@ input[type=email]:focus,input[type=password]:focus{border-color:var(--amber)}
 
 /* in the icon-only sidebar the settings menu opens as a proper panel beside it, not squeezed inside */
 @media(max-width:1100px){.plant-menu{position:fixed !important;left:72px !important;right:auto !important;bottom:16px !important;width:250px !important;z-index:70 !important;box-shadow:0 18px 60px rgba(0,0,0,.55)}}
+
+/* the left menu: counts, and a glow when the dock on the floor points at an item */
+.side nav a{position:relative}
+.nav-badge{margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef6b57;color:#fff;font-size:11px;font-style:normal;font-weight:700;display:grid;place-items:center;padding:0 5px}
+.side nav a[data-glow]{background:rgba(242,184,75,.16);box-shadow:0 0 0 2px rgba(242,184,75,.55);color:#fff}
+@media(max-width:1100px){.nav-badge{position:absolute;top:2px;right:6px;min-width:15px;height:15px;font-size:10px;padding:0 3px}}

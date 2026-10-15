@@ -32,7 +32,16 @@ def attention():
         last = s["last"].get(rule["id"])
         if last and not last["ok"] and not last.get("maintenance"):
             items.append({"kind": "rule", "text": f"Sentinel: {rule['name']} is failing", "link": "/sentinel"})
-    return j({"count": len(items), "items": items[:20]})
+    counts = {"approvals": sum(1 for i in items if i["kind"] == "approval"), "rules": sum(1 for i in items if i["kind"] == "rule"), "failed": 0, "risk": 0, "data": 0}
+    try:   # the station counts come from the same short-lived answer the floor uses
+        from server import ws_api
+        sts = [x for x in ws_api.twin_cached()["stations"] if not x.get("ghost") and not str(x["id"]).startswith("ghost:")]
+        counts["failed"] = sum(1 for x in sts if x["state"] == "failed")
+        counts["risk"] = sum(1 for x in sts if x["state"] != "failed" and (x.get("p_fail") or 0) >= 0.5)
+        counts["data"] = len(SV.impact_map(s)["stations"])
+    except Exception:
+        pass
+    return j({"count": len(items), "items": items[:20], "counts": counts})
 
 
 @router.get("/agents")
