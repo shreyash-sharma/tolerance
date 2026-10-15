@@ -72,6 +72,33 @@ function LabelProjector({ items, els, host }: { items: Label[]; els: React.Mutab
   return null;
 }
 
+/** In 2D the plan is a drawing that pans, zooms and turns on its own, so the name tags follow it: each frame every tag is moved to where its station is on the drawing. */
+function PlanLabelProjector({ items, els, host, posOf }: { items: Label[]; els: React.MutableRefObject<Map<string, HTMLElement>>; host: React.RefObject<HTMLDivElement | null>; posOf: React.MutableRefObject<Record<string, [number, number]>> }) {
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const hr = host.current?.getBoundingClientRect();
+      const plan = [...document.querySelectorAll<SVGSVGElement>('svg[viewBox]')].filter((v) => !(v.getAttribute('viewBox') || '').startsWith('0 0 24') && v.querySelectorAll('g').length > 20)
+        .sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
+      const ctm = plan?.getScreenCTM();
+      if (!hr || !plan || !ctm) return;
+      items.forEach((it) => {
+        const el = els.current.get(it.id), w = posOf.current[it.id];
+        if (!el || !w) return;
+        const pt = plan.createSVGPoint();
+        pt.x = w[0]; pt.y = w[1];
+        const q = pt.matrixTransform(ctm);
+        el.style.display = '';
+        el.style.transform = `translate(${q.x - hr.left}px, ${q.y - hr.top}px) translate(-50%, -50%)`;
+      });
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [items, els, host, posOf]);
+  return null;
+}
+
 /** Name tags. A failed machine gets a large red tag. */
 function ModeToggle({ mode, onChange }: { mode: ViewerStageMode; onChange: (m: 'plan' | '3d') => void }) {
   const on = mode === '3d' ? '3d' : 'plan';
@@ -523,6 +550,7 @@ export default function Floor3D() {
       {!embedded && <button type="button" onClick={() => setEditing(true)} className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit layout</button>}
       {editing && <FloorLayout onDone={() => setEditing(false)} />}
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
+      {mode === '2d' && !editing && showLabels && <PlanLabelProjector items={labels} els={labelEls} host={labelHost} posOf={posOf} />}
       <ModeToggle mode={mode} onChange={onView} />
       {mode === '2d' && !editing && <FeedLinks stations={labels.filter((l) => !l.ghost).map((l) => ({ id: l.id, name: l.name }))} posOf={posOf} sel={sel} />}
       {mode === '2d' && !editing && <FloorDock sel={sel} onSelect={setSel} xray={xray} onXray={() => setXray((v) => !v)} onShow3d={(id) => { onMode('3d'); setSel(id); }} />}

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Channels from '@/components/Channels';
+import WardenGate from '@/components/WardenGate';
 import { api, post } from '@/lib/api';
 
 const ZONE: Record<string, string> = { refuse: '#ef6b57', approve: '#f2b84b', auto: '#8fd0a4', blocked: '#ef6b57' };
@@ -42,6 +43,7 @@ export default function Warden() {
   return (
     <div>
       <p className="sub">Warden scores each action from 0 to 100. You set two lines. Below the floor, the action is refused. Between the lines, a person approves it. At or above the limit, it may run by itself. A hard limit from your documents is never crossed, whatever the score. The plant is replayed data, so every applied action runs in a simulator.</p>
+      <WardenGate weights={w.weights} labels={w.labels} floor={floor} limit={limit} />
       <div className="grid g2">
         <div className="card">
           <h3>Your two lines</h3>
