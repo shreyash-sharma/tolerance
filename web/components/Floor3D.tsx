@@ -184,6 +184,7 @@ export function buildScene(tw: Twin) {
   for (const z of [-hd + 0.3, hd - 0.3]) hall('Safety lane', [0, 0.06, z], [FLOOR_W - 1, 0.02, 0.12], '#f2c200');
   hall('Aisle line', [0, 0.06, 0], [FLOOR_W - 1, 0.02, 0.08], '#f2c200');
   const hallIds = children.slice();
+  const light = tw.stations.length > 16;   // a big plant draws one box per machine: the detailed models would make 3D very slow
   const plan: { ghost?: boolean; id: string; name: string; kind: string; src: string; rows: number; ids: string[] }[] = [];
   tw.stations.forEach((s) => {
     const n0 = children.length;
@@ -193,8 +194,9 @@ export function buildScene(tw: Twin) {
     const beacon = add(box(level.id, `${s.name} beacon`, [ox + 1.9, 2.5, oz - 1.5], [0.28, 0.28, 0.28], col));
     const pole = add(box(level.id, `${s.name} pole`, [ox + 1.9, 0.17, oz - 1.5], [0.06, 2.4, 0.06], '#6b7380'));
     children.push(edge.id, beacon.id, pole.id);
-    machineParts(kindOf(s), level.id, ox, oz, s, (a) => anims.push({ ...a, sid: s.id })).forEach((p) => { add(p); children.push(p.id); });
-    if (['transfer', 'agv'].includes(kindOf(s))) {
+    if (light) { const b = add(box(level.id, `${s.name} machine`, [ox, 0.7, oz], [1.5, 1.3, 0.8], s.ghost === 'proposed' ? '#b9a7ff' : ACCENT[kindOf(s)] || ACCENT.machine)); children.push(b.id); }
+    else machineParts(kindOf(s), level.id, ox, oz, s, (a) => anims.push({ ...a, sid: s.id })).forEach((p) => { add(p); children.push(p.id); });
+    if (!light && ['transfer', 'agv'].includes(kindOf(s))) {
       const w = 2.5, d = 2.1, pts: [number, number][] = [[ox - w, oz - d], [ox + w, oz - d], [ox + w, oz + d], [ox - w, oz + d], [ox - w, oz - d]];
       const gr = (name: string, c: [number, number, number], sz: [number, number, number]) => { const n = add(box(level.id, `${s.name} ${name}`, c, sz, '#f2c200')); children.push(n.id); };
       for (let k = 0; k < 4; k++) {
@@ -219,7 +221,7 @@ export function buildScene(tw: Twin) {
   };
   const run = (path: [number, number, number][], color: string, speed: number, n = 2) => {
     for (let i = 0; i + 1 < path.length; i++) seg(path[i], path[i + 1], color);
-    for (let k = 0; k < n; k++) { const pu = add(box(level.id, 'pulse', path[0], [0.24, 0.24, 0.24], '#ffffff')); children.push(pu.id); flowIds.push(pu.id); anims.push({ id: pu.id, sid: '', kind: 'pulse', ox: 0, oy: 0, oz: 0, i: k / n, path, speed }); }
+    for (let k = 0; k < (light ? 0 : n); k++) { const pu = add(box(level.id, 'pulse', path[0], [0.24, 0.24, 0.24], '#ffffff')); children.push(pu.id); flowIds.push(pu.id); anims.push({ id: pu.id, sid: '', kind: 'pulse', ox: 0, oy: 0, oz: 0, i: k / n, path, speed }); }
   };
   if (srcs.length) {
     const hub = add(box(level.id, 'Source hub', [0, trayY - 0.2, hubZ], [2.4, 0.5, 0.7], '#2b3340')); children.push(hub.id); flowIds.push(hub.id);

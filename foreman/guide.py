@@ -49,14 +49,14 @@ CONNECTORS = [
 SUPPORT = [
     {"group": "Databases and files", "items": [
         {"id": "databases", "title": "Machine states and databases", "about": "The sample plant's machine state log, in SQL. Read only.", "status": "live"},
-        {"id": "sql", "title": "PostgreSQL, MySQL, SQL Server, Oracle", "about": "Any SQLAlchemy URL. Snapshot first, then only new rows.", "status": "plug"},
+        {"id": "sql", "title": "PostgreSQL, MySQL, SQL Server, Oracle", "about": "Any SQLAlchemy URL. Snapshot first, then only new rows. Sentinel can check that it answers.", "status": "plug"},
         {"id": "files", "title": "S3, GCS, Azure files", "about": "CSV, JSONL and Parquet files, new files by modified time.", "status": "plug"},
         {"id": "warehouse", "title": "BigQuery, Snowflake, Databricks", "about": "History that already sits in a warehouse.", "status": "bridge"},
-        {"id": "mongo", "title": "MongoDB", "about": "Collections as tables.", "status": "bridge"},
+        {"id": "mongo", "title": "MongoDB", "about": "Collections as tables. Sentinel can check that it answers.", "status": "bridge"},
     ]},
     {"group": "Machines and controllers", "items": [
         {"id": "opcua", "title": "OPC UA line controllers", "about": "Live values from the line controllers. Read only.", "status": "live"},
-        {"id": "mqtt", "title": "MQTT and Sparkplug B", "about": "Machine telemetry from an IoT broker.", "status": "bridge"},
+        {"id": "mqtt", "title": "MQTT and Sparkplug B", "about": "Machine telemetry from an IoT broker. Sentinel can check that it answers.", "status": "bridge"},
         {"id": "plc", "title": "Modbus, Siemens S7, Rockwell", "about": "Direct PLC registers, through a protocol adapter.", "status": "bridge"},
         {"id": "kafka", "title": "Kafka and Redpanda", "about": "Event streams from the plant network.", "status": "bridge"},
     ]},

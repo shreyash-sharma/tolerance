@@ -5,16 +5,17 @@ import { authHeader } from '@/lib/auth';
 
 type Assertion = { path: string; op: string; value?: string };
 type Rule = { id: string; name: string; kind: string; target: any; severity: string; text: string[]; history: boolean[]; last?: { at: number; ok: boolean; error?: string | null; seen: Record<string, any>; results: { ok: boolean; path: string; op: string; expected: any; actual: any; error?: string | null }[] } | null };
-type Data = { rules: Rule[]; kinds: Record<string, string>; ops: Record<string, string>; no_value: string[]; tables: string[] };
+type Data = { protocols: Record<string, { title: string; port: number; kind: string }>; rules: Rule[]; kinds: Record<string, string>; ops: Record<string, string>; no_value: string[]; tables: string[] };
 
 const HINT: Record<string, string> = {
   table: 'Fields: rows, column_count, worst_null_rate, schema_unchanged, newest_age_hours',
   http: 'Fields: reachable, status, latency_ms, size_bytes, json.<field>, headers.<name>',
   tcp: 'Fields: reachable, latency_ms',
+  service: 'Fields: reachable, protocol_ok, latency_ms, auth_required, server_version. The check sends the first message of the protocol and does not log in',
   claims: 'Fields: facts, conflicts, stations_only_in_text, gaps, hidden_orders_removed',
 };
 const FIRST: Record<string, Assertion> = {
-  table: { path: 'rows', op: 'gt', value: '0' }, http: { path: 'status', op: 'eq', value: '200' }, tcp: { path: 'reachable', op: 'eq', value: 'true' }, claims: { path: 'conflicts', op: 'eq', value: '0' },
+  table: { path: 'rows', op: 'gt', value: '0' }, http: { path: 'status', op: 'eq', value: '200' }, tcp: { path: 'reachable', op: 'eq', value: 'true' }, claims: { path: 'conflicts', op: 'eq', value: '0' }, service: { path: 'protocol_ok', op: 'eq', value: 'true' },
 };
 
 /** Plain rules on the plant's systems and on what the documents say. A rule is a list of checks on a field. No model decides a result. */
@@ -32,7 +33,8 @@ export default function Sentinel() {
   const run = async (path: string, key: string) => { setErr(''); setBusy(key); try { setD(await post<Data>(path)); } catch (e: any) { setErr(String(e.message || e)); } setBusy(''); };
   const add = async () => {
     setErr(''); setBusy('add');
-    const t = kind === 'tcp' ? { host: target.host, port: target.port } : kind === 'http' ? { url: target.url } : kind === 'table' ? { table: target.table } : {};
+    const proto = d?.protocols[target.protocol || ''];
+    const t = kind === 'service' ? (proto?.kind === 'http' ? { protocol: target.protocol, url: target.url } : { protocol: target.protocol, host: target.host, port: target.port }) : kind === 'tcp' ? { host: target.host, port: target.port } : kind === 'http' ? { url: target.url } : kind === 'table' ? { table: target.table } : {};
     try {
       const r = await fetch('/api/jig/sentinel/rules', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ name, kind, target: t, assertions: asr, severity: sev }) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
@@ -89,6 +91,12 @@ export default function Sentinel() {
             <select value={sev} onChange={(e) => setSev(e.target.value)}><option value="warn">Warning</option><option value="crit">Critical</option></select>
           </div>
           {kind === 'http' && <input value={target.url || ''} onChange={(e) => setTarget({ url: e.target.value })} placeholder="https://mes.example.com/health" />}
+          {kind === 'service' && <div className="row" style={{ flexWrap: 'wrap' }}>
+            <select value={target.protocol || ''} onChange={(e) => setTarget({ protocol: e.target.value })}><option value="">Choose a service…</option>{Object.entries(d.protocols).map(([k, v]) => <option key={k} value={k}>{v.title}</option>)}</select>
+            {target.protocol && d.protocols[target.protocol].kind === 'http'
+              ? <input value={target.url || ''} onChange={(e) => setTarget({ ...target, url: e.target.value })} placeholder="https://influx.example.com:8086" style={{ flex: 1 }} />
+              : target.protocol && <><input value={target.host || ''} onChange={(e) => setTarget({ ...target, host: e.target.value })} placeholder="Host" style={{ flex: 1 }} /><input value={target.port || ''} onChange={(e) => setTarget({ ...target, port: e.target.value })} placeholder={String(d.protocols[target.protocol].port)} style={{ width: 90 }} /></>}
+          </div>}
           {kind === 'tcp' && <div className="row"><input value={target.host || ''} onChange={(e) => setTarget({ ...target, host: e.target.value })} placeholder="Host" style={{ flex: 1 }} /><input value={target.port || ''} onChange={(e) => setTarget({ ...target, port: e.target.value })} placeholder="Port" style={{ width: 90 }} /></div>}
           {kind === 'table' && <select value={target.table || ''} onChange={(e) => setTarget({ table: e.target.value })}><option value="">Choose a table…</option>{d.tables.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
           <div className="dim" style={{ fontSize: 12.5 }}>{HINT[kind]}. Web and port checks only reach public addresses.</div>

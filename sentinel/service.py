@@ -1,11 +1,11 @@
 """Sentinel rules for one visitor: stored, proposed from the visitor's data, run, and reported. A rule that turns from passing to failing tells the visitor's channels."""
 import time, uuid
 
-from sentinel import checks, engine, guard
+from sentinel import checks, engine, guard, protocols
 from workspace import store
 
 MAX_RULES = 30
-KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "claims": "What the documents say"}
+KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "service": "A service on your network (MQTT, Redis, a database)", "claims": "What the documents say"}
 _PRESET = {
     "rows_present": {"path": "rows", "op": "gt", "value": 0},
     "not_too_empty": {"path": "worst_null_rate", "op": "lte", "value": 0.5},
@@ -25,7 +25,7 @@ def public():
         last = s["last"].get(r["id"])
         out.append({**{k: v for k, v in r.items() if k != "baseline_cols"}, "last": last, "history": s["history"].get(r["id"], [])[-20:],
                     "text": [engine.describe(a) for a in r["assertions"]]})
-    return {"rules": out, "kinds": KINDS, "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables()}
+    return {"rules": out, "kinds": KINDS, "protocols": {k: {"title": v[0], "port": v[1], "kind": v[2]} for k, v in protocols.PROTOCOLS.items()}, "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables()}
 
 
 def _tables():
@@ -45,6 +45,16 @@ def add(name, kind, target, assertions, severity="warn"):
     elif kind == "tcp":
         guard.check_host(str(target.get("host", "")), int(target.get("port", 0)))
         target = {"host": str(target["host"]), "port": int(target["port"])}
+    elif kind == "service":
+        proto = target.get("protocol")
+        if proto not in protocols.PROTOCOLS:
+            raise ValueError("choose a service type")
+        if protocols.PROTOCOLS[proto][2] == "http":
+            target = {"protocol": proto, "url": guard.check_url(target.get("url"))}
+        else:
+            port = int(target.get("port") or protocols.PROTOCOLS[proto][1])
+            guard.check_host(str(target.get("host", "")), port)
+            target = {"protocol": proto, "host": str(target["host"]), "port": port}
     elif kind == "table" and not target.get("table"):
         raise ValueError("choose a table")
     clean = []
@@ -98,6 +108,8 @@ def observe(rule):
         return checks.http_observation(t["url"])
     if k == "tcp":
         return checks.tcp_observation(t["host"], t["port"])
+    if k == "service":
+        return protocols.observe(t["protocol"], t.get("host", ""), t.get("port", 0), t.get("url", ""))
     if k == "claims":
         from documents import engine as DE
         st = DE.state()

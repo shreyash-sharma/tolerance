@@ -25,6 +25,9 @@ export default function Ingest() {
   const [result, setResult] = useState<any>(null);
   const [url, setUrl] = useState('');
   const [urlKind, setUrlKind] = useState('api');
+  const [askMcp, setAskMcp] = useState<string | null>(null);
+  const [mcpUrl, setMcpUrl] = useState('');
+  const [mcpMsg, setMcpMsg] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const last = useRef<Record<string, number>>({});
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
@@ -63,7 +66,7 @@ export default function Ingest() {
     log('Connector', `uploading ${f.name}…`);
     await api('/ws/sources/upload', { form: fd }); await loadSrc(); await loadItems(); log('Connector', `${f.name} loaded`);
   });
-  const addUrl = () => run('url', async () => { log('Connector', `connecting ${url}…`); await post('/ws/sources/url', { kind: urlKind, url }); setUrl(''); await loadSrc(); log('Connector', 'URL source connected'); });
+  const addUrl = () => run('url', async () => { log('Connector', `connecting ${url}…`); await post('/ws/sources/url', { kind: urlKind, url }); setUrl(''); await loadSrc(); log('Connector', 'URL source connected'); setAskMcp(urlKind === 'db_url' ? 'database' : 'REST service'); setMcpMsg(''); });
   const sync = (s: Src) => run(`sync:${s.id}`, async () => { const r = await api(`/ws/sources/${s.id}/sync`, { method: 'POST' }); await loadSrc(); log('Connector', `${s.name}: synced (${JSON.stringify(r).slice(0, 80)})`); });
   const remove = (s: Src) => run(`rm:${s.id}`, async () => { await api(`/ws/sources/${s.id}`, { method: 'DELETE' }); await loadSrc(); log('Connector', `${s.name} removed`); });
 
@@ -133,6 +136,18 @@ export default function Ingest() {
                   <button className={btn} disabled={!url || busy === 'url'} onClick={addUrl}>Connect</button>
                 </div>
               </div>
+              {askMcp && (
+                <div className={`${card} mt-3 space-y-2`}>
+                  <div className="text-sm font-semibold">You connected a {askMcp}. Does it have an MCP server?</div>
+                  <div className="text-xs text-white/65">An MCP server lets agents ask that system questions in a standard way. Every tool it brings passes the Warden gate. This build writes the address down for setup. It does not call it yet.</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input aria-label="MCP server address" value={mcpUrl} onChange={(e) => setMcpUrl(e.target.value)} placeholder="https://mcp.example.com/sse" className="min-w-[200px] flex-1 rounded-md border border-white/15 bg-black/40 px-3 py-1.5 text-xs" />
+                    <button className={btn} disabled={!mcpUrl.trim()} onClick={async () => { try { await post('/jig/wishes', { mcp_url: mcpUrl }); setMcpUrl(''); setAskMcp(null); log('Guide', 'MCP server address written down'); } catch (e: any) { setMcpMsg(String(e.message || e)); } }}>Write it down</button>
+                    <button className={btn} onClick={() => setAskMcp(null)}>No MCP server</button>
+                  </div>
+                  {mcpMsg && <div className="text-xs text-red-400">{mcpMsg}</div>}
+                </div>
+              )}
               <div className="mt-4 space-y-2">
                 {src.map((s) => (
                   <div key={s.id} className={`${card} flex items-center gap-4`}>
