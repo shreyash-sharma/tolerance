@@ -111,10 +111,11 @@ await go("/floor");
 await sleep(7000);
 await step("13 The floor opens in 2D; 3D shows a loader", async () => {
   const t0 = await text(); const noSplit = !/Split/.test(t0);
-  const clicked = await clickUntil("3D", ["Rendering the 3D factory"], 15000);
-  const t1 = await text(); const loader = t1.includes("Rendering the 3D factory") && t1.includes("first time");
+  const status = (await text()).includes("running") && (await text()).includes("failed");   // the 2D side is the status map
+  const clicked = await clickUntil("3D", ["Rendering the 3D factory", "Walk"], 15000);
+  const t1 = await text(); const loader = t1.includes("Rendering the 3D factory") ? t1.includes("first time") : true;   // a warmed-up 3D has no loader to show
   await waitText("Walk", 60000); const bar = await text(); const gone = !/Stacked|Exploded|Cutaway|Full height/.test(bar); const has = ["Walk", "Reset view", "Data flows", "Labels", "Replay build"].every((x) => bar.includes(x));
-  return { ok: noSplit && clicked && loader && gone && has, note: `no Split: ${noSplit}; loader shown: ${loader}; own controls: ${has}` };
+  return { ok: noSplit && status && clicked && loader && gone && has, note: `no Split: ${noSplit}; status map: ${status}; loader ok: ${loader}; own controls: ${has}` };
 });
 
 await post("/jig/warden/reset");
@@ -122,7 +123,7 @@ await post("/jig/warden/reset");
 await post("/jig/warden/settings", { floor: "40", limit: "99" });
 await go("/operations");
 await step("14 Operations: agents diagnose, verify, plan, score", async () => {
-  await clickUntil("Run the operations flow", ["Agents are working", "Proposed actions, scored by Warden"]); const ok = await waitText("Proposed actions, scored by Warden", 120000);
+  await clickUntil("Check it", ["Diagnosis, then the Verifier", "Proposed actions, scored by Warden"]); const ok = await waitText("Proposed actions, scored by Warden", 120000);
   const t = await text(); return { ok: ok && t.includes("Verifier") && /RUNS ALONE|NEEDS A PERSON/.test(t), note: "Verifier verdict and Warden scores shown" };
 });
 await step("15 A person approves an action that needs one", async () => {

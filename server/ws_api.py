@@ -310,7 +310,8 @@ def discover_answer(action: str = Form(...), label: str = Form(""), note: str = 
 @router.get("/docs")
 def docs_state():
     from documents import engine as DE
-    return j(DE.state())
+    st = DE.state()
+    return j({**st, "flows": DE.flows(st)})
 
 
 @router.post("/docs/extract")

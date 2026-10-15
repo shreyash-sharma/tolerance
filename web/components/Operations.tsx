@@ -8,17 +8,24 @@ const DEC: Record<string, [string, string]> = { auto: ['RUNS ALONE', 'ok'], appr
 /** The operations flow for one failed station: Diagnosis, Verifier, Planner, Warden, then the Action Broker. */
 export default function Operations() {
   const [stations, setStations] = useState<string[]>([]);
+  const [rows, setRows] = useState<{ name: string; state: string; p: number | null }[]>([]);
   const [station, setStation] = useState('TR');
+  useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('station'); if (q) setStation(q); } catch { /* the default stays */ } }, []);
   const [busy, setBusy] = useState(false);
   const [run, setRun] = useState<any>(null);
   const [kids, setKids] = useState<any[]>([]);
   const [err, setErr] = useState('');
   useEffect(() => { api('/jig/plan').then((p) => p?.stations && setStations(p.stations.map((s: any) => s.name))).catch(() => {}); api('/ws/docs').then((d) => d?.stations && setStations(d.stations)).catch(() => {}); }, []);
 
-  const go = async () => {
+  useEffect(() => {
+    api<any>('/ws/twin').then((t) => setRows((t.stations || []).filter((s: any) => !s.ghost && !String(s.id).startsWith('ghost:')).map((s: any) => ({ name: s.name, state: s.state, p: s.p_fail ?? null })).sort((a: any, b: any) => (b.state === 'failed' ? 2 : 0) + (b.p || 0) - ((a.state === 'failed' ? 2 : 0) + (a.p || 0))))).catch(() => {});
+    try { const q = new URLSearchParams(window.location.search); if (q.get('station') && q.get('run') === '1') setTimeout(() => go(q.get('station')!), 400); } catch { /* the page waits for a click */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = async (name?: string) => {
+    if (name) setStation(name);
     setBusy(true); setErr(''); setRun(null); setKids([]);
     try {
-      const r = await post('/jig/operations', { station, live: '0' });
+      const r = await post('/jig/operations', { station: name || station, live: '0' });
       setRun(r);
       const all = await api('/jig/runs');
       setKids(all.filter((x: any) => x.parent === r.id).reverse());
@@ -31,12 +38,30 @@ export default function Operations() {
   const r = run?.result;
   return (
     <div>
-      <p className="sub">Pick a station that has failed. Diagnosis looks with read-only tools. The Verifier recomputes every number the diagnosis cites. The Planner proposes fixes. Warden scores each fix against your limits and the Action Broker applies what Cedar allows.</p>
-      <div className="row">
-        <select value={station} onChange={(e) => setStation(e.target.value)}>{(stations.length ? stations : ['TR', 'C1', 'C2', 'WH1', 'WH2', 'AGV']).map((s) => <option key={s}>{s}</option>)}</select>
-        <button className="btn" disabled={busy} onClick={go}>{busy ? 'Agents are working…' : 'Run the operations flow'}</button>
-        {err && <span className="bad">{err}</span>}
-      </div>
+      <p className="sub">Pick a station. The agents find the cause, check it, plan a fix, and Warden scores it.</p>
+      {rows.length > 0 && (
+        <div className="card" style={{ padding: '6px 16px' }}>
+          <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, padding: '8px 0 2px' }}>NEEDS ATTENTION FIRST</div>
+          {rows.slice(0, 8).map((x) => {
+            const bad = x.state === 'failed', risk = !bad && (x.p || 0) >= 0.5;
+            return (
+              <div key={x.name} className="row sb" style={{ borderTop: '1px solid var(--line)', padding: '9px 0' }}>
+                <span className="row" style={{ gap: 10 }}><i style={{ width: 9, height: 9, borderRadius: 5, background: bad ? '#ef6b57' : risk ? '#f2b84b' : '#7be0a6' }} /><b>{x.name}</b><span className="dim" style={{ fontSize: 13 }}>{bad ? 'Failed' : risk ? `Failure risk ${Math.round((x.p || 0) * 100)}%` : x.state === 'busy' ? 'Running' : x.state}</span></span>
+                <button className={`btn sm ${bad ? '' : 'g'}`} disabled={busy} onClick={() => go(x.name)}>{busy && station === x.name ? 'Working…' : bad ? 'Find the cause and fix it' : 'Check it'}</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <details style={{ marginTop: 10 }}>
+        <summary className="dim" style={{ cursor: 'pointer' }}>Another station</summary>
+        <div className="row" style={{ marginTop: 8 }}>
+          <select value={station} onChange={(e) => setStation(e.target.value)}>{(stations.length ? stations : ['TR', 'C1', 'C2', 'WH1', 'WH2', 'AGV']).map((s) => <option key={s}>{s}</option>)}</select>
+          <button className="btn g sm" disabled={busy} onClick={() => go()}>Run the operations flow</button>
+        </div>
+      </details>
+      {busy && <p className="mut" style={{ margin: '12px 0 0' }}>Diagnosis, then the Verifier, then the Planner, then Warden. It usually takes about a minute.</p>}
+      {err && <p className="bad">{err}</p>}
       {run?.status === 'failed' && <p className="bad">{run.error}</p>}
       {r && (() => {
         const top = r.proposals?.[0];

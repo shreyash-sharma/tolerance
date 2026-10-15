@@ -80,9 +80,19 @@ export default function Warden() {
           )}
         </div>
       </div>
-      <div className="grid g2" style={{ marginTop: 14 }}>
-        <div className="card">
-          <h3>Try an action</h3>
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="row sb"><h3 style={{ margin: 0 }}>Applied by the Action Broker</h3>{w.applied.length > 0 && <button className="btn g sm" onClick={async () => { await post('/jig/warden/reset'); load(); }}>Clear history</button>}</div>
+          {w.applied.length === 0 && <p className="mut">Nothing applied yet. Run the operations flow from the Operations page.</p>}
+          {w.applied.slice(0, 5).map((a: any) => (
+            <div key={a.id} style={{ borderBottom: '1px solid var(--line)', padding: '8px 0' }}>
+              <div className="row sb"><b>{a.label} · {a.action.station}</b><span className={`tag ${a.mode === 'auto' ? 'ok' : 'amb'}`}>{a.mode === 'auto' ? 'ran alone' : 'person: ' + a.approved_by}</span></div>
+              <span className="dim">score {a.score} · {a.status}</span>
+            </div>
+          ))}
+        </div>
+      <details className="card" style={{ marginTop: 14 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Try an action <span className="dim" style={{ fontWeight: 400 }}>(for experts: score any action and see the factors)</span></summary>
+        <div style={{ marginTop: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 10 }}>
             <label className="mut">Action<select value={form.kind} onChange={(e) => { const k = KINDS.find((x) => x[0] === e.target.value)!; setForm({ ...form, kind: k[0], params: k[2] }); }}>{KINDS.map((k) => <option key={k[0]} value={k[0]}>{k[1]}</option>)}</select></label>
             <label className="mut">Station<input value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })} style={{ width: '100%' }} /></label>
@@ -107,19 +117,12 @@ export default function Warden() {
               ))}
             </div>
           )}
-        </div>
-        <div className="card">
-          <div className="row sb"><h3 style={{ margin: 0 }}>Applied by the Action Broker</h3>{w.applied.length > 0 && <button className="btn g sm" onClick={async () => { await post('/jig/warden/reset'); load(); }}>Clear history</button>}</div>
-          {w.applied.length === 0 && <p className="mut">Nothing applied yet. Run the operations flow from the Operations page.</p>}
-          {w.applied.slice(0, 5).map((a: any) => (
-            <div key={a.id} style={{ borderBottom: '1px solid var(--line)', padding: '8px 0' }}>
-              <div className="row sb"><b>{a.label} · {a.action.station}</b><span className={`tag ${a.mode === 'auto' ? 'ok' : 'amb'}`}>{a.mode === 'auto' ? 'ran alone' : 'person: ' + a.approved_by}</span></div>
-              <span className="dim">score {a.score} · {a.status}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <Channels />
+                </div>
+      </details>
+      <details className="card" style={{ marginTop: 14 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Where Warden tells a person <span className="dim" style={{ fontWeight: 400 }}>(Slack, Teams, Discord, Telegram or a webhook)</span></summary>
+        <div style={{ marginTop: 10 }}><Channels /></div>
+      </details>
     </div>
   );
 }

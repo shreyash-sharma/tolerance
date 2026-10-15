@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BlockNode, BuildingNode, ColumnNode, emitter, HvacEquipmentNode, ItemNode, ShelfNode, WallNode, LevelNode, SiteNode, SlabNode, createBoxBlockTopology, initSpatialGridSync, loadPlugin, useScene } from '@pascal-app/core';
-import { applySceneGraphToEditor, FirstPersonControls, ParametricViewerRooms, useEditor, useViewerFloorDisplay, ViewerHoverLabel, ViewerSelectionManager, ViewerStage, type ViewerStageMode, WalkthroughHud, useFirstPersonHud } from '@pascal-app/editor';
+import { applySceneGraphToEditor, FirstPersonControls, ParametricViewerRooms, useEditor, useViewerFloorDisplay, ViewerSelectionManager, ViewerStage, type ViewerStageMode, WalkthroughHud, useFirstPersonHud } from '@pascal-app/editor';
 import { builtinPlugin } from '@pascal-app/nodes';
 import { InteractiveSystem, SceneEnvironment, Viewer, useViewer } from '@pascal-app/viewer';
 import { flushSync } from 'react-dom';
@@ -10,7 +10,8 @@ import { Vector3 } from 'three';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
 import Loader3D from '@/components/Loader3D';
-import { Footprints, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
+import FloorMap from '@/components/FloorMap';
+import { Footprints, Gauge, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
 
 type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
 type Twin = { stations: Station[]; flows: any[]; has_data: boolean };
@@ -69,12 +70,19 @@ function LabelProjector({ items, els, host }: { items: Label[]; els: React.Mutab
 }
 
 /** Name tags. A failed machine gets a large red tag. */
+function ModeToggle({ mode, onChange }: { mode: ViewerStageMode; onChange: (m: ViewerStageMode) => void }) {
+  const b = (m: ViewerStageMode, label: string) => (
+    <button type="button" aria-pressed={mode === m} onClick={() => onChange(m)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${mode === m ? 'bg-white text-neutral-900' : 'text-white/80 hover:text-white'}`}>{label}</button>
+  );
+  return <div role="group" aria-label="View" className="dark absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/85 p-1 shadow-xl backdrop-blur-xl">{b('2d', '2D')}{b('3d', '3D')}</div>;
+}
+
 function Btn({ icon, label, on, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
   return <button type="button" aria-pressed={on} onClick={onClick} className={`flex min-w-[66px] flex-col items-center gap-1 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[11px] font-medium transition-colors ${on ? 'bg-amber-400 text-black' : 'text-white/85 hover:bg-white/10'}`}>{icon}<span>{label}</span></button>;
 }
 
 /** The 3D controls. Only controls that do something on a factory floor: walk, turn, top view, reset, data flows, labels, replay. */
-function FloorBar({ onWalk, xray, onXray, labels, onLabels, onReplay }: { onWalk: () => void; xray: boolean; onXray: () => void; labels: boolean; onLabels: () => void; onReplay: () => void }) {
+function FloorBar({ onWalk, xray, onXray, labels, onLabels, onReplay, quality, onQuality }: { onWalk: () => void; xray: boolean; onXray: () => void; labels: boolean; onLabels: () => void; onReplay: () => void; quality: 'fast' | 'full'; onQuality: () => void }) {
   const [top, setTop] = useState(false);
   const ic = { size: 18, strokeWidth: 1.8 } as const;
   return (
@@ -88,6 +96,8 @@ function FloorBar({ onWalk, xray, onXray, labels, onLabels, onReplay }: { onWalk
       <Btn icon={<Layers {...ic} />} label="Data flows" on={xray} onClick={onXray} />
       <Btn icon={<Tag {...ic} />} label="Labels" on={labels} onClick={onLabels} />
       <Btn icon={<Play {...ic} />} label="Replay build" onClick={onReplay} />
+      <i className="mx-1 h-8 w-px bg-white/15" />
+      <Btn icon={<Gauge {...ic} />} label={quality === 'fast' ? 'Quality: Fast' : 'Quality: Full'} on={quality === 'full'} onClick={onQuality} />
     </div>
   );
 }
@@ -267,6 +277,12 @@ export default function Floor3D() {
   const flowIds = useRef<string[]>([]);
   const savedScene = useRef<any>(undefined);
   const [vk, setVk] = useState(0);
+  // Fast skips the viewer's post-processing (ambient occlusion, global illumination, outlines): much lighter on the GPU and steadier. Full keeps it.
+  const [quality, setQuality] = useState<'fast' | 'full'>('fast');
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => { try { if (localStorage.getItem('floor-quality') === 'full') setQuality('full'); } catch { /* the default stays */ } }, []);
+  useEffect(() => { const f = () => setHidden(document.hidden); f(); document.addEventListener('visibilitychange', f); return () => document.removeEventListener('visibilitychange', f); }, []);
+  const colors = useRef<Record<string, string>>({});   // the colour last given to each station, so an unchanged one is not touched again
   const [showLabels, setShowLabels] = useState(true);
   const [labels, setLabels] = useState<Label[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -352,7 +368,7 @@ export default function Floor3D() {
         if (savedScene.current === undefined) { try { savedScene.current = (await api<any>('/jig/floor')).scene || null; } catch { savedScene.current = null; } }
         const layout = savedScene.current ? 'saved:' + tw.stations.map((s) => s.id).join(',') : tw.stations.map((s) => `${s.id}:${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.name}:${s.ghost || ''}`).join('|');
         if (layout !== sig.current) {
-          sig.current = layout;
+          sig.current = layout; colors.current = {};
           const sc = savedScene.current ? sceneFromSaved(savedScene.current, tw) : buildScene(tw);
           ids.current = sc.ids; anims.current = sc.anims; flowIds.current = sc.flowIds; planRef.current = { plan: sc.plan, nodes: sc.nodes }; nodeStation.current = sc.nodeStation; posOf.current = sc.posOf; setLegend(sc.legend);
           sc.flowIds.forEach((id: string) => { sc.nodes[id].visible = xrayRef.current; });
@@ -362,6 +378,8 @@ export default function Floor3D() {
           tw.stations.forEach((s) => {
             const i = ids.current[s.id]; if (!i) return;
             const col = s.ghost === 'proposed' ? '#b9a7ff' : STATE_COL[s.state] || STATE_COL.unknown;
+            if (colors.current[s.id] === col) return;
+            colors.current[s.id] = col;
             useScene.getState().updateNode(i.edge as any, { slots: { body: col } } as any);
             useScene.getState().updateNode(i.beacon as any, { slots: { body: col } } as any);
           });
@@ -439,13 +457,21 @@ export default function Floor3D() {
     if (new URLSearchParams(window.location.search).has('assemble') && !(window as any).__assembled) { (window as any).__assembled = true; setTimeout(assemble, 1500); }
   }, [ready, legend, assemble]);
 
+  // If the graphics card resets, the canvas goes blank. Start the viewer again by itself, after a short pause.
+  useEffect(() => {
+    if (!want3d) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const lost = (e: Event) => { e.preventDefault(); clearTimeout(t); t = setTimeout(() => { setShown(false); setSceneReady(false); started3d.current = false; setVk((v) => v + 1); }, 600); };
+    window.addEventListener('webglcontextlost', lost, true);
+    return () => { window.removeEventListener('webglcontextlost', lost, true); clearTimeout(t); };
+  }, [want3d]);
   const onMode = useCallback((m: ViewerStageMode) => { if (m !== '3d') useEditor.getState().setFirstPersonMode(false); if (m === '3d') setWant3d(true); setMode(m); }, []);
   // Once the 3D scene is ready the viewer is remounted once (it draws more reliably the second time), then the loader goes away.
   const t3d = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => {
     if (!want3d || !sceneReady || started3d.current) return;
     started3d.current = true;   // the timers must outlive this effect: the remount flips sceneReady and would cancel them
-    t3d.current = [setTimeout(() => setVk((v) => v + 1), 3000), setTimeout(() => setShown(true), 4800)];
+    t3d.current = [setTimeout(() => setShown(true), 1200)];   // the scene is ready: a short beat for the first frame, then the loader goes
   }, [want3d, sceneReady]);
   useEffect(() => () => t3d.current.forEach(clearTimeout), []);
 
@@ -456,9 +482,8 @@ export default function Floor3D() {
   return (
     <div className="dark absolute inset-0 overflow-hidden bg-neutral-950 text-foreground">
       {mode === '3d' && !shown && <Loader3D />}
-      {isFirstPerson ? <Hud /> : mode === '3d' && shown && <FloorBar onWalk={() => { flushSync(() => useEditor.getState().setFirstPersonMode(true)); }} xray={xray} onXray={() => setXray((v) => !v)} labels={showLabels} onLabels={() => setShowLabels((v) => !v)} onReplay={assemble} />}
-      {mode === '3d' && !isFirstPerson && <ViewerHoverLabel />}
-      {(() => {
+      {isFirstPerson ? <Hud /> : mode === '3d' && shown && <FloorBar onWalk={() => { flushSync(() => useEditor.getState().setFirstPersonMode(true)); }} xray={xray} onXray={() => setXray((v) => !v)} labels={showLabels} onLabels={() => setShowLabels((v) => !v)} onReplay={assemble} quality={quality} onQuality={() => { const q = quality === 'fast' ? 'full' : 'fast'; setQuality(q); try { localStorage.setItem('floor-quality', q); } catch { /* not kept */ } }} />}
+      {mode === '3d' && (() => {
         const st = twinRef.current?.stations.find((x) => x.id === sel);
         if (!st) return null;
         const pct = (v?: number | null) => (v == null ? 'n/a' : `${Math.round(v * 100)}%`);
@@ -496,8 +521,10 @@ export default function Floor3D() {
       </div>
       <a href="/floor/edit" className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit floor</a>
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
-      <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} onModeChange={onMode} showSwitcher switcherClassName="top-4 left-1/2 -translate-x-1/2">
-        {want3d && <Viewer key={vk} defaultRender={{ shading: 'rendered' }} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
+      <ModeToggle mode={mode} onChange={onMode} />
+      {mode === '2d' && <FloorMap onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
+      <ViewerStage className="absolute inset-0" mode="3d" modes={['3d']} showSwitcher={false} showCompass={mode === '3d'}>
+        {want3d && <Viewer key={vk} defaultRender={{ shading: quality === 'full' ? 'rendered' : 'solid' }} disablePostFx={quality === 'fast'} maxFps={quality === 'fast' ? 40 : 50} renderPaused={sceneReady && (mode !== '3d' || hidden)} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>
           <SceneEnvironment />
           <ViewerSelectionManager />
           <ParametricViewerRooms />

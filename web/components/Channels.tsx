@@ -32,9 +32,8 @@ export default function Channels() {
   };
   const del = async (id: string) => { const r: any = await fetch('/api/jig/channels/' + id, { method: 'DELETE', headers: await (await import('@/lib/auth')).authHeader() }).then((x) => x.json()); setList(r.channels); };
   return (
-    <div className="card">
-      <h3 style={{ margin: 0 }}>Where Warden tells a person</h3>
-      <p className="mut" style={{ marginTop: 4 }}>When an action needs a person, or Warden blocks one, a message goes to these channels. Approving still happens in the app. Addresses are kept on the server and not shown again.</p>
+    <div>
+      <p className="mut" style={{ marginTop: 0 }}>When an action needs a person, or Warden blocks one, a message goes to these channels. Approving still happens in the app. Addresses are kept on the server and not shown again.</p>
       {list.length === 0 && <p className="dim">No channel yet.</p>}
       {list.map((c) => (
         <div key={c.id} className="row sb" style={{ borderBottom: '1px solid var(--line)', padding: '8px 0' }}>

@@ -51,12 +51,28 @@ Some of the ideas for the interface come from the Kanshi project, which has a ve
 - **A bell** for what needs a person now: actions that wait for approval, and failing rules.
 - **A set-up list** under the plant name, with progress. Each step ticks itself when it is done.
 - **Calm lists.** Failing rules come first and stay open. Passing rules are one line, open with a click. An empty page says what to do next.
+- **Show the main thing, fold the rest.** The floor opens as a status map, not a technical plan. Operations opens on a list of the stations that need attention, each with one button. Warden shows your two lines and what was applied; the expert scoring tool and the channel form are folded away until you want them.
 
-## The 3D factory
+## The floor: a status map and a 3D factory
 
-The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. The 3D bar has only controls that work on a floor: Walk, Turn, Top view, Reset view, Data flows (the X-ray layer), Labels and Replay build. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.
+The floor has two views, with a 2D / 3D switch at the top. Each has one job.
 
-<p align="center"><img src="docs/images/screens/00-floor-3d.jpg" alt="The 3D factory: warehouse shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
+- **2D is the status map.** Four tiles say how many stations are running, failed, at risk, or have a data check failing. Click a tile to light up just those stations. Each station is one clear card. Click one for the failure risk, the data it uses, the Sentinel rules that touch it, and the next step: **Find the cause and fix it**, or **Show it in 3D**. It is calm on purpose. The technical plan (walls, columns, cables) is in the floor editor, not here.
+- **3D is for looking around.** The factory assembles itself from the confirmed plan. Data flows show as cables, and a failing data check puts an amber warning on the stations it feeds.
+
+<p align="center"><img src="docs/images/screens/00-floor-map.png" alt="The floor as a status map: four tiles, one card per station, risk shown only where it matters" width="860"></p>
+<p align="center"><img src="docs/images/screens/00-floor-3d.png" alt="The 3D factory in Fast quality: shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
+
+**How 3D should be used, and why it is built this way.** The Pascal viewer is a full rendering engine with a heavy post-processing pipeline: ambient occlusion, global illumination, anti-aliasing and outlines. That is the main cost, and on a weak or shared graphics card it makes the page stall. So:
+
+- **Fast is the default.** It skips that pipeline, uses flat shading and caps the frame rate at 40. **Full** quality turns it back on, from the bar at the bottom. Fast loaded the sample plant in under 8 seconds in a scripted Chrome run.
+- The viewer starts only when you ask for 3D. The status map does not need it.
+- Rendering is paused while you are on 2D or the tab is hidden, but only once the scene is ready (it needs frames to become ready).
+- A station is touched only when its colour changes, and a graphics reset restarts the viewer by itself.
+- A plant with more than 16 stations draws one box per machine.
+- Hover tips from the viewer (raw names such as "Floor slab") are off.
+
+Switching from 3D to 2D keeps the viewer mounted, so coming back is fast.
 
 ## Animated figures (Anatomy)
 

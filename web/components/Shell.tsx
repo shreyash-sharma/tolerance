@@ -79,10 +79,11 @@ export default function Shell({ children, full = false }: { children: React.Reac
   const startOver = async () => { if (!window.confirm('Start over? Your documents, answers and plan are removed. Warden’s two lines stay.')) return; await post('/jig/plant/reset'); try { sessionStorage.clear(); } catch {} window.location.href = '/'; };
   const visible = stage === 'tour' ? NAV.filter((_, i) => i <= ti) : NAV;
   const hl = stage === 'tour' ? steps[ti]?.path : null;
-  const pageTitle = NAV.find((x) => x[0] === path)?.[1] ?? 'Tolerance';
+  const here = (path || '').replace(/\/+$/, '') || '/';   // the exported pages end with a slash
+  const pageTitle = NAV.find((x) => x[0] === here)?.[1] ?? (here.startsWith('/floor') ? 'Floor' : 'Tolerance');
   const live = ws?.sources.some((s) => s.live && s.syncs > 0);
   const row = ([href, label, d]: [string, string, string]) => (
-    <Link key={href} href={href} className={`${path === href ? 'on' : ''} ${hl === href ? 'tour-hl' : ''}`} aria-label={label} title={label} aria-current={path === href ? 'page' : undefined}>
+    <Link key={href} href={href} className={`${here === href ? 'on' : ''} ${hl === href ? 'tour-hl' : ''}`} aria-label={label} title={label} aria-current={here === href ? 'page' : undefined}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
       <span>{label}</span>
     </Link>
