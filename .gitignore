@@ -16,3 +16,6 @@ web/out/
 # test credentials for the live UAT script
 tools/uat_credentials.txt
 data/
+
+# large local test data
+Data Bosch/

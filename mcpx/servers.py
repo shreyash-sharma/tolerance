@@ -148,6 +148,13 @@ def _scan_inspection(prefer=None):
         except Exception:
             continue
         for c in df.columns:
+            if pd.api.types.is_numeric_dtype(df[c]) and re.search(r"(^|_)(response|result|label|target|verdict|defect|fail|failed|ok|pass|good|bad)($|_)", str(c), re.I):
+                # a 0/1 result column (Bosch calls it Response, 1 = failed). It becomes the words pass and fail so every inspection tool reads it the same way.
+                vals = set(df[c].dropna().unique())
+                if len(vals) == 2 and vals <= {0, 1, 0.0, 1.0, -1, -1.0}:
+                    bad_is_one = not re.search(r"(^|_)(ok|pass|good)($|_)", str(c), re.I)
+                    fail_val = 1 if bad_is_one else min(vals)
+                    df[c] = df[c].map(lambda v: "fail" if v == fail_val else "pass")
             if pd.api.types.is_string_dtype(df[c]):
                 vals = set(df[c].dropna().astype(str).str.lower().unique())
                 if vals and vals <= (_PASS | _FAIL) and len(vals) >= 2:
@@ -188,6 +195,8 @@ def fail_rate(table: str = "", by: str = "week") -> dict:
         if not col:
             raise ValueError("no station/line column in this table")
         key = df[col].astype(str)
+    elif by in ("day", "week"):
+        raise ValueError("this table has no time column, so the rate over time is not available. Try by=station if the signals name their station.")
     else:
         raise ValueError("by must be day, week or station")
     g = df.groupby(key)["_fail"].agg(["mean", "size"])
@@ -215,7 +224,16 @@ def top_signals(table: str = "", n: int = 8) -> dict:
         auc = (r[fail[ok]].sum() - m1 * (m1 + 1) / 2) / (m1 * m0)
         rows.append({"signal": c, "auc": round(float(auc), 3), "direction": "higher in fails" if auc > .5 else "lower in fails", "strength": round(abs(float(auc) - .5) * 2, 3)})
     rows.sort(key=lambda x: -x["strength"])
-    return {"table": f["table"], "units": len(df), "fails": int(fail.sum()), "signals_ranked": len(rows), "top": rows[:max(1, min(int(n), 25))]}
+    out = {"table": f["table"], "units": len(df), "fails": int(fail.sum()), "signals_ranked": len(rows), "top": rows[:max(1, min(int(n), 25))]}
+    # Some plants write the station into the signal name (Bosch: L3_S29_F3461 is line 3, station 29, feature 3461). Then stations can be ranked too.
+    stations = {}
+    for r_ in rows:
+        m = re.match(r"^(l\d+_s\d+)_", r_["signal"])
+        if m:
+            stations.setdefault(m.group(1).upper(), []).append(r_["strength"])
+    if stations:
+        out["stations_ranked"] = [{"station": k, "strongest_signal": round(max(v), 3), "signals": len(v)} for k, v in sorted(stations.items(), key=lambda kv: -max(kv[1]))][:8]
+    return out
 
 
 @pcb.tool(annotations=READ)

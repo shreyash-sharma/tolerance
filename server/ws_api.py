@@ -95,7 +95,19 @@ async def upload(file: UploadFile = File(...), name: str = Form("")):
         machine = adopt_state_log()
     except Exception as e:
         machine = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
-    return j({"source": src_public(SRC.get(s["id"])), "sync": r, "machine": machine})
+    quality = None
+    try:   # a pass/fail result per unit (inspection or test data) is a different kind of file from a machine log
+        from mcpx import servers as MS
+        MS._INS.clear()
+        tn = (r.get("tables") or {})
+        hit = next((x for x in MS._find_inspection() if x["table"] in tn), None)
+        if hit:
+            res = hit["df"][hit["result"]].astype(str).str.lower().isin(MS._FAIL)
+            quality = {"table": hit["table"], "units": int(len(hit["df"])), "fail_rate": round(float(res.mean()), 4), "signals": int(sum(1 for c in hit["df"].columns if str(hit["df"][c].dtype).startswith(("float", "int")))),
+                       "has_time": bool(hit["ts"])}
+    except Exception:
+        pass
+    return j({"source": src_public(SRC.get(s["id"])), "sync": r, "machine": machine, "quality": quality})
 
 
 @router.post("/sources/url")

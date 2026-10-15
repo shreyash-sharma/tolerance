@@ -23,13 +23,14 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
   const [also, setAlso] = useState<string[]>([]);
   const [db, setDb] = useState('');
   const [mcp, setMcp] = useState('');
-  const [up, setUp] = useState<{ busy: boolean; err: string; machine: any }>({ busy: false, err: '', machine: null });
+  const [up, setUp] = useState<{ busy: boolean; err: string; machine: any; quality?: any }>({ busy: false, err: '', machine: null });
   const pick = async (f: File | undefined) => {
     if (!f) return;
     setUp({ busy: true, err: '', machine: null });
     try {
       const r = await onUpload(f);
-      if (r.machine?.stations?.length) { setSel([]); setUp({ busy: false, err: '', machine: r.machine }); }
+      if (r.machine?.stations?.length) { setSel([]); setUp({ busy: false, err: '', machine: r.machine, quality: r.quality }); }
+      else if (r.quality) { setSel([]); setUp({ busy: false, err: '', machine: null, quality: r.quality }); }
       else setUp({ busy: false, err: r.machine?.error || 'I could not find machine states in that file. I need a time, a machine name and a state.', machine: null });
     } catch (e: any) { setUp({ busy: false, err: String(e.message || e), machine: null }); }
   };
@@ -72,6 +73,10 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
           <input type="file" accept=".csv,.db,.sqlite,.sqlite3" disabled={up.busy || disabled} onChange={(e) => pick(e.target.files?.[0])} />
           {up.busy && <div className="mut" style={{ marginTop: 6 }}>Reading your log…</div>}
           {up.err && <div style={{ marginTop: 6, color: '#ef6b57', fontSize: 13 }}>{up.err}</div>}
+          {up.quality && <div style={{ marginTop: 8, fontSize: 13 }}>
+            <b style={{ color: '#7be0a6' }}>Read inspection data</b>: {up.quality.units.toLocaleString()} units, {(up.quality.fail_rate * 100).toFixed(2)}% fail, {up.quality.signals} signals{up.quality.has_time ? '' : ', no time column'}.<br />
+            <span className="mut">This is quality data, not a machine log. The inspection agents can rank which signals and stations separate failing units. {up.machine ? '' : 'Add a machine log too if you want stations on the floor.'}</span>
+          </div>}
           {up.machine && <div style={{ marginTop: 8, fontSize: 13 }}>
             <b style={{ color: '#7be0a6' }}>Read {up.machine.rows.toLocaleString()} state changes</b> · {up.machine.from} to {up.machine.to}<br />
             Stations: <b>{up.machine.stations.join(', ')}</b><br />
@@ -106,7 +111,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
           <div className="mut" style={{ fontSize: 12 }}>An MCP server joins the same gateway. Every tool it brings passes the Warden gate like the others.</div>
         </div>
       </div>
-      <div><button className="btn" disabled={disabled || up.busy || (sel.length === 0 && !up.machine)} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
+      <div><button className="btn" disabled={disabled || up.busy || (sel.length === 0 && !up.machine && !up.quality)} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
     </div>
   );
 }
