@@ -44,7 +44,7 @@ type Anim = { id: string; sid: string; kind: 'belt' | 'yaw' | 'swing' | 'swing2'
 
 const SRC_COL = ['#2dd4bf', '#f59e0b', '#a78bfa', '#f472b6', '#60a5fa', '#a3e635'];
 type Legend = { label: string; color: string }[];
-type Label = { id: string; name: string; x: number; z: number; state: string; ghost?: string; p?: number | null };
+type Label = { id: string; name: string; x: number; z: number; state: string; ghost?: string; p?: number | null; warn?: string[] };
 const FRIENDLY: Record<string, string> = { station_states: 'Machine state log', inspection_results_real_secom: 'Inspection results', alert_feed__alerts: 'Alert feed', cases: 'Incident cases', service_catalog: 'Service catalog', trace_edges: 'Service traces' };
 const friendly = (t: string) => FRIENDLY[t] || t.replace(/_/g, ' ');
 
@@ -97,12 +97,13 @@ function LabelLayer({ items, els, host, onPick }: { items: Label[]; els: React.M
     <div ref={host} className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
       {items.map((it) => {
         const failed = it.state === 'failed';
+        const warn = !!it.warn && it.warn.length > 0;   // a Sentinel rule that feeds this station is failing
         return (
-          <button key={it.id} ref={(el) => { if (el) els.current.set(it.id, el); else els.current.delete(it.id); }} onClick={() => onPick(it.id)}
+          <button key={it.id} title={warn ? 'Sentinel: ' + it.warn!.join('; ') : undefined} ref={(el) => { if (el) els.current.set(it.id, el); else els.current.delete(it.id); }} onClick={() => onPick(it.id)}
             style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', display: 'none' }}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold shadow-lg backdrop-blur ${failed ? 'animate-pulse border-red-300 bg-red-600 px-3.5 py-1.5 text-sm text-white' : it.ghost ? 'border-dashed border-violet-300/70 bg-violet-950/80 text-violet-100' : 'border-white/20 bg-neutral-950/80 text-white'}`}>
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold shadow-lg backdrop-blur ${warn && !failed ? 'ring-2 ring-amber-300' : ''} ${failed ? 'animate-pulse border-red-300 bg-red-600 px-3.5 py-1.5 text-sm text-white' : it.ghost ? 'border-dashed border-violet-300/70 bg-violet-950/80 text-violet-100' : 'border-white/20 bg-neutral-950/80 text-white'}`}>
             <i className="inline-block h-2 w-2 rounded-full" style={{ background: failed ? '#fff' : it.ghost ? '#b9a7ff' : STATE_COL[it.state] || STATE_COL.unknown }} />
-            {it.name}{failed ? ' · FAILED' : it.ghost ? ' · ghost' : ''}
+            {it.name}{failed ? ' · FAILED' : it.ghost ? ' · ghost' : warn ? ' · ⚠ data check failing' : ''}
           </button>
         );
       })}
@@ -276,6 +277,8 @@ export default function Floor3D() {
   const remounted = useRef(false);
   const planRef = useRef<any>(null);
   const docsAt = useRef(0);
+  const impactRef = useRef<Record<string, string[]>>({});
+  const impactAt = useRef(0);
   const docsRef = useRef<any>(null);
   const twinRef = useRef<Twin | null>(null);
   const nodeStation = useRef<Record<string, string>>({});
@@ -331,6 +334,7 @@ export default function Floor3D() {
         try {
           const now = Date.now();
           if (now - docsAt.current > 15000) { docsAt.current = now; docsRef.current = await api<any>('/ws/docs'); }
+          if (now - impactAt.current > 15000) { impactAt.current = now; impactRef.current = (await api<any>('/jig/sentinel/impact')).stations || {}; }
           const docs = docsRef.current || { ghosts: [] };
           const c1 = tw.stations.find((x) => x.name === 'C1'), tr = tw.stations.find((x) => x.name === 'TR');
           (docs.ghosts || []).filter((g: any) => g.status !== 'ignored').forEach((g: any, i: number) => {
@@ -340,8 +344,8 @@ export default function Floor3D() {
         const q = new URLSearchParams(window.location.search).get('fail'); if (q) q.split(',').forEach((n) => forced.current.add(n));
         tw.stations.forEach((x) => { if (forced.current.has(x.name)) x.state = 'failed'; });
         twinRef.current = tw;
-        const lab: Label[] = tw.stations.map((x) => ({ id: x.id, name: x.name, x: (x.x - 0.5) * (FLOOR_W - 6), z: (x.y - 0.5) * (FLOOR_D - 4), state: x.state, ghost: x.ghost, p: x.p_fail }));
-        const lsig = lab.map((l) => `${l.id}:${l.state}:${l.ghost || ''}:${l.x.toFixed(1)}:${l.z.toFixed(1)}`).join('|');
+        const lab: Label[] = tw.stations.map((x) => ({ id: x.id, name: x.name, x: (x.x - 0.5) * (FLOOR_W - 6), z: (x.y - 0.5) * (FLOOR_D - 4), state: x.state, ghost: x.ghost, p: x.p_fail, warn: impactRef.current[x.name] }));
+        const lsig = lab.map((l) => `${l.id}:${l.state}:${l.ghost || ''}:${l.x.toFixed(1)}:${l.z.toFixed(1)}:${(l.warn || []).length}`).join('|');
         if (lsig !== labelSig.current) { labelSig.current = lsig; setLabels(lab); }
         tw.stations.forEach((x) => { if (x.state === 'failed' && prev.current[x.id] && prev.current[x.id] !== 'failed') { flyTo(x.id); setSel(x.id); setAlertSid(x.id); } prev.current[x.id] = x.state; });
         tw.stations.forEach((x) => { states.current[x.id] = x.state; });

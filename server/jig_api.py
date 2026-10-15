@@ -212,6 +212,54 @@ def sentinel_get():
     return j(SV.public())
 
 
+class ScheduleBody(BaseModel):
+    enabled: bool
+    every_min: int = 5
+    tz_offset_min: int = 0
+
+
+class WindowBody(BaseModel):
+    name: str = ""
+    start: str
+    end: str
+    rules: list = []
+
+
+@router.post("/sentinel/schedule")
+def sentinel_schedule(b: ScheduleBody):
+    from sentinel import service as SV
+    _sentinel(SV.set_schedule, b.enabled, b.every_min, b.tz_offset_min)
+    return j(SV.public())
+
+
+@router.post("/sentinel/windows")
+def sentinel_window_add(b: WindowBody):
+    from sentinel import service as SV
+    _sentinel(SV.add_window, b.name, b.start, b.end, b.rules)
+    return j(SV.public())
+
+
+@router.delete("/sentinel/windows/{wid}")
+def sentinel_window_remove(wid: str):
+    from sentinel import service as SV
+    SV.remove_window(wid)
+    return j(SV.public())
+
+
+@router.post("/sentinel/windows/propose")
+def sentinel_window_propose():
+    from sentinel import service as SV
+    SV.propose_windows()
+    return j(SV.public())
+
+
+@router.get("/sentinel/impact")
+def sentinel_impact():
+    """For the floor: which stations lose their data because a rule is failing, and which rules say so."""
+    from sentinel import service as SV
+    return j(SV.impact_map())
+
+
 @router.get("/sentinel/columns")
 def sentinel_columns(table: str):
     from sentinel import service as SV

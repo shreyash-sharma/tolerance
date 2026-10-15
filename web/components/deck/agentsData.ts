@@ -206,12 +206,13 @@ export const AGENTS: AgentCard[] = [
     "team": "operations",
     "job": "Checks your systems and the agents' own claims with plain rules, and tells a person when one fails.",
     "use_case": "A plant's IT side fails quietly: a feed stops, a column changes, a service is slow. A model should not be the judge of that.",
-    "solution": "Rules check a field with an operator and a value: on your data tables, a web address, a network port, a service protocol, or what the documents say. An optional Decide check lets Gemini put short texts into labels you choose, and its answer is limited to those labels. Code decides every result. A rule that starts failing tells your channels.",
+    "solution": "Rules check a field with an operator and a value: on your data tables, a web address, a network port, a service protocol, or what the documents say. An optional Decide check lets Gemini put short texts into labels you choose, and its answer is limited to those labels. Code decides every result. A schedule runs the rules by itself. Maintenance windows keep planned work quiet. An impact map shows which stations lose their data. A rule that starts failing, and one that recovers, tells your channels.",
     "outcomes": [
       "Pass or fail for each rule",
       "What it saw",
       "Labels for short texts (optional)",
-      "A message to a person when a rule starts failing"
+      "The stations that lose data when a rule fails",
+      "A message to a person when a rule fails or recovers"
     ],
     "gemini_use": "Only in the optional Decide check: it puts short texts into labels you choose, limited to those labels. Plain code decides every result.",
     "mode": "mixed",

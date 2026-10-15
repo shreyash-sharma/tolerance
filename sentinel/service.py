@@ -1,31 +1,161 @@
-"""Sentinel rules for one visitor: stored, proposed from the visitor's data, run, and reported. A rule that turns from passing to failing tells the visitor's channels."""
-import time, uuid
+"""Sentinel rules for one visitor: stored, proposed from the visitor's data, run, and reported.
+A rule that turns from passing to failing tells the visitor's channels, and so does one that recovers. Maintenance windows quiet a rule
+while planned work is on. An impact map says which stations lose their data when a rule fails. A schedule runs the rules without a click."""
+import re, secrets, time, uuid
 
-from sentinel import checks, decide, engine, guard, protocols
+from sentinel import checks, decide, engine, guard, heartbeat, protocols
 from workspace import store
 
-MAX_RULES = 30
-KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "service": "A service on your network (MQTT, Redis, a database)", "decide": "AI-assisted: put texts into labels you choose", "claims": "What the documents say"}
+MAX_RULES, MAX_WINDOWS = 30, 12
+KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "service": "A service on your network (MQTT, Redis, a database)",
+         "tls": "A certificate (days until it expires)", "heartbeat": "A heartbeat (a machine or script calls in)", "decide": "AI-assisted: put texts into labels you choose", "claims": "What the documents say"}
 _PRESET = {
     "rows_present": {"path": "rows", "op": "gt", "value": 0},
     "not_too_empty": {"path": "worst_null_rate", "op": "lte", "value": 0.5},
     "schema_same": {"path": "schema_unchanged", "op": "eq", "value": True},
 }
+_IMPACT = store.PerUser(lambda: {"t": 0.0, "v": {}})
 
 
 def _state():
     d = store.load()
-    return d, d.setdefault("sentinel", {"rules": [], "last": {}, "history": {}})
+    s = d.setdefault("sentinel", {})
+    s.setdefault("rules", [])
+    s.setdefault("last", {})
+    s.setdefault("history", {})
+    s.setdefault("windows", [])
+    s.setdefault("schedule", {"enabled": False, "every_min": 5, "last_run": 0, "tz_offset_min": 0})
+    return d, s
 
 
-def public():
+# ---------------------------------------------------------------- the schedule
+def schedule():
+    return _state()[1]["schedule"]
+
+
+def set_schedule(enabled, every_min, tz_offset_min):
+    from sentinel import schedule as SCH
+    every = int(every_min)
+    if not SCH.MIN_EVERY <= every <= SCH.MAX_EVERY:
+        raise ValueError(f"Run every {SCH.MIN_EVERY} to {SCH.MAX_EVERY} minutes.")
     d, s = _state()
+    s["schedule"].update(enabled=bool(enabled), every_min=every, tz_offset_min=max(-720, min(840, int(tz_offset_min or 0))))
+    SCH.mark(store.UID.get(), bool(enabled))
+    store.save(d)
+    return s["schedule"]
+
+
+# ---------------------------------------------------------------- maintenance windows
+def _mins(hhmm):
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", str(hhmm).strip())
+    if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+        raise ValueError("A time looks like 02:00.")
+    return int(m.group(1)) * 60 + int(m.group(2))
+
+
+def add_window(name, start, end, rules=None):
+    a, b = _mins(start), _mins(end)
+    if a == b:
+        raise ValueError("The start and the end must differ.")
+    d, s = _state()
+    if len(s["windows"]) >= MAX_WINDOWS:
+        raise ValueError(f"At most {MAX_WINDOWS} windows. Remove one first.")
+    ids = {r["id"] for r in s["rules"]}
+    s["windows"].append({"id": "mw_" + uuid.uuid4().hex[:6], "name": (name or "Maintenance").strip()[:60], "start": start.strip(), "end": end.strip(), "rules": [r for r in (rules or []) if r in ids]})
+    store.save(d)
+
+
+def remove_window(wid):
+    d, s = _state()
+    s["windows"] = [w for w in s["windows"] if w["id"] != wid]
+    store.save(d)
+
+
+def active_window(rid, s=None, now=None):
+    """The maintenance window that is on now for this rule, or None. Windows are daily; one that ends before it starts crosses midnight."""
+    s = s or _state()[1]
+    t = time.gmtime((now if now is not None else time.time()) + s["schedule"].get("tz_offset_min", 0) * 60)
+    cur = t.tm_hour * 60 + t.tm_min
+    for w in s["windows"]:
+        if w["rules"] and rid not in w["rules"]:
+            continue
+        a, b = _mins(w["start"]), _mins(w["end"])
+        if (a <= cur < b) if a < b else (cur >= a or cur < b):
+            return w
+    return None
+
+
+def propose_windows():
+    """Windows from the maintenance times the documents state for each station. A window covers the rules that touch that station."""
+    from documents import engine as DE
+    d, s = _state()
+    have = {w["name"] for w in s["windows"]}
+    imp = impact_map(s)
+    added = 0
+    for g in DE.state().get("guardrails", []):
+        if g["predicate"] != "maintenance_window" or not g.get("value") or g["status"] == "blocked":
+            continue
+        m = re.fullmatch(r"\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*", str(g["value"]))
+        name = f"{g['subject']} maintenance (from {g.get('doc')})"
+        if not m or name in have or len(s["windows"]) >= MAX_WINDOWS:
+            continue
+        rules = [rid for rid, sts in imp["rules"].items() if g["subject"] in sts]
+        s["windows"].append({"id": "mw_" + uuid.uuid4().hex[:6], "name": name, "start": m.group(1), "end": m.group(2), "rules": rules})
+        added += 1
+    store.save(d)
+    return added
+
+
+# ---------------------------------------------------------------- the impact map
+def _stations_of(rule, bound):
+    t = rule["target"]
+    if rule["kind"] in ("table", "decide") and t.get("table"):
+        return sorted(bound.get(t["table"], []))
+    return sorted(t.get("affects", []))
+
+
+def impact_map(s=None, fresh=False):
+    """Which stations lose their data if a rule fails: stations are tied to tables, and any other rule can name the stations it affects."""
+    c = _IMPACT._cur()
+    s = s or _state()[1]
+    if fresh or time.time() - c["t"] > 20 or not c["v"].get("bound_ok"):
+        bound = {}
+        try:
+            from workspace import twin
+            for st in twin.build()["stations"]:
+                if st.get("ghost") or str(st["id"]).startswith("ghost:"):
+                    continue
+                for b in st.get("binds", []):
+                    bound.setdefault(b["table"], []).append(st["name"])
+        except Exception:
+            pass
+        c["v"] = {"bound": bound, "bound_ok": True}
+        c["t"] = time.time()
+    bound = c["v"]["bound"]
+    rules = {r["id"]: _stations_of(r, bound) for r in s["rules"]}
+    failing = {}
+    for r in s["rules"]:
+        last = s["last"].get(r["id"])
+        if last and not last["ok"] and not last.get("maintenance"):
+            for st in rules[r["id"]]:
+                failing.setdefault(st, []).append(r["name"])
+    return {"rules": rules, "stations": failing}
+
+
+# ---------------------------------------------------------------- reading and writing rules
+def public():
+    from foreman import notify
+    d, s = _state()
+    imp = impact_map(s)
     out = []
     for r in s["rules"]:
         last = s["last"].get(r["id"])
-        out.append({**{k: v for k, v in r.items() if k != "baseline_cols"}, "last": last, "history": s["history"].get(r["id"], [])[-20:],
-                    "text": [engine.describe(a) for a in r["assertions"]]})
-    return {"rules": out, "engines": decide.ENGINES, "kinds": KINDS, "protocols": {k: {"title": v[0], "port": v[1], "kind": v[2]} for k, v in protocols.PROTOCOLS.items()}, "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables()}
+        extra = {"hb_url": f"{notify.public_url()}/api/hb/{r['target']['token']}"} if r["kind"] == "heartbeat" else {}
+        out.append({**{k: v for k, v in r.items() if k != "baseline_cols"}, **extra, "last": last, "history": s["history"].get(r["id"], [])[-20:],
+                    "text": [engine.describe(a) for a in r["assertions"]], "stations": imp["rules"].get(r["id"], []), "in_maintenance": bool(active_window(r["id"], s))})
+    return {"rules": out, "engines": decide.ENGINES, "kinds": KINDS, "protocols": {k: {"title": v[0], "port": v[1], "kind": v[2]} for k, v in protocols.PROTOCOLS.items()},
+            "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables(), "schedule": s["schedule"], "windows": s["windows"], "impacted": imp["stations"],
+            "stations": sorted({x for v in imp["rules"].values() for x in v})}
 
 
 def columns(table):
@@ -47,11 +177,20 @@ def add(name, kind, target, assertions, severity="warn"):
     if kind not in KINDS:
         raise ValueError("unknown kind")
     target = dict(target or {})
+    affects = [str(x)[:40] for x in (target.get("affects") or [])][:20] if isinstance(target.get("affects"), list) else []
+    token = None
     if kind == "http":
-        target["url"] = guard.check_url(target.get("url"))
+        target = {"url": guard.check_url(target.get("url"))}
     elif kind == "tcp":
         guard.check_host(str(target.get("host", "")), int(target.get("port", 0)))
         target = {"host": str(target["host"]), "port": int(target["port"])}
+    elif kind == "tls":
+        host, port = str(target.get("host", "")).strip(), int(target.get("port") or 443)
+        guard.check_host(host, port)
+        target = {"host": host, "port": port}
+    elif kind == "heartbeat":
+        token = secrets.token_urlsafe(18)
+        target = {"token": token, "grace_s": max(10, min(86400 * 7, int(target.get("grace_s") or 300)))}
     elif kind == "service":
         proto = target.get("protocol")
         if proto not in protocols.PROTOCOLS:
@@ -75,6 +214,8 @@ def add(name, kind, target, assertions, severity="warn"):
                   "options": decide.clean_options(target.get("options")), "engine": target.get("engine", "gemini")}
     elif kind == "table" and not target.get("table"):
         raise ValueError("choose a table")
+    if affects and kind not in ("table", "decide"):
+        target["affects"] = affects
     clean = []
     for a in assertions or []:
         if a.get("op") not in engine.OPS or not str(a.get("path", "")).strip():
@@ -87,15 +228,23 @@ def add(name, kind, target, assertions, severity="warn"):
         raise ValueError(f"At most {MAX_RULES} rules. Remove one first.")
     rid = "sr_" + uuid.uuid4().hex[:8]
     s["rules"].append({"id": rid, "name": (name or KINDS[kind]).strip()[:60], "kind": kind, "target": target, "assertions": clean, "severity": "crit" if severity == "crit" else "warn"})
+    if token:
+        heartbeat.ensure(token)
     store.save(d)
     return rid
 
 
 def remove(rid):
     d, s = _state()
+    gone = [r for r in s["rules"] if r["id"] == rid]
     s["rules"] = [r for r in s["rules"] if r["id"] != rid]
     s["last"].pop(rid, None)
     s["history"].pop(rid, None)
+    for w in s["windows"]:
+        w["rules"] = [x for x in w["rules"] if x != rid]
+    for r in gone:
+        if r["kind"] == "heartbeat":
+            heartbeat.remove(r["target"]["token"])
     store.save(d)
 
 
@@ -118,6 +267,7 @@ def propose():
     return added
 
 
+# ---------------------------------------------------------------- running
 def observe(rule):
     k, t = rule["kind"], rule["target"]
     if k == "table":
@@ -126,6 +276,10 @@ def observe(rule):
         return checks.http_observation(t["url"])
     if k == "tcp":
         return checks.tcp_observation(t["host"], t["port"])
+    if k == "tls":
+        return checks.tls_observation(t["host"], t["port"])
+    if k == "heartbeat":
+        return heartbeat.observe(t["token"], t["grace_s"])
     if k == "decide":
         return decide.observe(t)
     if k == "service":
@@ -136,6 +290,14 @@ def observe(rule):
         return {"facts": len(st["claims"]), "conflicts": len([c for c in st["conflicts"] if not c.get("resolved")]), "stations_only_in_text": len(st["ghosts"]),
                 "gaps": len(st["gaps"]), "hidden_orders_removed": len(st["injections"])}
     raise ValueError("unknown kind")
+
+
+def _tell(title, text):
+    try:
+        from foreman import notify
+        notify.dispatch(title, text)
+    except Exception:
+        pass
 
 
 def run_rule(rid):
@@ -152,24 +314,32 @@ def run_rule(rid):
         out = {"at": time.time(), "ok": res["ok"], "results": res["results"], "seen": summary, "error": None}
     except Exception as e:
         out = {"at": time.time(), "ok": False, "results": [], "seen": {}, "error": f"{type(e).__name__}: {str(e)[:140]}"}
+    win = active_window(rid, s)
+    out["maintenance"] = win["name"] if win else None
     before = s["last"].get(rid)
     s["last"][rid] = out
-    s["history"].setdefault(rid, []).append(bool(out["ok"]))
+    s["history"].setdefault(rid, []).append(None if win else bool(out["ok"]))   # a run during maintenance is shown grey, not red
     del s["history"][rid][:-60]
     store.save(d)
-    if not out["ok"] and (before is None or before.get("ok")):
-        try:
-            from foreman import notify
-            bad = [engine.describe(a) for a, r in zip(rule["assertions"], out["results"]) if not r["ok"]] or [out["error"]]
-            notify.dispatch(f"Sentinel: {rule['name']} failed ({'critical' if rule['severity'] == 'crit' else 'warning'})", "; ".join(str(b) for b in bad[:3]))
-        except Exception:
-            pass
+    if win:
+        return out
+    stations = impact_map(s)["rules"].get(rid, [])
+    if not out["ok"] and (before is None or before.get("ok") or before.get("maintenance")):
+        bad = [engine.describe(a) for a, r in zip(rule["assertions"], out["results"]) if not r["ok"]] or [out["error"]]
+        _tell(f"Sentinel: {rule['name']} failed ({'critical' if rule['severity'] == 'crit' else 'warning'})", "; ".join(str(b) for b in bad[:3]) + (f". Affects: {', '.join(stations[:8])}." if stations else ""))
+    elif out["ok"] and before is not None and not before.get("ok") and not before.get("maintenance"):
+        _tell(f"Sentinel: {rule['name']} is back", "The rule passes again." + (f" Affects: {', '.join(stations[:8])}." if stations else ""))
     return out
 
 
-def run_all():
+def run_all(scheduled=False):
     d, s = _state()
-    ids = [r["id"] for r in s["rules"]]
-    for rid in ids:
-        run_rule(rid)
+    for r in list(s["rules"]):
+        if scheduled and r["kind"] == "decide":
+            continue   # a model call on every tick would cost too much: Decide runs only when a person asks
+        run_rule(r["id"])
+    if scheduled:
+        d, s = _state()
+        s["schedule"]["last_run"] = time.time()
+        store.save(d)
     return public()

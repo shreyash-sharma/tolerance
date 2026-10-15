@@ -36,6 +36,8 @@ def ensure_sample_plant():
 def boot():
     S["compile_now"] = lambda: compile_now()
     WSRC.LIVE.start()
+    from sentinel import schedule as _sch
+    _sch.start()   # runs the rules of visitors who switched the schedule on
     threading.Thread(target=lambda: (time.sleep(8), compile_now()), daemon=True).start()  # warm the semantic naming cache
     if os.environ.get("K_SERVICE") or os.environ.get("AUTO_SAMPLE_DATA") == "1":
         def _attach():
@@ -352,6 +354,8 @@ from server import jig_api
 app.include_router(jig_api.router)
 from server import probe_api
 app.include_router(probe_api.router)
+from sentinel import heartbeat as _hb
+app.include_router(_hb.router)
 @app.middleware("http")
 async def sign_in_check(request, call_next):
     """Cloud mode: /api calls need a valid Firebase token, and the store then answers for that user only."""
@@ -368,7 +372,7 @@ async def sign_in_check(request, call_next):
             finally:
                 store.UID.reset(tok)
         return JSONResponse({"detail": "sign in required"}, status_code=401)
-    if auth.REQUIRED and path.startswith("/api/") and path not in auth.PUBLIC:
+    if auth.REQUIRED and path.startswith("/api/") and path not in auth.PUBLIC and not path.startswith("/api/hb/"):   # a heartbeat holds only a secret token
         h = request.headers.get("authorization", "")
         user = auth.verify(h[7:]) if h.lower().startswith("bearer ") else None
         if not user:
