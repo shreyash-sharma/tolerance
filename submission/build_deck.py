@@ -389,60 +389,212 @@ for i, (n, t) in enumerate([("1", "Open the final product link."), ("2", "Choose
 
 
 
-# ------------------------------------------------------------------ benchmark slide (RCAEval), placed right after the performance slide
+# ------------------------------------------------------------------ benchmarking, written up like a short paper (numbers read from bench/results/research.json)
+import json as _json
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION, XL_MARKER_STYLE
+R = _json.load(open(os.path.join(HERE, "..", "bench", "results", "research.json"), encoding="utf-8"))
+RC, AU = R["rca"], R["autonomy"]
+BASE = "BARO (official, collapsed to services)"
+f2 = lambda v: f"{v:.2f}"
+sg = lambda v: f"{v:+.2f}"
+
+
+def ci_row(t):   # (mean, lo, hi, p)
+    return f"{sg(t[0])}  [{sg(t[1])}, {sg(t[2])}]"
+
+
+def style_chart(ch, title, lo=None, hi=None, labels=True, legend=True, numfmt="0.00"):
+    ch.has_title = True
+    ch.chart_title.text_frame.text = title
+    r = ch.chart_title.text_frame.paragraphs[0].runs[0]
+    r.font.size = Pt(11); r.font.bold = True
+    ch.has_legend = legend
+    if legend:
+        ch.legend.position = XL_LEGEND_POSITION.BOTTOM
+        ch.legend.include_in_layout = False
+        ch.legend.font.size = Pt(10)
+    va = ch.value_axis
+    if lo is not None:
+        va.minimum_scale, va.maximum_scale = lo, hi
+    va.has_major_gridlines = True
+    va.major_gridlines.format.line.color.rgb = rgb(LINE)
+    va.tick_labels.font.size = Pt(10)
+    ch.category_axis.tick_labels.font.size = Pt(10)
+    if labels:
+        pl = ch.plots[0]
+        pl.has_data_labels = True
+        pl.data_labels.font.size = Pt(9)
+        pl.data_labels.number_format = numfmt
+        pl.data_labels.number_format_is_linked = False
+
+
+def table(slide, x, y, w, rows, widths, head, size=10, name="table"):
+    sh = slide.shapes.add_table(len(rows) + 1, len(head), Inches(x), Inches(y), Inches(w), Inches(0.3 * (len(rows) + 1)))
+    sh.name = name
+    tb = sh.table
+    for j, wd in enumerate(widths):
+        tb.columns[j].width = Inches(wd)
+    for i, row in enumerate([head] + rows):
+        tb.rows[i].height = Inches(0.3)
+        for j, v in enumerate(row):
+            c = tb.cell(i, j)
+            c.margin_left = c.margin_right = Inches(0.05)
+            c.margin_top = c.margin_bottom = Inches(0.02)
+            c.fill.solid()
+            c.fill.fore_color.rgb = rgb(BLUE if i == 0 else ("FFFFFF" if i % 2 else CARD))
+            para = c.text_frame.paragraphs[0]
+            para.alignment = PP_ALIGN.LEFT if j == 0 else PP_ALIGN.CENTER
+            run = para.add_run()
+            run.text = str(v)
+            font(run, size, bold=(i == 0), color="FFFFFF" if i == 0 else INK)
+    return sh
+
+
+def banner(slide, y, t, h=0.55):
+    card(slide, 0.3, y, 9.4, h, fill="E8F0FE", name="takeaway")
+    text(slide, 0.45, y, 9.1, h, [{"t": t, "size": 11, "bold": True, "color": BLUE}], anchor=MSO_ANCHOR.MIDDLE, name="takeaway text")
+
+
+# ---- R1 design
+s = S[23]
+set_title(s, "Benchmark design: three questions, one protocol")
+qs = [("Q1", "Does the root-cause ranking beat BARO on metric-only faults?", "RCAEval RE1: 298 cases, four faults (CPU, memory, delay, loss), three systems."),
+      ("Q2", "Does a second source (traces, logs) help on code-level faults?", "RCAEval RE3: 90 cases, five fault types, three systems."),
+      ("Q3", "Does the safety gate bound the harm of a wrong action?", "465 recorded incidents scored by Warden, with the diagnosis marked right or wrong.")]
+for i, (q, h, d) in enumerate(qs):
+    y = 1.25 + i * 1.12
+    card(s, 0.3, y, 5.3, 1.04, name="question card")
+    text(s, 0.38, y + 0.05, 0.6, 0.5, [{"t": q, "size": 18, "bold": True, "color": BLUE}], name="question number")
+    text(s, 1.0, y + 0.05, 4.55, 0.98, [{"t": h, "size": 11.5, "bold": True, "after": 3}, {"t": d, "size": 10, "color": MUTED}], name="question text")
+card(s, 5.75, 1.25, 3.95, 3.36, name="protocol card")
+text(s, 5.87, 1.3, 3.75, 3.3, [
+    {"t": "Protocol", "size": 12, "bold": True, "color": BLUE, "after": 5},
+    {"t": "Baseline: the authors' BARO code, unmodified, scored the way RCAEval scores it (Avg@5).", "size": 10, "bullet": True, "after": 4},
+    {"t": "Every interval is a 95% bootstrap over cases (10,000 resamples). Differences are paired: both methods on the same cases.", "size": 10, "bullet": True, "after": 4},
+    {"t": "The fusion constant was fixed before we looked at results. Every variant is reported, not the best one.", "size": 10, "bullet": True, "after": 4},
+    {"t": "No Gemini anywhere in Q1 and Q2. Raw per-case results and scripts are in the repository.", "size": 10, "bullet": True},
+], name="protocol text")
+banner(s, 4.72, "Not run, and not claimed: RCAEval RE2, the other published baselines, and the Gemini agent at scale.", 0.5)
+
+# ---- R2 RE1
 s = S[22]
-set_title(s, "Benchmarking: finding the root cause on RCAEval")
+set_title(s, "Q1: a clear gain on metric-only faults, largest for packet loss")
+cd = CategoryChartData()
+cd.categories = ["CPU", "Memory", "Disk", "Delay", "Loss"]
+fa = RC["faults"]
+cd.add_series("BARO", [fa[k][BASE][0] for k in ("cpu", "mem", "disk", "delay", "loss")])
+cd.add_series("Tolerance", [fa[k]["Ours: metric shift"][0] for k in ("cpu", "mem", "disk", "delay", "loss")])
+gf = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.3), Inches(1.2), Inches(5.0), Inches(3.4), cd)
+gf.name = "RE1 by fault chart"
+style_chart(gf.chart, "Avg@5 by fault type, RE1 (about 75 cases each)", 0.5, 1.0)
+for ser, col in zip(gf.chart.plots[0].series, ("9AA0A6", BLUE)):
+    ser.format.fill.solid(); ser.format.fill.fore_color.rgb = rgb(col)
+gf.chart.plots[0].gap_width = 60
+PR = RC["paired"]
+rows = [[n.replace("RE1 ", ""), PR[n]["n"], ci_row(PR[n]["Ours: metric shift"])] for n in ("RE1 all", "RE1 Train Ticket", "RE1 Online Boutique", "RE1 Sock Shop")]
+text(s, 5.45, 1.2, 4.25, 0.3, [{"t": "Difference from BARO, Avg@5 (95% interval)", "size": 11, "bold": True, "color": BLUE}], name="table title")
+table(s, 5.45, 1.55, 4.25, rows, [1.45, 0.5, 2.3], ["Subset", "n", "Tolerance minus BARO"], size=10, name="RE1 paired table")
+text(s, 5.45, 3.2, 4.25, 1.4, [
+    {"t": "BARO is already at 0.96 on Sock Shop, so there is little room.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Train Ticket is where the baseline is weakest (0.66), and where we gain most.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Memory and delay: no difference.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Pooled rows use the four faults the BARO paper reports (disk is in the chart only).", "size": 10, "bullet": True, "color": MUTED},
+], name="reading")
+banner(s, 4.72, "Significant on the pooled set and on Train Ticket. Borderline on Online Boutique, not significant on Sock Shop.", 0.5)
+
+# ---- R3 RE3
+s = S[24]
+set_title(s, "Q2: on code-level faults metrics alone fail, a second source recovers it")
 cd = CategoryChartData()
 cd.categories = ["Online Boutique", "Sock Shop", "Train Ticket"]
-cd.add_series("Official BARO, our run", (0.869, 0.954, 0.652))
-cd.add_series("BARO, published", (0.86, 0.95, 0.79))
-cd.add_series("Tolerance", (0.914, 0.976, 0.848))
-gf = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.3), Inches(1.25), Inches(5.9), Inches(3.55), cd)
-gf.name = "RCAEval chart"
-ch = gf.chart
-ch.has_title = True
-ch.chart_title.text_frame.text = "Avg@5 on RE1 (metrics only), higher is better"
-ch.chart_title.text_frame.paragraphs[0].runs[0].font.size = Pt(11)
-ch.chart_title.text_frame.paragraphs[0].runs[0].font.bold = True
-ch.has_legend = True
-ch.legend.position = XL_LEGEND_POSITION.BOTTOM
-ch.legend.include_in_layout = False
-ch.legend.font.size = Pt(10)
-va = ch.value_axis
-va.minimum_scale, va.maximum_scale = 0.5, 1.0
-va.has_major_gridlines = True
-va.major_gridlines.format.line.color.rgb = rgb(LINE)
-va.tick_labels.font.size = Pt(10)
-ch.category_axis.tick_labels.font.size = Pt(10)
-for ser, col in zip(ch.plots[0].series, ("9AA0A6", "BDC1C6", BLUE)):
-    ser.format.fill.solid()
-    ser.format.fill.fore_color.rgb = rgb(col)
-pl = ch.plots[0]
-pl.gap_width = 60
-pl.has_data_labels = True
-pl.data_labels.font.size = Pt(9)
-pl.data_labels.number_format = "0.00"
-pl.data_labels.number_format_is_linked = False
-pl.data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
-text(s, 6.4, 1.25, 3.3, 3.6, [
-    {"t": "What this is", "size": 12, "bold": True, "color": BLUE, "after": 4},
-    {"t": "Real fault-injection cases on three microservice systems. We use RCAEval's own scorer and the authors' own BARO code, unmodified.", "size": 10.5, "bullet": True, "after": 4},
-    {"t": "Our harness reproduces the paper on Online Boutique and Sock Shop. Train Ticket does not (0.652 against the paper's 0.79).", "size": 10.5, "bullet": True, "after": 4},
-    {"t": "Gemini is not used for these numbers.", "size": 10.5, "bullet": True, "after": 8},
-    {"t": "Where we do not win", "size": 12, "bold": True, "color": RED, "after": 4},
-    {"t": "On RE3 (code-level faults) the result is mixed: with weights tuned out of sample we win 1 of 3 systems.", "size": 10.5, "bullet": True, "after": 4},
-    {"t": "With out-of-sample fusion, Train Ticket on RE1 falls to 0.744, below the published 0.79.", "size": 10.5, "bullet": True},
-], name="benchmark notes")
-card(s, 0.3, 4.9, 9.4, 0.45, fill="E8F0FE", name="benchmark banner")
-text(s, 0.45, 4.9, 9.1, 0.45, [{"t": "A benchmark of software incidents, not of a factory: it tests the ranking behind Diagnosis. Everything is reproducible from the repository.", "size": 10.5, "bold": True, "color": BLUE}], anchor=MSO_ANCHOR.MIDDLE, name="benchmark banner text")
+for m, lab in ((BASE, "BARO"), ("Ours: metric shift", "Tolerance, metrics only"), ("Ours + traces + logs", "Tolerance, traces and logs"), ("BARO + ours + traces + logs", "BARO + Tolerance + traces + logs")):
+    cd.add_series(lab, [RC["cells"][f"RE3|{sy}"][m]["avg5"][0] for sy in ("ob", "ss", "tt")])
+gf = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.3), Inches(1.2), Inches(5.2), Inches(3.45), cd)
+gf.name = "RE3 chart"
+style_chart(gf.chart, "Avg@5 on RE3 (30 cases per system)", 0.0, 1.0)
+for ser, col in zip(gf.chart.plots[0].series, ("9AA0A6", "F28B82", "8AB4F8", BLUE)):
+    ser.format.fill.solid(); ser.format.fill.fore_color.rgb = rgb(col)
+gf.chart.plots[0].gap_width = 50
+gf.chart.plots[0].data_labels.font.size = Pt(8)
+rows = [[n.replace("RE3 ", ""), PR[n]["n"], ci_row(PR[n]["BARO + ours + traces + logs"])] for n in ("RE3 all", "RE3 Sock Shop", "RE3 Train Ticket", "RE3 Online Boutique")]
+text(s, 5.65, 1.2, 4.05, 0.5, [{"t": "BARO + Tolerance + traces + logs, minus BARO (95% interval)", "size": 11, "bold": True, "color": BLUE}], name="table title")
+table(s, 5.65, 1.78, 4.05, rows, [1.35, 0.45, 2.25], ["Subset", "n", "Difference"], size=10, name="RE3 paired table")
+text(s, 5.65, 3.72, 4.05, 1.0, [
+    {"t": "Metrics alone lose badly on Train Ticket (0.07). The signal is in logs and traces.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Fusing all sources wins on Sock Shop, ties on Train Ticket, and does not win on Online Boutique.", "size": 10, "bullet": True},
+], name="reading")
+banner(s, 4.72, "A gain on one system, a tie on one, no gain on one. With 30 cases per system the intervals are wide. We do not claim a win on RE3 overall.", 0.5)
 
-# put it right after the performance slide
+# ---- R4 autonomy
+s = S[25]
+set_title(s, "Q3: the gate bounds the harm of a wrong action; it does not find wrong diagnoses")
+cd = CategoryChartData()
+pts = AU["curves"]["Warden score"]
+cd.categories = [str(p["coverage"]) for p in pts]
+for m, lab in (("Diagnosis confidence only", "Confidence only"), ("Warden score", "Warden gate"), ("Random order", "Random")):
+    cd.add_series(lab, [round(p["harm"], 2) for p in AU["curves"][m]])
+gf = s.shapes.add_chart(XL_CHART_TYPE.LINE, Inches(0.3), Inches(1.2), Inches(5.0), Inches(3.45), cd)
+gf.name = "harm chart"
+style_chart(gf.chart, "Harm grows as more is run alone", None, None, labels=False)
+va = gf.chart.value_axis
+va.has_title = True
+va.axis_title.text_frame.text = "Harm of wrong actions"
+va.axis_title.text_frame.paragraphs[0].runs[0].font.size = Pt(10)
+ca = gf.chart.category_axis
+ca.has_title = True
+ca.axis_title.text_frame.text = "Share of incidents run alone (%)"
+ca.axis_title.text_frame.paragraphs[0].runs[0].font.size = Pt(10)
+for ser, col in zip(gf.chart.plots[0].series, ("9AA0A6", BLUE, "F28B82")):
+    ser.format.line.color.rgb = rgb(col)
+    ser.format.line.width = Pt(2.25)
+    ser.smooth = False
+    ser.marker.style = XL_MARKER_STYLE.NONE
+AT = AU["at"]
+rows = [["Run everything alone", AT["Always run alone"]["run_alone"], AT["Always run alone"]["wrong"], f"{AT['Always run alone']['harm']:.1f}"],
+        ["Random 149", AT["Random order"]["run_alone"], AT["Random order"]["wrong"], f"{AT['Random order']['harm']:.1f}"],
+        ["Confidence only", AT["Diagnosis confidence only"]["run_alone"], AT["Diagnosis confidence only"]["wrong"], f"{AT['Diagnosis confidence only']['harm']:.1f}"],
+        ["Warden gate", AT["Warden score"]["run_alone"], AT["Warden score"]["wrong"], f"{AT['Warden score']['harm']:.1f}"]]
+text(s, 5.45, 1.2, 4.25, 0.3, [{"t": "At your default lines (465 incidents)", "size": 11, "bold": True, "color": BLUE}], name="table title")
+table(s, 5.45, 1.55, 4.25, rows, [1.75, 0.9, 0.8, 0.8], ["Policy", "Run alone", "Wrong", "Harm"], size=10, name="autonomy table")
+J = {r["k"]: r for r in AU["joint"]}
+text(s, 5.45, 3.2, 4.25, 1.5, [
+    {"t": f"As a predictor of a right diagnosis the Warden score has AUROC {AU['auroc']['Warden score']:.2f}; plain confidence has {AU['auroc']['Diagnosis confidence only']:.2f}.", "size": 10, "bullet": True, "after": 4},
+    {"t": f"Together, for 100 run alone: {J[100]['gate_and_confidence']['wrong']} wrong and harm {J[100]['gate_and_confidence']['harm']:.1f}, against {J[100]['confidence_only']['wrong']} wrong and harm {J[100]['confidence_only']['harm']:.1f} for confidence alone.", "size": 10, "bullet": True},
+], name="reading")
+banner(s, 4.72, "Confidence says whether to trust the diagnosis. The gate says whether the action is safe to run alone. Tolerance uses both.", 0.5)
+
+# ---- R5 threats and next
+s = S[26]
+set_title(s, "Threats to validity, and what we run next")
+card(s, 0.3, 1.25, 4.65, 3.1, name="threats card")
+text(s, 0.42, 1.3, 4.45, 3.0, [
+    {"t": "Threats to validity", "size": 12, "bold": True, "color": RED, "after": 5},
+    {"t": "RCAEval is microservice software, not a factory floor.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Our probes were developed on these cases. The fixed fusion constant limits tuning, but overfitting is possible. RE2 is held out and not yet run.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Harm uses our own reversibility table, not measured damage.", "size": 10, "bullet": True, "after": 4},
+    {"t": "The backtest uses the metrics-first diagnosis, not Gemini.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Our run of BARO on Train Ticket (0.65) is below the paper's 0.79. RE3 has 30 cases per system.", "size": 10, "bullet": True},
+], name="threats text")
+card(s, 5.05, 1.25, 4.65, 3.1, fill="E6F4EA", name="next card")
+text(s, 5.17, 1.3, 4.45, 3.0, [
+    {"t": "What we run next", "size": 12, "bold": True, "color": GREEN, "after": 5},
+    {"t": "RCAEval RE2 (270 cases), the paper's main table, as a held-out test.", "size": 10, "bullet": True, "after": 4},
+    {"t": "The Gemini agent on RE3, where log text should matter, inside the credit budget.", "size": 10, "bullet": True, "after": 4},
+    {"t": "The other baselines (CIRCA, RCD, CausalRCA) once their dependencies fit.", "size": 10, "bullet": True, "after": 4},
+    {"t": "A customer's own incident history replayed through Warden.", "size": 10, "bullet": True},
+], name="next text")
+banner(s, 4.5, "Reproduce it: python -m bench.research reads the per-case rankings in bench/results and the 465 incidents in seed. No downloads, runs in seconds.", 0.65)
+
+# place the five research slides right after the performance slide, in order R1..R5
 perf = next(el for el in ids if prs.part.related_part(el.rId) is S[12].part)
-bn = next(el for el in ids if prs.part.related_part(el.rId) is S[22].part)
-ids.remove(bn)
-perf.addnext(bn)
+order = [S[23], S[22], S[24], S[25], S[26]]
+prev = perf
+for sl in order:
+    el = next(e for e in ids if prs.part.related_part(e.rId) is sl.part)
+    ids.remove(el)
+    prev.addnext(el)
+    prev = el
 
 # ------------------------------------------------------------------ appendix: the same pages as the web deck's appendix
 import json, re
@@ -518,9 +670,9 @@ agents_slide(apps[3], "Appendix: the operations team, four agents that keep it r
 agents_slide(apps[4], "Appendix: plain rules, your playbooks, your channels", [SENT, EXTRA[0], EXTRA[1], EXTRA[2]], 2.45, 1.65)
 
 # the appendix goes before "Thank you"
-last = list(ids)
-thanks = last[-6]
-for el in last[-5:]:
+app_els = [next(e for e in ids if prs.part.related_part(e.rId) is sl.part) for sl in apps]
+thanks = list(ids)[-1] if False else next(e for e in ids if prs.part.related_part(e.rId) is S[16].part)
+for el in app_els:
     ids.remove(el)
     thanks.addprevious(el)
 

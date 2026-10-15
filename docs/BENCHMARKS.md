@@ -60,6 +60,18 @@ Fusion weights (BARO, ours, traces, logs) were searched on a fixed grid with **l
 
 **Summary:** RE1 is a clear win (3 of 3 against official BARO as run here, 2 of 3 against the published numbers). RE3 is mixed: 1 of 3 under cross-validation.
 
+## Research summary (`python -m bench.research`)
+
+Read from the per-case rankings in `bench/results/components.json` and the 465 scored incidents in `seed/jig_backtest.json`. No downloads. Every interval is a 95% percentile bootstrap over cases (10,000 resamples, seed 7); differences are paired. Output: `bench/results/research.json`.
+
+**Q1, RE1 metric-only faults (298 cases, four faults).** Tolerance minus official BARO, Avg@5: all +0.083 [+0.05, +0.12]; Train Ticket +0.186 [+0.10, +0.27]; Online Boutique +0.045 [-0.01, +0.10]; Sock Shop +0.018 [-0.01, +0.05]. By fault, BARO to ours: CPU 0.911 to 0.992, disk 0.907 to 0.968, delay 0.829 to 0.845, loss 0.592 to 0.835, memory 0.984 to 0.979.
+
+**Q2, RE3 code-level faults (30 cases per system).** Metrics alone lose (Train Ticket 0.067). BARO + ours + traces + logs minus BARO: all +0.051 [-0.00, +0.11]; Sock Shop +0.193 [+0.11, +0.29]; Train Ticket +0.027 [-0.03, +0.10]; Online Boutique -0.067 [-0.17, +0.05]. We do not claim a win on RE3 overall.
+
+**Q3, the safety gate (465 incidents).** Diagnosis correct in 75.1%. As a predictor of a correct diagnosis the Warden score has AUROC 0.46 and plain confidence 0.73, so the score does not find wrong diagnoses. It bounds harm: at the default limit 149 incidents run alone with 29 wrong and harm 0.0 (reversibility-weighted, from the action table), against 19 wrong and harm 2.6 for the same number chosen by confidence alone, and 116 wrong and harm 4.8 when everything runs alone. Using both (gate, then confidence), 100 run alone with 11 wrong and harm 0.0, against 9 wrong and harm 1.1 for confidence alone.
+
+**Threats.** RCAEval is microservice software, not a factory. The probes were developed on these cases. Harm uses our own reversibility table. The backtest uses the metrics-first diagnosis, not Gemini. Our run of BARO on Train Ticket (0.652) is below the paper's 0.79.
+
 ## Not yet measured (do not claim)
 
 - **The Gemini agent at scale.** We recorded 8 live investigations (7 of 8 correct, tiny sample, not a benchmark). Code-level faults (RE3) are where reading log text should help, but a full RE3 run needs about 90 cases x several tool calls, which the free key's quota cannot cover. This is the most likely route to winning RE3.
