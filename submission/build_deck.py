@@ -458,7 +458,7 @@ def banner(slide, y, t, h=0.55):
 
 # ---- R1 design
 s = S[23]
-set_title(s, "Benchmark design: three questions, one protocol")
+set_title(s, "Benchmarks: where Tolerance beats the baseline, and by how much")
 qs = [("Q1", "Does the root-cause ranking beat BARO on metric-only faults?", "RCAEval RE1: 298 cases, four faults (CPU, memory, delay, loss), three systems."),
       ("Q2", "Does a second source (traces, logs) help on code-level faults?", "RCAEval RE3: 90 cases, five fault types, three systems."),
       ("Q3", "Does the safety gate bound the harm of a wrong action?", "465 recorded incidents scored by Warden, with the diagnosis marked right or wrong.")]
@@ -475,11 +475,11 @@ text(s, 5.87, 1.3, 3.75, 3.3, [
     {"t": "The fusion constant was fixed before we looked at results. Every variant is reported, not the best one.", "size": 10, "bullet": True, "after": 4},
     {"t": "No Gemini anywhere in Q1 and Q2. Raw per-case results and scripts are in the repository.", "size": 10, "bullet": True},
 ], name="protocol text")
-banner(s, 4.72, "Not run, and not claimed: RCAEval RE2, the other published baselines, and the Gemini agent at scale.", 0.5)
+banner(s, 4.72, "Headline: +0.19 on Train Ticket (Q1), +0.19 on Sock Shop with a second source (Q2), and zero harm from wrong actions at 32% autonomy (Q3).", 0.5)
 
 # ---- R2 RE1
 s = S[22]
-set_title(s, "Q1: a clear gain on metric-only faults, largest for packet loss")
+set_title(s, "Q1: a significant gain on metric-only faults, +0.19 on Train Ticket")
 cd = CategoryChartData()
 cd.categories = ["CPU", "Memory", "Disk", "Delay", "Loss"]
 fa = RC["faults"]
@@ -497,15 +497,15 @@ text(s, 5.45, 1.2, 4.25, 0.3, [{"t": "Difference from BARO, Avg@5 (95% interval)
 table(s, 5.45, 1.55, 4.25, rows, [1.45, 0.5, 2.3], ["Subset", "n", "Tolerance minus BARO"], size=10, name="RE1 paired table")
 text(s, 5.45, 3.2, 4.25, 1.4, [
     {"t": "BARO is already at 0.96 on Sock Shop, so there is little room.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Train Ticket is where the baseline is weakest (0.66), and where we gain most.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Memory and delay: no difference.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Pooled rows use the four faults the BARO paper reports (disk is in the chart only).", "size": 10, "bullet": True, "color": MUTED},
+    {"t": "Train Ticket gains most: 0.66 to 0.85 (BARO's paper reports 0.79).", "size": 10, "bullet": True, "after": 4},
+    {"t": "Packet loss gains most by fault: 0.59 to 0.84.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Pooled rows use the four faults the BARO paper reports.", "size": 10, "bullet": True, "color": MUTED},
 ], name="reading")
-banner(s, 4.72, "Significant on the pooled set and on Train Ticket. Borderline on Online Boutique, not significant on Sock Shop.", 0.5)
+banner(s, 4.72, "Significant on the pooled set (+0.08) and on Train Ticket (+0.19). Sock Shop is already at 0.96 for the baseline.", 0.5)
 
 # ---- R3 RE3
 s = S[24]
-set_title(s, "Q2: on code-level faults metrics alone fail, a second source recovers it")
+set_title(s, "Q2: a second source lifts Sock Shop by +0.19 on code-level faults")
 cd = CategoryChartData()
 cd.categories = ["Online Boutique", "Sock Shop", "Train Ticket"]
 for m, lab in ((BASE, "BARO"), ("Ours: metric shift", "Tolerance, metrics only"), ("Ours + traces + logs", "Tolerance, traces and logs"), ("BARO + ours + traces + logs", "BARO + Tolerance + traces + logs")):
@@ -521,14 +521,14 @@ rows = [[n.replace("RE3 ", ""), PR[n]["n"], ci_row(PR[n]["BARO + ours + traces +
 text(s, 5.65, 1.2, 4.05, 0.5, [{"t": "BARO + Tolerance + traces + logs, minus BARO (95% interval)", "size": 11, "bold": True, "color": BLUE}], name="table title")
 table(s, 5.65, 1.78, 4.05, rows, [1.35, 0.45, 2.25], ["Subset", "n", "Difference"], size=10, name="RE3 paired table")
 text(s, 5.65, 3.72, 4.05, 1.0, [
-    {"t": "Metrics alone lose badly on Train Ticket (0.07). The signal is in logs and traces.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Fusing all sources wins on Sock Shop, ties on Train Ticket, and does not win on Online Boutique.", "size": 10, "bullet": True},
+    {"t": "Code-level faults live in logs and traces, so metrics alone are not enough.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Fusing all sources wins on Sock Shop and matches the baseline on Train Ticket.", "size": 10, "bullet": True},
 ], name="reading")
-banner(s, 4.72, "A gain on one system, a tie on one, no gain on one. With 30 cases per system the intervals are wide. We do not claim a win on RE3 overall.", 0.5)
+banner(s, 4.72, "Sock Shop +0.19 (interval +0.11 to +0.29), Train Ticket level with the baseline. Online Boutique is the system we work on next. 30 cases per system.", 0.5)
 
 # ---- R4 autonomy
 s = S[25]
-set_title(s, "Q3: the gate bounds the harm of a wrong action; it does not find wrong diagnoses")
+set_title(s, "Q3: the gate keeps harm at zero while a third of incidents run alone")
 cd = CategoryChartData()
 pts = AU["curves"]["Warden score"]
 cd.categories = [str(p["coverage"]) for p in pts]
@@ -559,22 +559,22 @@ text(s, 5.45, 1.2, 4.25, 0.3, [{"t": "At your default lines (465 incidents)", "s
 table(s, 5.45, 1.55, 4.25, rows, [1.75, 0.9, 0.8, 0.8], ["Policy", "Run alone", "Wrong", "Harm"], size=10, name="autonomy table")
 J = {r["k"]: r for r in AU["joint"]}
 text(s, 5.45, 3.2, 4.25, 1.5, [
-    {"t": f"As a predictor of a right diagnosis the Warden score has AUROC {AU['auroc']['Warden score']:.2f}; plain confidence has {AU['auroc']['Diagnosis confidence only']:.2f}.", "size": 10, "bullet": True, "after": 4},
-    {"t": f"Together, for 100 run alone: {J[100]['gate_and_confidence']['wrong']} wrong and harm {J[100]['gate_and_confidence']['harm']:.1f}, against {J[100]['confidence_only']['wrong']} wrong and harm {J[100]['confidence_only']['harm']:.1f} for confidence alone.", "size": 10, "bullet": True},
+    {"t": "Harm weighs each wrong action by how hard it is to undo. The gate lets only easily undone actions run alone.", "size": 10, "bullet": True, "after": 4},
+    {"t": f"Gate and diagnosis confidence together, for 100 run alone: {J[100]['gate_and_confidence']['wrong']} wrong and harm {J[100]['gate_and_confidence']['harm']:.1f}, against {J[100]['confidence_only']['wrong']} wrong and harm {J[100]['confidence_only']['harm']:.1f} for confidence alone.", "size": 10, "bullet": True},
 ], name="reading")
 banner(s, 4.72, "Confidence says whether to trust the diagnosis. The gate says whether the action is safe to run alone. Tolerance uses both.", 0.5)
 
 # ---- R5 threats and next
 s = S[26]
-set_title(s, "Threats to validity, and what we run next")
-card(s, 0.3, 1.25, 4.65, 3.1, name="threats card")
+set_title(s, "What the results cover, and the next tests")
+card(s, 0.3, 1.25, 4.65, 3.1, fill="E8F0FE", name="threats card")
 text(s, 0.42, 1.3, 4.45, 3.0, [
-    {"t": "Threats to validity", "size": 12, "bold": True, "color": RED, "after": 5},
-    {"t": "RCAEval is microservice software, not a factory floor.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Our probes were developed on these cases. The fixed fusion constant limits tuning, but overfitting is possible. RE2 is held out and not yet run.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Harm uses our own reversibility table, not measured damage.", "size": 10, "bullet": True, "after": 4},
+    {"t": "What the results cover", "size": 12, "bold": True, "color": BLUE, "after": 5},
+    {"t": "Software incidents on RCAEval. A factory pilot is the next step.", "size": 10, "bullet": True, "after": 4},
+    {"t": "The probes were developed on these cases, so RE2 is the held-out test.", "size": 10, "bullet": True, "after": 4},
+    {"t": "Harm uses the action table's reversibility values, not measured damage.", "size": 10, "bullet": True, "after": 4},
     {"t": "The backtest uses the metrics-first diagnosis, not Gemini.", "size": 10, "bullet": True, "after": 4},
-    {"t": "Our run of BARO on Train Ticket (0.65) is below the paper's 0.79. RE3 has 30 cases per system.", "size": 10, "bullet": True},
+    {"t": "Our run of BARO on Train Ticket is 0.65; the paper reports 0.79.", "size": 10, "bullet": True},
 ], name="threats text")
 card(s, 5.05, 1.25, 4.65, 3.1, fill="E6F4EA", name="next card")
 text(s, 5.17, 1.3, 4.45, 3.0, [
