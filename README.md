@@ -46,6 +46,22 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 `/` is the public landing page (static files in `web/public`, an animated factory scene and the Symbiotic Compiler story). Sign in, Register and "Try it as a guest" are in the top bar and under the headline, and again at the end. They lead to `/signin/`, which has Google, email and password (with a password reset), and a guest button. A signed-in visitor goes straight to the floor, or to the page they asked for (`/signin/?next=`). Further down, an "Inside the product" section shows real screens of the floor with data feeds, the layout editor, the nine agents, Warden, Sentinel and playbooks. "Watch the journey" opens `/enter/`, an interactive follow-a-fault story that needs no account.
 
+## Connecting your own systems
+
+After the documents are read, the Guide lists every system they name. Each database, server and broker gets its own card with the sentence that names it, the address the documents give, a password or token box, and two buttons: **Test** (log in, run one safe read, report time and what is there) and **Connect** (test again, keep the password encrypted, load the data, then keep it current). A plant can have many of each kind, so every card has "+ Another", and a menu adds systems the documents did not name.
+
+| System | What happens |
+|---|---|
+| PostgreSQL, MySQL / MariaDB, SQL Server, Oracle | Log in with the driver, run `SELECT 1` or your own read, list tables. Snapshot, then new rows by key |
+| MongoDB | Log in, `ping`, list collections. Each collection is a table, new documents by `_id`. A `mongoexport` file can be uploaded instead |
+| MQTT | Connect with the login, subscribe to the topic, and read messages into a table |
+| Kafka | Read a topic from the saved offset |
+| OPC UA | Connect and browse the objects (read only) |
+| REST / ERP / MES / SAP services | GET the address with the token. JSON lists become tables |
+| MCP servers | Connect over HTTP (streamable HTTP, then SSE), list the tools. They join the same hub as the built-in servers. Only tools the server marks read-only can run, through the policy gateway. Any other tool is denied. The Diagnosis agent may use the read-only ones |
+
+The tests follow the Kanshi executors (same login, same safe-read rule, same answer shape). Only reads are allowed: SELECT, SHOW, DESCRIBE, EXPLAIN, WITH, VALUES. Passwords and tokens are encrypted with a key from `TOLERANCE_VAULT_KEY` (a key file is made on a laptop with none) and are never sent back to the browser. In the cloud, addresses inside a private network are refused. A plant system on a private network needs a probe or tunnel to reach it. Tests: `tests/probes_test.py`, `tests/live_sources_test.py`, `tests/mcp_remote_test.py`, `tests/systems_test.py` (they use a real PostgreSQL and a real MQTT broker, a MongoDB stand-in, and a local MCP server; Kafka and Oracle and SQL Server are not tested against a live server).
+
 ## Data feeds from many systems
 
 Upload several files at once and each one becomes a feed with its own icon: a machine log (MES), a MongoDB export (`.json` or `.jsonl`, as `mongoexport` writes it; `_id`, `$date` and number wrappers are unwrapped and nested fields become columns), an ERP database or CSV, an IoT log. Tolerance names the system from the file or from a tag, then finds which stations each feed carries data for by looking for station names in its columns. The icons sit down the left of the 2D plan (point at one for its rows, freshness and stations), and in the Cards view lines join a feed to its stations.

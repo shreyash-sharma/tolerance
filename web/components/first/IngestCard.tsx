@@ -19,39 +19,77 @@ function Tile({ v, l, warn }: { v: number | string; l: string; warn?: boolean })
 }
 
 const ACCEPT: Record<string, string> = { mongo: '.json,.jsonl,.ndjson', default: '.csv,.db,.sqlite,.sqlite3,.json,.jsonl,.ndjson' };
+const PROBE: Record<string, string> = { mongo: 'mongodb', postgres: 'postgres', mysql: 'mysql', mssql: 'mssql', oracle: 'oracle', mqtt: 'mqtt', kafka: 'kafka', opcua: 'opcua', sap: 'api', erp: 'api', mes: 'api', mcp: 'mcp' };
+const UPLOAD_ALT = new Set(['mongo', 'sap', 'erp', 'mes', 'mqtt', 'kafka', 'files', 'historian', 'plc', 'cmms', 'warehouse']);
+const PLACEHOLDER: Record<string, string> = { postgres: 'postgresql://reader@host:5432/plantdb', mysql: 'mysql://reader@host:3306/plantdb', mssql: 'mssql://reader@host:1433/plantdb', oracle: 'oracle://reader@host:1521/service', mongo: 'mongodb://reader@host:27017/plantdb', mqtt: 'mqtt://host:1883', kafka: 'kafka://host:9092', opcua: 'opc.tcp://host:4840', mcp: 'https://mcp.myplant.example/mcp', sap: 'https://sap.myplant.example/odata', erp: 'https://erp.myplant.example/api', mes: 'https://mes.myplant.example/api' };
 // kinds a person can add that their documents did not name
 const KINDS: { type: string; title: string; system: string; mode: Named['mode']; status: string; ask: string }[] = [
-  { type: 'postgres', title: 'PostgreSQL', system: 'postgres', mode: 'url', status: 'plug', ask: 'The read-only address, like postgresql://reader@host:5432/plantdb. No password in this box.' },
-  { type: 'mongo', title: 'MongoDB', system: 'mongo', mode: 'upload', status: 'plug', ask: 'Upload the mongoexport file (.jsonl). A live link to a MongoDB server goes through a bridge.' },
-  { type: 'mes', title: 'MES', system: 'mes', mode: 'rest', status: 'plug', ask: 'The REST address of the MES, or upload its station log (CSV or SQLite).' },
-  { type: 'erp', title: 'ERP system', system: 'erp', mode: 'rest', status: 'plug', ask: 'The REST address of the ERP, or upload an export of its orders (CSV or SQLite).' },
-  { type: 'mcp', title: 'MCP server', system: 'api', mode: 'mcp', status: 'bridge', ask: 'The address of the MCP server. It is written down for setup. Tools it brings will pass the Warden gate.' },
-  { type: 'mqtt', title: 'MQTT / IoT broker', system: 'mqtt', mode: 'upload', status: 'bridge', ask: 'Upload a log of the topics (CSV or JSON lines). A live link goes through a bridge.' },
+  { type: 'postgres', title: 'PostgreSQL', system: 'postgres', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
+  { type: 'mysql', title: 'MySQL / MariaDB', system: 'sql', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
+  { type: 'mssql', title: 'SQL Server', system: 'sql', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
+  { type: 'oracle', title: 'Oracle database', system: 'sql', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
+  { type: 'mongo', title: 'MongoDB', system: 'mongo', mode: 'url', status: 'plug', ask: 'The MongoDB address and the password. Or upload a mongoexport file (.jsonl).' },
+  { type: 'mes', title: 'MES', system: 'mes', mode: 'rest', status: 'plug', ask: 'The REST address of the MES and its token, or upload its station log.' },
+  { type: 'erp', title: 'ERP system', system: 'erp', mode: 'rest', status: 'plug', ask: 'The REST address of the ERP and its token, or upload an export of its orders.' },
+  { type: 'mcp', title: 'MCP server', system: 'api', mode: 'mcp', status: 'plug', ask: 'The address of the MCP server, and its token if it needs one. Only read-only tools can run.' },
+  { type: 'mqtt', title: 'MQTT / IoT broker', system: 'mqtt', mode: 'url', status: 'plug', ask: 'The broker address, the topic to listen to, and the login if it needs one.' },
+  { type: 'kafka', title: 'Kafka', system: 'other', mode: 'url', status: 'plug', ask: 'The broker address and the topic to read.' },
+  { type: 'opcua', title: 'OPC UA', system: 'opcua', mode: 'url', status: 'plug', ask: 'The controller address, like opc.tcp://host:4840. I only read.' },
 ];
 export type Outcome = { state: 'connected' | 'written' | 'skipped'; note: string };
+type Probe = { ok: boolean; message: string; ms?: number };
 type Acts = {
   onUpload: (f: File, system?: string, name?: string) => Promise<any>;
-  onUrl: (kind: string, url: string, name: string, system: string) => Promise<any>;
-  onMcp: (url: string, name: string, quote: string) => Promise<any>;
+  onTest: (b: { type: string; url: string; secret: string; topic: string }) => Promise<Probe>;
+  onConnect: (b: { type: string; url: string; secret: string; topic: string; name: string; system: string }) => Promise<any>;
+  onMcp: (b: { url: string; token: string; name: string; quote: string }) => Promise<any>;
 };
 
-/** One system the documents name: the sentence that names it, then exactly what to give for it. A plant has many of each kind, so every one gets its own card. */
+/** One system the documents name: the sentence that names it, then exactly what to give for it, with a Test button that logs in and reads. A plant has many of each kind, so every one gets its own card. */
 function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
+  const probe = PROBE[n.type];
   const [val, setVal] = useState(/:\/\//.test(n.hint || '') ? n.hint : '');
-  const [st, setSt] = useState<{ busy: boolean; err: string }>({ busy: false, err: '' });
+  const [secret, setSecret] = useState('');
+  const [topic, setTopic] = useState('');
+  const [test, setTest] = useState<Probe | null>(null);
+  const [st, setSt] = useState<{ busy: '' | 'test' | 'connect' | 'file'; err: string }>({ busy: '', err: '' });
   const b = BADGE[n.status === 'live' ? 'live' : n.status === 'plug' ? 'plug' : 'bridge'];
-  const run = async (fn: () => Promise<any>, kind: 'connected' | 'written') => {
-    setSt({ busy: true, err: '' });
+  const live = !!probe && n.mode !== 'upload';
+  const asToken = n.mode === 'rest' || n.mode === 'mcp';
+  const body = { type: probe, url: val.trim(), secret, topic: topic.trim() };
+  const doTest = async () => {
+    setSt({ busy: 'test', err: '' }); setTest(null);
+    try { setTest(await acts.onTest(body)); } catch (e: any) { setTest({ ok: false, message: String(e.message || e) }); }
+    setSt({ busy: '', err: '' });
+  };
+  const doConnect = async () => {
+    setSt({ busy: 'connect', err: '' });
     try {
-      const r = await fn();
+      if (n.mode === 'mcp') {
+        const r = await acts.onMcp({ url: val.trim(), token: secret, name: n.name, quote: n.quotes[0]?.quote || '' });
+        onOutcome({ state: 'connected', note: `${r.server?.tools?.length ?? 0} tools found, ${r.read_only ?? 0} read-only` });
+      } else {
+        const r = await acts.onConnect({ ...body, name: n.name, system: n.system });
+        const src = r?.source;
+        if (src?.error) { setSt({ busy: '', err: src.error }); return; }
+        onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read` });
+      }
+      setSecret('');
+      setSt({ busy: '', err: '' });
+    } catch (e: any) { setSt({ busy: '', err: String(e.message || e) }); }
+  };
+  const doFile = async (f: File) => {
+    setSt({ busy: 'file', err: '' });
+    try {
+      const r = await acts.onUpload(f, n.system, n.name);
       const src = r?.source;
-      if (src?.error) { setSt({ busy: false, err: src.error }); return; }
-      setSt({ busy: false, err: '' });
-      onOutcome({ state: kind, note: src ? `${Number(src.rows || 0).toLocaleString()} rows read` : 'written down for setup' });
-    } catch (e: any) { setSt({ busy: false, err: String(e.message || e) }); }
+      if (src?.error) { setSt({ busy: '', err: src.error }); return; }
+      onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read` });
+      setSt({ busy: '', err: '' });
+    } catch (e: any) { setSt({ busy: '', err: String(e.message || e) }); }
   };
   const upload = (
-    <label className="btn g sm" style={{ cursor: 'pointer' }}>Choose the file<input type="file" hidden accept={ACCEPT[n.type] || ACCEPT.default} disabled={disabled || st.busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void run(() => acts.onUpload(f, n.system, n.name), 'connected'); }} /></label>
+    <label className="btn g sm" style={{ cursor: 'pointer' }}>{st.busy === 'file' ? 'Reading…' : 'Upload a file instead'}<input type="file" hidden accept={ACCEPT[n.type] || ACCEPT.default} disabled={disabled || !!st.busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void doFile(f); }} /></label>
   );
   const done = outcome && outcome.state !== 'skipped';
   return (
@@ -71,16 +109,23 @@ function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, act
       ) : (
         <>
           <div className="mut" style={{ fontSize: 13 }}>{n.ask}</div>
-          {n.mode === 'upload' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{upload}{n.status === 'bridge' && <button type="button" className="btn g sm" onClick={() => onOutcome({ state: 'written', note: 'written down for setup' })}>Write it down for setup</button>}</div>}
-          {(n.mode === 'url' || n.mode === 'rest' || n.mode === 'mcp') && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <input value={val} onChange={(e) => setVal(e.target.value)} placeholder={n.mode === 'mcp' ? 'https://mcp.myplant.example/sse' : n.mode === 'rest' ? 'https://erp.myplant.example/api' : n.type === 'postgres' ? 'postgresql://reader@host:5432/plantdb' : 'read-only address'} style={{ flex: '1 1 260px' }} aria-label={`Address for ${n.name}`} />
-              <button type="button" className="btn sm" disabled={disabled || st.busy || val.trim().length < 6}
-                onClick={() => (n.mode === 'mcp' ? run(() => acts.onMcp(val.trim(), n.name, n.quotes[0]?.quote || ''), 'written') : run(() => acts.onUrl(n.mode === 'rest' ? 'api' : 'db_url', val.trim(), n.name, n.system), 'connected'))}>{st.busy ? 'Connecting…' : n.mode === 'mcp' ? 'Write it down' : 'Connect'}</button>
-              {n.mode === 'rest' && upload}
+          {live && (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input value={val} onChange={(e) => { setVal(e.target.value); setTest(null); }} placeholder={PLACEHOLDER[n.type] || 'address'} aria-label={`Address for ${n.name}`} autoComplete="off" />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {n.type !== 'opcua' && <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setTest(null); }} placeholder={asToken ? 'Token, if it needs one' : 'Password'} aria-label={`${asToken ? 'Token' : 'Password'} for ${n.name}`} autoComplete="new-password" style={{ flex: '1 1 200px' }} />}
+                {(n.type === 'mqtt' || n.type === 'kafka') && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={n.type === 'mqtt' ? 'Topic, like plant/#' : 'Topic'} aria-label={`Topic for ${n.name}`} style={{ flex: '1 1 160px' }} />}
+              </div>
+              {n.type !== 'opcua' && <div className="dim" style={{ fontSize: 12 }}>The {asToken ? 'token' : 'password'} is kept encrypted and is never shown again. A user that can only read is best.</div>}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button type="button" className="btn g sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doTest}>{st.busy === 'test' ? 'Testing…' : 'Test'}</button>
+                <button type="button" className="btn sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doConnect}>{st.busy === 'connect' ? 'Connecting…' : 'Connect'}</button>
+                {UPLOAD_ALT.has(n.type) && upload}
+              </div>
+              {test && <div role="status" style={{ fontSize: 13.5, color: test.ok ? '#7be0a6' : '#ef6b57' }}>{test.ok ? '✓ ' : '✗ '}{test.message}</div>}
             </div>
           )}
-          {n.mode === 'note' && <button type="button" className="btn g sm" style={{ justifySelf: 'start' }} onClick={() => onOutcome({ state: 'written', note: 'written down for setup' })}>Write it down for setup</button>}
+          {!live && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{upload}<button type="button" className="btn g sm" onClick={() => onOutcome({ state: 'written', note: 'written down for setup' })}>Write it down for setup</button></div>}
           <div style={{ display: 'flex', gap: 14, fontSize: 12.5 }}>
             <button type="button" onClick={onAnother} style={{ background: 'none', border: 0, color: 'var(--amber)', cursor: 'pointer', padding: 0 }}>+ Another {n.title}</button>
             <button type="button" onClick={() => onOutcome({ state: 'skipped', note: '' })} style={{ background: 'none', border: 0, color: 'var(--dim)', cursor: 'pointer', padding: 0 }}>Skip for now</button>
@@ -93,7 +138,7 @@ function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, act
 }
 
 /** After the documents are read: what the Guide understood, then every kind of source it can reach and how far each goes today. */
-export default function IngestCard({ understood: u, support, disabled, onGo, onUpload, onSample, onUrl, onMcp }: { understood: Understood; support: Group[]; disabled: boolean; onUpload: (f: File, system?: string, name?: string) => Promise<any>; onSample: () => Promise<any>; onUrl: (kind: string, url: string, name: string, system: string) => Promise<any>; onMcp: (url: string, name: string, quote: string) => Promise<any>; onGo: (a: { ids: string[]; also: string[]; db_url: string; mcp_url: string; named: { name: string; state: string; note: string }[] }) => void }) {
+export default function IngestCard({ understood: u, support, disabled, onGo, onUpload, onSample, onTest, onConnect, onMcp }: { understood: Understood; support: Group[]; disabled: boolean; onUpload: (f: File, system?: string, name?: string) => Promise<any>; onSample: () => Promise<any>; onTest: Acts['onTest']; onConnect: Acts['onConnect']; onMcp: Acts['onMcp']; onGo: (a: { ids: string[]; also: string[]; db_url: string; mcp_url: string; named: { name: string; state: string; note: string }[] }) => void }) {
   const live = support.flatMap((g) => g.items).filter((i) => i.status === 'live').map((i) => i.id);
   const [sel, setSel] = useState<string[]>(live);
   const [also, setAlso] = useState<string[]>([]);
@@ -104,7 +149,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
   const [outcomes, setOutcomes] = useState<Record<string, Outcome | null>>({});
   const [menu, setMenu] = useState(false);
   const cards: Named[] = [...(u.systems || []), ...added];
-  const acts = { onUpload, onUrl, onMcp };
+  const acts: Acts = { onUpload, onTest, onConnect, onMcp };
   const another = (n: Named) => setAdded((a) => [...a, { ...n, id: `${n.type}:new${a.length + 1}:${Date.now()}`, name: `${n.title} (another)`, quotes: [], names: [], addresses: [], hint: '', label: '' } as Named]);
   const addKind = (k: (typeof KINDS)[number]) => { setMenu(false); setAdded((a) => [...a, { id: `${k.type}:new${a.length + 1}:${Date.now()}`, type: k.type, name: `${k.title} (you added)`, title: k.title, system: k.system, mode: k.mode, status: k.status, ask: k.ask, quotes: [], addresses: [], names: [], hint: '' }]); };
   const settled = cards.filter((c) => outcomes[c.id]).length;

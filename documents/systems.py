@@ -5,23 +5,23 @@ import re
 # id -> (title, system tag for the icon, how to connect, honest status, what to ask for, patterns)
 #   connect: url (a database address), rest (an API address), mcp (an MCP server address), upload (an export file)
 CATALOG = [
-    ("mongo", "MongoDB", "mongo", "upload", "plug", "Upload the mongoexport file (.jsonl). A live link to a MongoDB server goes through a bridge.", r"mongo\s?db|mongo\b|mongoexport"),
-    ("postgres", "PostgreSQL", "postgres", "url", "plug", "The read-only address, like postgresql://reader@host:5432/plantdb. No password in this box.", r"postgres(?:ql)?\b"),
-    ("mysql", "MySQL / MariaDB", "sql", "url", "bridge", "A read-only address. This build needs its driver added; it is written down for setup.", r"mysql|mariadb"),
-    ("mssql", "SQL Server", "sql", "url", "bridge", "A read-only address. This build needs its driver added; it is written down for setup.", r"sql server|mssql|t-sql"),
-    ("oracle", "Oracle database", "sql", "url", "bridge", "A read-only address. This build needs its driver added; it is written down for setup.", r"oracle (?:db|database|11|12|19|21)\b|oracledb"),
-    ("sap", "SAP", "erp", "rest", "plug", "The OData or REST address of the service, or upload an export of the orders.", r"\bSAP\b|s/4\s?hana"),
-    ("erp", "ERP system", "erp", "rest", "plug", "The REST address of the ERP, or upload an export of its orders (CSV or SQLite).", r"\bERP\b|odoo|netsuite|dynamics 365|infor\b"),
-    ("mes", "MES", "mes", "rest", "plug", "The REST address of the MES, or upload its station log (CSV or SQLite).", r"\bMES\b|opcenter|camstar|manufacturing execution"),
+    ("mongo", "MongoDB", "mongo", "url", "plug", "The MongoDB address (mongodb://user@host:27017/database) and the password. Or upload a mongoexport file (.jsonl).", r"mongo\s?db|mongo\b|mongoexport"),
+    ("postgres", "PostgreSQL", "postgres", "url", "plug", "The address (postgresql://user@host:5432/database) and the password. I log in and read only.", r"postgres(?:ql)?\b"),
+    ("mysql", "MySQL / MariaDB", "sql", "url", "plug", "The address (mysql://user@host:3306/database) and the password. I log in and read only.", r"mysql|mariadb"),
+    ("mssql", "SQL Server", "sql", "url", "plug", "The address (mssql://user@host:1433/database) and the password. I log in and read only.", r"sql server|mssql|t-sql"),
+    ("oracle", "Oracle database", "sql", "url", "plug", "The address (oracle://user@host:1521/service) and the password. I log in and read only.", r"oracle (?:db|database|11|12|19|21)\b|oracledb"),
+    ("sap", "SAP", "erp", "rest", "plug", "The OData or REST address of the service and its token, or upload an export of the orders.", r"\bSAP\b|s/4\s?hana"),
+    ("erp", "ERP system", "erp", "rest", "plug", "The REST address of the ERP and its token, or upload an export of its orders (CSV or SQLite).", r"\bERP\b|odoo|netsuite|dynamics 365|infor\b"),
+    ("mes", "MES", "mes", "rest", "plug", "The REST address of the MES and its token, or upload its station log (CSV or SQLite).", r"\bMES\b|opcenter|camstar|manufacturing execution"),
     ("historian", "Historian / SCADA", "other", "upload", "bridge", "Upload an export of the tags you want (CSV). A live link goes through a bridge.", r"historian|aveva|osisoft|\bPI System\b|ignition\b|scada|wonderware"),
-    ("opcua", "OPC UA", "opcua", "note", "live", "The controller address, like opc.tcp://host:4840. It is read only.", r"opc[\s-]?ua"),
-    ("mqtt", "MQTT / IoT broker", "mqtt", "upload", "bridge", "Upload a log of the topics (CSV or JSON lines). A live link goes through a bridge.", r"mqtt|sparkplug|iot (?:hub|broker|gateway)"),
-    ("kafka", "Kafka", "other", "upload", "bridge", "Upload a sample of the stream (JSON lines). A live link goes through a bridge.", r"kafka|redpanda"),
+    ("opcua", "OPC UA", "opcua", "url", "plug", "The controller address, like opc.tcp://host:4840. I only read.", r"opc[\s-]?ua"),
+    ("mqtt", "MQTT / IoT broker", "mqtt", "url", "plug", "The broker address (mqtt://host:1883), the topic to listen to, and the login if it needs one. Or upload a log of the topics.", r"mqtt|sparkplug|iot (?:hub|broker|gateway)"),
+    ("kafka", "Kafka", "other", "url", "plug", "The broker address (kafka://host:9092) and the topic to read. Or upload a sample of the stream.", r"kafka|redpanda"),
     ("plc", "PLC (Modbus, S7, Rockwell)", "other", "upload", "bridge", "Upload a register log (CSV). A live link goes through a protocol adapter.", r"modbus|\bS7-\d+|siemens s7|allen[- ]bradley|rockwell|profinet|\bPLC\b"),
     ("cmms", "Maintenance system", "other", "upload", "bridge", "Upload an export of the work orders (CSV).", r"maximo|\bCMMS\b|\bfiix\b|upkeep"),
     ("warehouse", "Data warehouse", "other", "upload", "bridge", "Upload an export of the history you want (CSV).", r"bigquery|snowflake|databricks|redshift"),
     ("files", "Shared files", "files", "upload", "plug", "Upload the file (CSV or SQLite).", r"\bS3\b|\bGCS\b|azure blob|sharepoint|network share"),
-    ("mcp", "MCP server", "api", "mcp", "bridge", "The address of this MCP server. It is written down for setup. Tools it brings will pass the Warden gate.", r"\bMCP\b|model context protocol"),
+    ("mcp", "MCP server", "api", "mcp", "plug", "The address of this MCP server, and its token if it needs one. I list its tools. Every tool it brings passes the Warden gate; only read-only tools can run.", r"\bMCP\b|model context protocol"),
 ]
 ENGINES = {"mongo", "postgres", "mysql", "mssql", "oracle"}
 CASE = {"sap", "erp", "mes", "mcp", "plc"}

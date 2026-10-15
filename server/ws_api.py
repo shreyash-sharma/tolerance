@@ -2,6 +2,7 @@
 import json, os, shutil, threading, time
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from plant import core, mes
 from connectors import registry as CR
@@ -109,6 +110,50 @@ async def upload(file: UploadFile = File(...), name: str = Form(""), system: str
     except Exception:
         pass
     return j({"source": src_public(SRC.get(s["id"])), "sync": r, "machine": machine, "quality": quality})
+
+
+class ConnectBody(BaseModel):
+    type: str
+    url: str
+    secret: str = ""
+    query: str = ""
+    name: str = ""
+    system: str = ""
+    database: str = ""
+    topic: str = ""
+
+
+@router.post("/sources/test")
+def sources_test(b: ConnectBody):
+    """The Test button: log in, run one safe read, say how long it took and what is there. Nothing is saved."""
+    from connectors import probes as PB
+    return j(PB.test(b.type, b.url, b.secret, b.query or b.topic))
+
+
+@router.post("/sources/connect")
+def sources_connect(b: ConnectBody):
+    """Test it, then connect it for good: the password goes to the vault, the source loads once and then keeps up."""
+    from connectors import probes as PB
+    from workspace import vault, live as LV
+    t = PB.test(b.type, b.url, b.secret, b.query or b.topic)
+    if not t["ok"]:
+        raise HTTPException(400, t["message"])
+    clean, pw = PB.split_secret(b.type, b.url, b.secret)
+    ref = vault.put(pw) if pw else None
+    nm = (b.name.strip() or PB.LABEL.get(b.type, b.type))[:120]
+    sysid = b.system if b.system in SRC.SYSTEMS else ""
+    extra = {"system": sysid} if sysid else {}
+    if b.type == "api":
+        s = SRC.add("api", nm, url=clean, secret_ref=ref, **extra)
+    else:
+        kind = LV.ENGINE_OF_TYPE.get(b.type)
+        if not kind:
+            raise HTTPException(400, "I cannot connect that kind of system yet.")
+        s = SRC.add(kind, nm, url=clean, engine=b.type, secret_ref=ref, database=b.database, topic=b.topic or b.query, **extra)
+    CR.set_own_lake()
+    r = SRC.sync(s["id"])
+    SRC.LIVE.start()
+    return j({"source": src_public(SRC.get(s["id"])), "sync": r, "test": t})
 
 
 @router.post("/sources/url")
@@ -368,11 +413,50 @@ def docs_reset():
 # ------------------------------------------------------------------ MCP
 def _mcp_gw():
     """A gateway whose policy covers the MCP tools, independent of any incident archive (used by the MCP console)."""
-    if not S.get("mcp_gw"):
-        from rca import policy
-        from mcpx.hub import HUB
-        S["mcp_gw"] = gateway.Gateway(policy.build([], mcp=HUB.read_only_tools()))
+    from rca import policy
+    from mcpx.hub import HUB
+    tools = HUB.read_only_tools()
+    sig = hash(tuple(sorted(tools)))
+    if not S.get("mcp_gw") or S.get("mcp_gw_sig") != sig:   # a connected MCP server brings tools, so the policy is made again
+        S["mcp_gw"] = gateway.Gateway(policy.build([], mcp=tools))
+        S["mcp_gw_sig"] = sig
     return S["mcp_gw"]
+
+
+class McpBody(BaseModel):
+    url: str
+    token: str = ""
+    name: str = ""
+    quote: str = ""
+
+
+@router.post("/mcp/connect")
+def mcp_connect(b: McpBody):
+    """Connect an MCP server of the owner's: list its tools and keep it. Its tools join the hub; every call still passes the policy gateway."""
+    from mcpx import remote
+    try:
+        sv = remote.add(b.name, b.url.strip(), b.token, b.quote)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    return j({"server": sv, "read_only": sum(1 for t in sv["tools"] if t["read_only"])})
+
+
+@router.delete("/mcp/remote/{sid}")
+def mcp_remote_remove(sid: str):
+    from mcpx import remote
+    remote.remove(sid)
+    return j({"ok": True})
+
+
+@router.post("/mcp/remote/{sid}/refresh")
+def mcp_remote_refresh(sid: str):
+    from mcpx import remote
+    try:
+        return j({"tools": remote.refresh(sid)})
+    except KeyError:
+        raise HTTPException(404, "unknown server")
+    except Exception as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/mcp")

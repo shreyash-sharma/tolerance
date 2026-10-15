@@ -21,3 +21,12 @@ huggingface_hub
 mcp<2
 scikit-learn
 pypdf
+
+# live connectors to the owner's own systems
+pymongo
+paho-mqtt
+kafka-python-ng
+pymysql
+pymssql
+oracledb
+cryptography

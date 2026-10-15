@@ -9,12 +9,14 @@ _gw = {}
 def gateway_for():
     """A gateway whose policy covers every read-only MCP tool for every Foreman agent, plus the safety gate for the broker. Rebuilt when the tool set changes."""
     from mcpx.hub import HUB
+    from workspace import store
     ro = HUB.read_only_tools()
     key = tuple(sorted(ro))
-    if _gw.get("key") != key:
-        _gw["gw"] = gateway.Gateway(policy.build([], mcp=ro, principals=PRINCIPALS))
-        _gw["key"] = key
-    return _gw["gw"]
+    me = store.UID.get()   # one gateway per visitor, so a visitor's own MCP servers never change anyone else's policy or audit
+    cur = _gw.get(me)
+    if not cur or cur["key"] != key:
+        cur = _gw[me] = {"key": key, "gw": gateway.Gateway(policy.build([], mcp=ro, principals=PRINCIPALS))}
+    return cur["gw"]
 
 
 def call(agent, tool, args=None, context=None):

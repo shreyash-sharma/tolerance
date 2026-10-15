@@ -154,9 +154,12 @@ def _submit_decl(types):
 def run_diagnosis(station, live=False, parent=None, feedback=None):
     run = Run("diagnosis", f"Why did {station} fail?", parent=parent)
     tools = ["telemetry/station_history", "telemetry/failure_episodes", "telemetry/fleet_failures", "telemetry/list_stations"]
+    from mcpx import remote as _rm
+    own = [f"{sv['id']}/{t['name']}" for sv in _rm.servers() for t in sv["tools"] if t["read_only"]][:12]   # the owner's own MCP servers add their read-only tools
+    tools += own
     try:
         try:
-            final, steps, src = llm.tool_loop("diagnosis", DIAG_SYS, f"Station {station} entered the failed state." + (f" A reviewer rejected your earlier answer: {feedback}. Use only numbers that the tools return." if feedback else ""), tools, lambda full, args: gate.call("diagnosis", full, args), _submit_decl, run, live=live)
+            final, steps, src = llm.tool_loop("diagnosis", DIAG_SYS, f"Station {station} entered the failed state." + (" The plant also connected its own MCP servers; their read-only tools may help (for example the state of a station in the MES)." if own else "") + (f" A reviewer rejected your earlier answer: {feedback}. Use only numbers that the tools return." if feedback else ""), tools, lambda full, args: gate.call("diagnosis", full, args), _submit_decl, run, live=live)
         except llm.LLMUnavailable:
             r = gate.call("diagnosis", "telemetry/failure_episodes", {"station": station, "hours": 24})
             run.step("tool", "telemetry/failure_episodes", decision="ALLOW" if r.get("ok") else "DENY")

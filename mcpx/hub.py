@@ -54,20 +54,42 @@ class Hub:
     # -------------------------------------------------- queries
     def servers(self):
         self.start()
+        from mcpx import remote as _rm
+        return self._builtin() + _rm.servers()
+
+    def _builtin(self):
         return [{"id": n, "title": SERVERS[n][1], "about": SERVERS[n][2], "protocol": "Model Context Protocol", "tools": self.tools.get(n, []),
                  "calls": sum(1 for c in LOG if c["server"] == n)} for n in SERVERS]
 
     def meta(self, server, tool):
         self.start()
+        if server.startswith("remote:"):
+            from mcpx import remote as _rm
+            rec = _rm.get(server)
+            return next((t for t in (rec or {}).get("tools", []) if t["name"] == tool), None)
         return next((t for t in self.tools.get(server, []) if t["name"] == tool), None)
 
     def read_only_tools(self):
         self.start()
-        return [(n, t["name"]) for n, ts in self.tools.items() for t in ts if t["read_only"]]
+        from mcpx import remote as _rm
+        rem = [(sv["id"], t["name"]) for sv in _rm.servers() for t in sv["tools"] if t["read_only"]]
+        return [(n, t["name"]) for n, ts in self.tools.items() for t in ts if t["read_only"]] + rem
 
     # -------------------------------------------------- calls
     def call(self, server, tool, args=None, timeout=90, who="agent"):
         self.start()
+        if server.startswith("remote:"):
+            from mcpx import remote as _rm
+            t0 = time.time()
+            ok = True
+            try:
+                return _rm.call(server, tool, args or {}, timeout)
+            except Exception:
+                ok = False
+                raise
+            finally:
+                LOG.append({"t": round(time.time(), 2), "server": server, "tool": tool, "args": args or {}, "ok": ok, "ms": round((time.time() - t0) * 1000), "who": who})
+                del LOG[:-200]
         if server not in self.sessions:
             raise RuntimeError(self.error or f"no MCP server {server}")
         t0 = time.time()

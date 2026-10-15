@@ -133,15 +133,17 @@ def system_of(rec):
     b = rec.get("params", {}).get("id")
     if rec["kind"] == "builtin":
         return {"mes": "mes", "docs": "docs", "queue": "mes", "erp": "erp", "erppg": "erp", "opcua": "opcua", "traces": "traces"}.get(b, "other")
-    return {"api": "api", "db_url": "sql", "sqlite": "sql", "csv": "files", "json": "mongo", "archive": "other"}.get(rec["kind"], "other")
+    if rec["kind"] == "sql_live":
+        return {"postgres": "postgres", "mysql": "sql", "mssql": "sql", "oracle": "sql"}.get(rec["params"].get("engine"), "sql")
+    return {"api": "api", "db_url": "sql", "sqlite": "sql", "csv": "files", "json": "mongo", "mongo_live": "mongo", "mqtt_live": "mqtt", "kafka_live": "other", "opcua_live": "opcua", "archive": "other"}.get(rec["kind"], "other")
 
 
-def api_resource(url, table):
+def api_resource(url, table, token=""):
     import httpx
 
     @dlt.resource(name=table, write_disposition="replace")
     def rows():
-        r = httpx.get(url, timeout=20)
+        r = httpx.get(url, timeout=20, headers={"Authorization": "Bearer " + token} if token else {})
         r.raise_for_status()
         data = r.json()
         if isinstance(data, dict):
@@ -194,7 +196,7 @@ def add(kind, name, **params):
     sid = store.new_id("src")
 
     def f(d):
-        rec = {"id": sid, "name": name, "kind": kind, "params": params, "live": kind in ("builtin", "api", "csv", "sqlite", "db_url", "json"), "created": time.time(), "syncs": 0, "rows": 0, "last": None,
+        rec = {"id": sid, "name": name, "kind": kind, "params": params, "live": kind in ("builtin", "api", "csv", "sqlite", "db_url", "json") or kind in __import__("workspace.live", fromlist=["KINDS"]).KINDS, "created": time.time(), "syncs": 0, "rows": 0, "last": None,
                "last_new": None, "tables": {}, "error": None, "history": []}
         d["sources"].append(rec)
         return rec
@@ -233,8 +235,12 @@ def sync(sid):
                     src = csv_resource(s["params"]["path"], nm)
                 elif s["kind"] == "json":
                     src = mongo_resource(s["params"]["path"], nm)
+                elif s["kind"] in __import__("workspace.live", fromlist=["KINDS"]).KINDS:
+                    from workspace import live as LV
+                    src = LV.resource(s, nm)
                 elif s["kind"] == "api":
-                    src = api_resource(s["params"]["url"], nm)
+                    from workspace import vault as VT
+                    src = api_resource(s["params"]["url"], nm, VT.get(s["params"].get("secret_ref")) or "")
                 else:
                     url = s["params"]["url"] if s["kind"] == "db_url" else "sqlite:///" + s["params"]["path"]
                     src = sql_source(url, nm)
