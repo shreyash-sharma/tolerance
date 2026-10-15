@@ -4,7 +4,7 @@ import { api, post } from '@/lib/api';
 import { layoutHtml } from '@/lib/anatomy';
 import NameReveal from './NameReveal';
 import IngestCard from './IngestCard';
-import { authHeader } from '@/lib/auth';
+import { authHeader, signOutUser, useAuth } from '@/lib/auth';
 import type { PlantData } from '@/lib/plant';
 import AnatomyFrame from './AnatomyFrame';
 
@@ -15,12 +15,18 @@ const Logo = () => (
   </div>
 );
 
+function SignOut() {
+  const auth = useAuth();
+  if (auth.status !== 'in') return null;
+  return <button className="btn g sm" onClick={() => signOutUser()}>Sign out{auth.user?.email ? ` (${auth.user.email})` : auth.user?.guest ? ' (guest)' : ''}</button>;
+}
+
 const shell: React.CSSProperties = { position: 'fixed', inset: 0, overflow: 'auto', background: 'radial-gradient(1200px 600px at 50% -10%, #1d1f23 0%, #111215 60%)', color: 'var(--ivory)', display: 'flex', flexDirection: 'column' };
 
 function Frame({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
     <div style={shell}>
-      <div style={{ padding: '22px 32px' }}><Logo /></div>
+      <div style={{ padding: '22px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><Logo /><SignOut /></div>
       <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '0 32px 48px' }}>
         <div style={{ width: '100%', maxWidth: wide ? 1240 : 760 }}>{children}</div>
       </div>
