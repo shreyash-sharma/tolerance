@@ -16,7 +16,7 @@ export default function FeedStrip({ stations, sel, onSelect }: { stations: { id:
       {feeds.map((f) => {
         const on = open === f.id, carries = !!selName && f.stations.includes(selName);
         return (
-          <div key={f.id} style={{ position: 'relative' }} onMouseEnter={() => setOpen(f.id)} onMouseLeave={() => setOpen((v) => (v === f.id ? null : v))}>
+          <div key={f.id} data-feed={f.id} data-on={on ? '1' : '0'} style={{ position: 'relative' }} onMouseEnter={() => setOpen(f.id)} onMouseLeave={() => setOpen((v) => (v === f.id ? null : v))}>
             <button type="button" aria-label={`${f.name}: ${f.stations.length} stations`} onClick={() => setOpen(on ? null : f.id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: 14, boxShadow: carries ? '0 0 0 3px rgba(242,184,75,.55)' : 'none' }}>
               <FeedIcon system={f.system} size={44} dot={f.status} />
             </button>

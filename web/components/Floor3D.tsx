@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import Loader3D from '@/components/Loader3D';
 import FloorMap from '@/components/FloorMap';
 import FloorDock from '@/components/FloorDock';
+import FeedLinks from '@/components/FeedLinks';
 import { Footprints, Gauge, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
 
 type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
@@ -542,6 +543,7 @@ export default function Floor3D() {
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
       <ModeToggle mode={mode} cards={cards} onChange={onView} />
       {mode === '2d' && cards && <FloorMap onShow3d={(id) => { onMode('3d'); setCards(false); setSel(id); }} />}
+      {mode === '2d' && !cards && <FeedLinks stations={labels.filter((l) => !l.ghost).map((l) => ({ id: l.id, name: l.name }))} posOf={posOf} sel={sel} />}
       {mode === '2d' && !cards && <FloorDock sel={sel} onSelect={setSel} xray={xray} onXray={() => setXray((v) => !v)} onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
       <div className="absolute inset-0" style={{ right: 0 }}>
       <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} showSwitcher={false} showCompass={mode === '3d'}>
