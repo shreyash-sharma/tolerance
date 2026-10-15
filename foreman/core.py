@@ -52,6 +52,8 @@ class Run:
 
     def __init__(self, agent, title, parent=None, meta=None):
         self.id = "run_" + uuid.uuid4().hex[:8]
+        from workspace import store
+        self.uid = store.UID.get()   # whose run this is, so one visitor never sees another's approvals
         self.agent = agent
         self.title = title
         self.parent = parent

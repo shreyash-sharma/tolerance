@@ -42,6 +42,16 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 - **Playbooks** (`/playbooks`): the owner draws what should happen when a station fails: a trigger, checks, a decision and actions. Checks read through the same policy gateway as the agents. Any action that changes the plant is scored by Warden first.
 - **Channels** (on the Warden page): Slack, Teams, Discord, Telegram or any webhook. "A person must approve", blocked actions, failing Sentinel rules and playbook messages reach people where they work. Addresses stay on the server.
 
+## Easier to use
+
+Some of the ideas for the interface come from the Kanshi project, which has a very clear monitoring UI.
+
+- **A rule wizard.** Adding a Sentinel rule takes four steps: Type, Details, Checks, Review. The type is chosen from tiles, each with an icon and one line. In the Checks step you press **Test it now**, see the real fields, and click one to make a check. A number starts with a wide margin around what it showed. Presets fill in a sensible set in one click.
+- **Search or jump to** (Ctrl+K, or the button in the top bar): pages, stations, rules and playbooks, plus a few actions.
+- **A bell** for what needs a person now: actions that wait for approval, and failing rules.
+- **A set-up list** under the plant name, with progress. Each step ticks itself when it is done.
+- **Calm lists.** Failing rules come first and stay open. Passing rules are one line, open with a click. An empty page says what to do next.
+
 ## The 3D factory
 
 The factory assembles itself from the confirmed plan, with data flows shown as cables (the X-ray view), live station labels, and a dashed ghost station that only the documents mention (C3). Built on the Pascal Editor. The floor opens in quick 2D. The 3D bar has only controls that work on a floor: Walk, Turn, Top view, Reset view, Data flows (the X-ray layer), Labels and Replay build. Switch to 3D and a loader shows while the engine starts; the first time takes about 20 seconds, and after that it opens quickly.

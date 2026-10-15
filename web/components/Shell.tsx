@@ -7,6 +7,9 @@ import { usePlant } from '@/lib/plant';
 import { useAuth, signOutUser } from '@/lib/auth';
 import LoginScreen from '@/components/first/LoginScreen';
 import FirstRun from '@/components/first/FirstRun';
+import CommandBar from '@/components/CommandBar';
+import Bell from '@/components/Bell';
+import SetupChecklist from '@/components/SetupChecklist';
 
 const NAV: [string, string, string][] = [
   ['/floor', 'Floor', 'M3 5h18v14H3zM3 12h18M9 5v14'],
@@ -92,6 +95,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
           <b>Tolerance<span>.</span></b>
         </div>
         <div className="ws"><b>{data.plant.name}</b><small>Compiled from {data.docs.length} document{data.docs.length === 1 ? '' : 's'}</small></div>
+        {stage === 'done' && <div className="setup-box"><SetupChecklist docs={data.docs.length} hasData={(ws?.sources.length || 0) > 0} /></div>}
         <nav className="nav">{visible.map(row)}</nav>
         <div className="grow" />
         <div style={{ position: 'relative' }}>
@@ -118,6 +122,8 @@ export default function Shell({ children, full = false }: { children: React.Reac
         <header className="top">
           <h1>{pageTitle}</h1>
           <span className="sp" />
+          <CommandBar pages={visible.map(([h, l]) => [h, l] as [string, string])} />
+          <Bell />
           <span className={`pill ${live ? 'live' : ''}`}><i /><span>{ws?.log_time ? `plant clock ${String(ws.log_time).slice(0, 16).replace('T', ' ')}` : live ? 'live' : 'no live data'}</span></span>
           <span className={`pill ${ws?.gemini ? 'live' : 'warn'}`}><i /><span>{ws?.gemini ? 'Gemini connected' : 'Gemini not set'}</span></span>
         </header>

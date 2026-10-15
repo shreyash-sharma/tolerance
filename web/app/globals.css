@@ -630,3 +630,7 @@ input[type=email]:focus,input[type=password]:focus{border-color:var(--amber)}
 
 /* The viewer package lists 3D first. We open in 2D, so the switch reads 2D / 3D. */
 [aria-label="Viewer layout"]{flex-direction:row-reverse}
+
+/* the setup list needs the full sidebar */
+@media(max-width:1100px){.setup-box{display:none}}
+@media(max-width:760px){.hide-sm{display:none}}

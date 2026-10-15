@@ -15,6 +15,26 @@ def j(o):
     return JSONResponse(json.loads(json.dumps(o, default=str)))
 
 
+@router.get("/attention")
+def attention():
+    """What needs a person now: actions waiting for approval, and Sentinel rules that are failing. For the bell."""
+    me, items = store.UID.get(), []
+    for rid in reversed(core.ORDER[-40:]):
+        r = core.RUNS.get(rid)
+        if not r or getattr(r, "uid", me) != me or r.meta.get("flow") != "operations" or not r.result:
+            continue
+        for p in r.result.get("proposals", []):
+            if p.get("decision") == "approve" and not p.get("applied"):
+                items.append({"kind": "approval", "text": f"{p['label']} on {r.result['station']} waits for a person (score {p['score']})", "link": "/operations"})
+    from sentinel import service as SV
+    _, s = SV._state()
+    for rule in s["rules"]:
+        last = s["last"].get(rule["id"])
+        if last and not last["ok"] and not last.get("maintenance"):
+            items.append({"kind": "rule", "text": f"Sentinel: {rule['name']} is failing", "link": "/sentinel"})
+    return j({"count": len(items), "items": items[:20]})
+
+
 @router.get("/agents")
 def agents():
     cat = core.catalog()
@@ -258,6 +278,17 @@ def sentinel_impact():
     """For the floor: which stations lose their data because a rule is failing, and which rules say so."""
     from sentinel import service as SV
     return j(SV.impact_map())
+
+
+class TryBody(BaseModel):
+    kind: str
+    target: dict = {}
+
+
+@router.post("/sentinel/try")
+def sentinel_try(b: TryBody):
+    from sentinel import service as SV
+    return _sentinel(SV.try_rule, b.kind, b.target)
 
 
 @router.get("/sentinel/columns")

@@ -173,7 +173,8 @@ def _tables():
         return []
 
 
-def add(name, kind, target, assertions, severity="warn"):
+def _clean_target(kind, target, make_token=True):
+    """Checks and tidies the target of a rule. Returns (target, token). Raises ValueError or guard.Refused."""
     if kind not in KINDS:
         raise ValueError("unknown kind")
     target = dict(target or {})
@@ -189,8 +190,8 @@ def add(name, kind, target, assertions, severity="warn"):
         guard.check_host(host, port)
         target = {"host": host, "port": port}
     elif kind == "heartbeat":
-        token = secrets.token_urlsafe(18)
-        target = {"token": token, "grace_s": max(10, min(86400 * 7, int(target.get("grace_s") or 300)))}
+        token = secrets.token_urlsafe(18) if make_token else None
+        target = {"token": token or "", "grace_s": max(10, min(86400 * 7, int(target.get("grace_s") or 300)))}
     elif kind == "service":
         proto = target.get("protocol")
         if proto not in protocols.PROTOCOLS:
@@ -216,6 +217,11 @@ def add(name, kind, target, assertions, severity="warn"):
         raise ValueError("choose a table")
     if affects and kind not in ("table", "decide"):
         target["affects"] = affects
+    return target, token
+
+
+def add(name, kind, target, assertions, severity="warn"):
+    target, token = _clean_target(kind, target)
     clean = []
     for a in assertions or []:
         if a.get("op") not in engine.OPS or not str(a.get("path", "")).strip():
@@ -232,6 +238,34 @@ def add(name, kind, target, assertions, severity="warn"):
         heartbeat.ensure(token)
     store.save(d)
     return rid
+
+
+def _flatten(obj, prefix="", depth=0, out=None):
+    """The fields of an observation as a flat list, so the page can show them and let the owner click one."""
+    out = [] if out is None else out
+    if len(out) >= 60:
+        return out
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in ("columns", "text", "headers") and prefix == "":
+                continue
+            _flatten(v, f"{prefix}.{k}" if prefix else str(k), depth + 1, out)
+    elif isinstance(obj, list):
+        out.append({"path": prefix, "value": f"{len(obj)} items", "type": "list"})
+        if obj and isinstance(obj[0], dict) and depth < 3:
+            _flatten(obj[0], prefix + "[*]", depth + 1, out)
+    elif obj is not None:
+        kind = "boolean" if isinstance(obj, bool) else "number" if isinstance(obj, (int, float)) else "text"
+        out.append({"path": prefix, "value": str(obj)[:80], "type": kind})
+    return out
+
+
+def try_rule(kind, target):
+    """Looks at the target once, without saving anything, and says which fields a check can use."""
+    target, _ = _clean_target(kind, target, make_token=False)
+    if kind == "heartbeat":
+        return {"fields": _flatten({"seconds_since": 0, "beats": 0, "ever": False, "last_beat": "never"}), "note": "A heartbeat has nothing to look at yet. These are the fields it will have."}
+    return {"fields": _flatten(observe({"kind": kind, "target": target}))}
 
 
 def remove(rid):
