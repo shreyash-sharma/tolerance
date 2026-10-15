@@ -10,16 +10,17 @@ import { Vector3 } from 'three';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
 import Loader3D from '@/components/Loader3D';
-import FloorMap from '@/components/FloorMap';
+import FloorLayout from '@/components/FloorLayout';
 import FloorDock from '@/components/FloorDock';
 import FeedLinks from '@/components/FeedLinks';
 import { Footprints, Gauge, Home, Layers, Play, RotateCcw, RotateCw, Tag, ArrowUpFromLine } from 'lucide-react';
 
-type Station = { ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
+type Station = { kind?: string | null; ghost?: string; id: string; name: string; asset: string | null; x: number; y: number; state: string; failures?: number; p_fail?: number | null; binds?: { table: string }[]; sw_alerts?: any[] };
 type Twin = { stations: Station[]; flows: any[]; has_data: boolean };
 
 const FLOOR_W = 24, FLOOR_D = 15;
 const kindOf = (s: Station) => {
+  if (s.kind) return s.kind;
   const n = `${s.name} ${s.asset || ''}`.toLowerCase();
   if (/inspect|aoi|\bspi\b|\bict\b|\bfct\b|test|quality/.test(n)) return 'inspect';
   if (/agv|vehicle|forklift|\bamr\b/.test(n)) return 'agv';
@@ -72,12 +73,12 @@ function LabelProjector({ items, els, host }: { items: Label[]; els: React.Mutab
 }
 
 /** Name tags. A failed machine gets a large red tag. */
-function ModeToggle({ mode, cards, onChange }: { mode: ViewerStageMode; cards: boolean; onChange: (m: 'plan' | 'cards' | '3d') => void }) {
-  const on = mode === '3d' ? '3d' : cards ? 'cards' : 'plan';
-  const b = (m: 'plan' | 'cards' | '3d', label: string, tip: string) => (
-    <button type="button" title={tip} aria-pressed={on === m} onClick={() => onChange(m)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${on === m ? 'bg-white text-neutral-900' : 'text-white/80 hover:text-white'}`}>{label}</button>
+function ModeToggle({ mode, onChange }: { mode: ViewerStageMode; onChange: (m: 'plan' | '3d') => void }) {
+  const on = mode === '3d' ? '3d' : 'plan';
+  const b = (m: 'plan' | '3d', label: string, tip: string) => (
+    <button type="button" title={tip} aria-pressed={on === m} onClick={() => onChange(m)} className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${on === m ? 'bg-white text-neutral-950' : 'text-white/80 hover:bg-white/10'}`}>{label}</button>
   );
-  return <div role="group" aria-label="View" className="dark absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/85 p-1 shadow-xl backdrop-blur-xl">{b('plan', '2D', 'The floor plan')}{b('cards', 'Cards', 'One card per station')}{b('3d', '3D', 'The factory in 3D')}</div>;
+  return <div role="group" aria-label="View" className="dark absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/85 p-1 shadow-xl backdrop-blur-xl">{b('plan', '2D', 'The floor plan')}{b('3d', '3D', 'The factory in 3D')}</div>;
 }
 
 function Btn({ icon, label, on, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
@@ -156,25 +157,6 @@ function machineParts(kind: string, parent: string, ox: number, oz: number, s: S
     out.push(HvacEquipmentNode.parse({ parentId: parent, name: `${s.name} equipment`, position: [ox, y0 - 0.12, oz], equipmentType: 'air-handler', width: 2, depth: 1.4, height: 1.8 }));
   }
   return out;
-}
-
-/** The owner's saved scene, read back into what the live floor needs. Stations are found by name; anything the owner deleted is simply skipped. */
-function sceneFromSaved(saved: any, tw: Twin) {
-  const nodes: Record<string, any> = JSON.parse(JSON.stringify(saved.nodes));
-  const byName: Record<string, string> = {};
-  Object.values(nodes).forEach((n: any) => { if (typeof n?.name === 'string') byName[n.name] = n.id; });
-  const ids: Record<string, { pad: string; edge: string; beacon: string }> = {};
-  const posOf: Record<string, [number, number]> = {};
-  const nodeStation: Record<string, string> = {};
-  tw.stations.forEach((s) => {
-    const edge = byName[`${s.name} status edge`], beacon = byName[`${s.name} beacon`];
-    if (!edge || !beacon) return;
-    ids[s.id] = { pad: edge, edge, beacon };
-    nodeStation[edge] = s.id; nodeStation[beacon] = s.id;
-    const p = nodes[edge].position; posOf[s.id] = [p[0], p[2] - 1.9];
-  });
-  const flowIds = Object.values(nodes).filter((n: any) => n?.name === 'flow' || n?.name === 'pulse' || n?.name === 'Source hub').map((n: any) => n.id as string);
-  return { nodes, root: saved.rootNodeIds as string[], ids, anims: [] as Anim[], flowIds, legend: [] as Legend, plan: [] as any[], hallIds: [] as string[], nodeStation, posOf };
 }
 
 export function buildScene(tw: Twin) {
@@ -272,14 +254,14 @@ export default function Floor3D() {
   // The floor opens in 2D, which is quick. The heavy 3D engine starts only when the person asks for 3D. Inside the deck (embed=1) it opens in 3D.
   const embedded = typeof window !== 'undefined' && window.location.search.includes('embed=1');
   const [mode, setMode] = useState<ViewerStageMode>(embedded ? '3d' : '2d');
-  const [cards, setCards] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'cards');   // 2D shows the plan; Cards is the optional status map
+  const [editing, setEditing] = useState(false);   // the layout editor: move, add and delete stations
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('edit') === '1') setEditing(true); }, []);
   const [want3d, setWant3d] = useState(embedded);
   const started3d = useRef(false);
   const ids = useRef<Record<string, { pad: string; edge: string; beacon: string }>>({});
   const sig = useRef('');
   const anims = useRef<Anim[]>([]);
   const flowIds = useRef<string[]>([]);
-  const savedScene = useRef<any>(undefined);
   const [vk, setVk] = useState(0);
   // Fast skips the viewer's post-processing (ambient occlusion, global illumination, outlines): much lighter on the GPU and steadier. Full keeps it.
   const [quality, setQuality] = useState<'fast' | 'full'>('fast');
@@ -369,11 +351,10 @@ export default function Floor3D() {
         if (lsig !== labelSig.current) { labelSig.current = lsig; setLabels(lab); }
         tw.stations.forEach((x) => { if (x.state === 'failed' && prev.current[x.id] && prev.current[x.id] !== 'failed') { flyTo(x.id); setSel(x.id); setAlertSid(x.id); } prev.current[x.id] = x.state; });
         tw.stations.forEach((x) => { states.current[x.id] = x.state; });
-        if (savedScene.current === undefined) { try { savedScene.current = (await api<any>('/jig/floor')).scene || null; } catch { savedScene.current = null; } }
-        const layout = savedScene.current ? 'saved:' + tw.stations.map((s) => s.id).join(',') : tw.stations.map((s) => `${s.id}:${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.name}:${s.ghost || ''}`).join('|');
+        const layout = tw.stations.map((s) => `${s.id}:${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.name}:${s.ghost || ''}`).join('|');
         if (layout !== sig.current) {
           sig.current = layout; colors.current = {};
-          const sc = savedScene.current ? sceneFromSaved(savedScene.current, tw) : buildScene(tw);
+          const sc = buildScene(tw);
           ids.current = sc.ids; anims.current = sc.anims; flowIds.current = sc.flowIds; planRef.current = { plan: sc.plan, nodes: sc.nodes }; nodeStation.current = sc.nodeStation; posOf.current = sc.posOf; setLegend(sc.legend);
           sc.flowIds.forEach((id: string) => { sc.nodes[id].visible = xrayRef.current; });
           applySceneGraphToEditor({ nodes: sc.nodes as any, rootNodeIds: sc.root as any } as any);
@@ -484,7 +465,7 @@ export default function Floor3D() {
       if (hit) setSel(hit);
     });
   }, [mode]);
-  const onView = useCallback((v: 'plan' | 'cards' | '3d') => { setCards(v === 'cards'); onMode(v === '3d' ? '3d' : '2d'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const onView = useCallback((v: 'plan' | '3d') => { onMode(v === '3d' ? '3d' : '2d'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const onMode = useCallback((m: ViewerStageMode) => { if (m !== '3d') useEditor.getState().setFirstPersonMode(false); if (m === '3d') setWant3d(true); setMode(m); }, []);
   // Once the 3D scene is ready the viewer is remounted once (it draws more reliably the second time), then the loader goes away.
   const t3d = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -539,12 +520,12 @@ export default function Floor3D() {
       <div className={`absolute right-4 z-20 flex flex-col items-end gap-2 ${mode === '3d' ? 'top-36 sm:top-16 md:top-4' : 'top-16'}`}>
         {mode === '3d' && !isFirstPerson && xray && legend.length > 0 && <div className="hidden rounded-xl border border-white/15 bg-neutral-950/75 p-2.5 text-xs text-white backdrop-blur sm:block"><div className="mb-1 text-[11px] uppercase tracking-wider text-white/70">Data feeds</div>{legend.map((l) => <div key={l.label} className="flex items-center gap-2 py-0.5"><i className="inline-block h-2 w-5 rounded-full" style={{ background: l.color }} />{l.label}</div>)}</div>}
       </div>
-      <a href="/floor/edit" className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit floor</a>
+      {!embedded && <button type="button" onClick={() => setEditing(true)} className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-neutral-950/75 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-neutral-800">Edit layout</button>}
+      {editing && <FloorLayout onDone={() => setEditing(false)} />}
       <LabelLayer items={showLabels ? labels : []} els={labelEls} host={labelHost} onPick={setSel} />
-      <ModeToggle mode={mode} cards={cards} onChange={onView} />
-      {mode === '2d' && cards && <FloorMap onShow3d={(id) => { onMode('3d'); setCards(false); setSel(id); }} />}
-      {mode === '2d' && !cards && <FeedLinks stations={labels.filter((l) => !l.ghost).map((l) => ({ id: l.id, name: l.name }))} posOf={posOf} sel={sel} />}
-      {mode === '2d' && !cards && <FloorDock sel={sel} onSelect={setSel} xray={xray} onXray={() => setXray((v) => !v)} onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
+      <ModeToggle mode={mode} onChange={onView} />
+      {mode === '2d' && !editing && <FeedLinks stations={labels.filter((l) => !l.ghost).map((l) => ({ id: l.id, name: l.name }))} posOf={posOf} sel={sel} />}
+      {mode === '2d' && !editing && <FloorDock sel={sel} onSelect={setSel} xray={xray} onXray={() => setXray((v) => !v)} onShow3d={(id) => { onMode('3d'); setSel(id); }} />}
       <div className="absolute inset-0" style={{ right: 0 }}>
       <ViewerStage className="absolute inset-0" mode={mode} modes={['2d', '3d']} showSwitcher={false} showCompass={mode === '3d'}>
         {want3d && <Viewer key={vk} defaultRender={{ shading: quality === 'full' ? 'rendered' : 'solid' }} disablePostFx={quality === 'fast'} maxFps={quality === 'fast' ? 40 : 50} renderPaused={sceneReady && (mode !== '3d' || hidden)} onSceneReadyChange={setSceneReady} renderContext="viewer" sceneReadyKey="plant" selectionManager="custom" useBvh={false}>

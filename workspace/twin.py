@@ -155,7 +155,7 @@ def build():
     for a, b in zip(sig_ids, sig_ids[1:]) if (sig_ids := [x["id"] for x in stations if x.get("by_signal")]) else []:
         if a.split("_")[0] == b.split("_")[0]:   # same line: parts move from one station to the next
             flows.append({"id": f"{a}>{b}", "a": a, "b": b, "by": "order", "status": "suggested", "score": None, "lift": None, "lag_s": None})
-    return {"stations": stations, "flows": flows, "time": live and max(v["last"] for v in live.values()), "has_data": bool(assets) or any(x.get("by_signal") for x in stations), "tables": _tables()}
+    return {"stations": stations, "flows": flows, "time": live and max(v["last"] for v in live.values()), "has_data": bool(assets) or any(x.get("by_signal") for x in stations), "tables": _tables(), "edits": tw.get("edits", 0)}
 
 
 def _signal_stations(removed):
@@ -254,10 +254,16 @@ def live(sid, minutes=30):
 
 
 # ------------------------------------------------------------------ the person's edits
+def _bump(d):
+    t = _tw(d)
+    t["edits"] = t.get("edits", 0) + 1   # how many times the owner changed the floor (the set-up list reads it)
+
+
 def add_station(name, x, y, kind=None):
     sid = "st:c_" + store.new_id("n")[2:]
 
     def f(d):
+        _bump(d)
         _tw(d)["stations"][sid] = {"name": name, "x": float(x), "y": float(y), "custom": True, "kind": kind}
     store.update(f)
     return sid
@@ -265,6 +271,7 @@ def add_station(name, x, y, kind=None):
 
 def move(sid, x, y):
     def f(d):
+        _bump(d)
         t = _tw(d)["stations"].setdefault(sid, {})
         t["x"], t["y"] = float(x), float(y)
     store.update(f)
@@ -272,12 +279,14 @@ def move(sid, x, y):
 
 def rename(sid, name):
     def f(d):
+        _bump(d)
         _tw(d)["stations"].setdefault(sid, {})["name"] = name
     store.update(f)
 
 
 def remove(sid):
     def f(d):
+        _bump(d)
         t = _tw(d)
         if sid in t["stations"] and t["stations"][sid].get("custom"):
             del t["stations"][sid]

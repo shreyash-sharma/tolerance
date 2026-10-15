@@ -14,12 +14,12 @@ export default function SetupChecklist({ docs, hasData }: { docs: number; hasDat
   useEffect(() => { try { setHidden(localStorage.getItem('setup-hidden') === '1'); } catch { /* the list just stays */ } }, []);
   useEffect(() => {
     let alive = true;
-    Promise.all([api<any>('/jig/channels').catch(() => null), api<any>('/jig/sentinel').catch(() => null), api<any>('/jig/playbooks').catch(() => null), api<any>('/jig/floor').catch(() => null)]).then(([ch, se, pb, fl]) => {
+    Promise.all([api<any>('/jig/channels').catch(() => null), api<any>('/jig/sentinel').catch(() => null), api<any>('/jig/playbooks').catch(() => null), api<any>('/ws/twin').catch(() => null)]).then(([ch, se, pb, fl]) => {
       if (!alive) return;
       setSteps([
         { label: 'Give your documents', done: docs > 0, href: '/compile' },
         { label: 'Connect your machine data', done: hasData, href: '/connect' },
-        { label: 'Edit the floor to match your plant', done: !!fl?.scene, href: '/floor/edit' },
+        { label: 'Edit the layout to match your plant', done: (fl?.edits || 0) > 0, href: '/floor?edit=1' },
         { label: 'Set up a channel for approvals', done: (ch?.channels || []).length > 0, href: '/safety' },
         { label: 'Add a Sentinel rule', done: (se?.rules || []).length > 0, href: '/sentinel' },
         { label: 'Draw a playbook', done: (pb?.playbooks || []).length > 0, href: '/playbooks' },

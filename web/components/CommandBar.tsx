@@ -32,7 +32,7 @@ export default function CommandBar({ pages }: { pages: [string, string][] }) {
   const go = useCallback((path: string) => { setOpen(false); router.push(path); }, [router]);
   const items: Item[] = useMemo(() => [
     ...pages.map(([href, label]) => ({ id: 'p' + href, group: 'Go to', label, go: () => go(href) })),
-    { id: 'edit', group: 'Go to', label: 'Edit the floor', hint: 'The full editor', go: () => go('/floor/edit') },
+    { id: 'edit', group: 'Go to', label: 'Edit the layout', hint: 'Move, add and delete stations', go: () => go('/floor?edit=1') },
     { id: 'connect', group: 'Go to', label: 'Connect data', go: () => go('/connect') },
     { id: 'deck', group: 'Go to', label: 'The pitch deck', go: () => go('/deck') },
     { id: 'run', group: 'Do', label: 'Run all Sentinel rules now', go: async () => { setOpen(false); try { await post('/jig/sentinel/run'); } catch { /* the page shows errors */ } router.push('/sentinel'); } },

@@ -28,11 +28,11 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 | | |
 |---|---|
-| <img src="docs/images/screens/23-floor-editor.jpg" alt="The floor editor: what Tolerance learnt on the left, the full Pascal editor on the right"><br>**Floor editor.** What Tolerance learnt on the left, the full editor on the right. | <img src="docs/images/screens/19-sentinel.png" alt="Sentinel: rules with their checks and results"><br>**Sentinel.** Rules, their checks, and what each one saw. |
+| <img src="docs/images/screens/23-layout-editor.png" alt="The layout editor: stations on a canvas, data feeds joined to them"><br>**Layout editor.** Move, add and delete stations. Data feeds join to the stations they serve. | <img src="docs/images/screens/19-sentinel.png" alt="Sentinel: rules with their checks and results"><br>**Sentinel.** Rules, their checks, and what each one saw. |
 | <img src="docs/images/screens/20-playbooks.png" alt="Playbooks: a canvas with a trigger, checks and actions"><br>**Playbooks.** Draw what happens when a station fails. | <img src="docs/images/screens/22-channels.jpg" alt="Channels: where Warden tells a person"><br>**Channels.** Slack, Teams, Discord, Telegram or a webhook. |
 
 
-- **Floor editor** (`/floor/edit`): the full Pascal editor opens on the floor the Guide drew, with a "what I learnt" panel beside it (stations, facts, limits, conflicts, data). The owner edits all of it. Saving keeps the scene on the server and moves or removes the matching stations in the plant model. The live floor then shows the owner's scene, with live colours and labels.
+- **Layout editor** (the "Edit layout" button on the floor, or `/floor?edit=1`): a node canvas in the style of the playbook canvas. Drag a station to move it, add a machine, inspection, conveyor, robot, AGV or warehouse from the left, rename or delete the selected one, and pull a line between two stations to say how parts flow. Every change saves at once to the plant model, and the 2D plan and the 3D view redraw from it. The data feeds show as icons at the left, joined to the stations they carry data for.
 - **Sentinel** (`/sentinel`, the ninth agent): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, a service, or what the documents say. A service check sends the first message of the protocol (MQTT, Redis, PostgreSQL, MySQL, MongoDB, RabbitMQ, OPC UA, Memcached, InfluxDB, ClickHouse, Elasticsearch, SQL Server port) and does not log in. The **Decide** check is optional and marked AI-assisted: Gemini puts up to 100 short texts (an alarm column, or the quotes from your documents) into labels you choose, its answer is limited to those labels, and a text that gives orders is treated as data. Plain checks then judge the counts. This is how Jev works, with Gemini: a model that can only answer from a fixed set of outputs. Next, a small Gemma tuned for this one job, classification for Sentinel, can take over. The engine choice is already in place. It can suggest checks for your connected data. A rule that fails, and one that recovers, tells your channels. Web, port, service and certificate checks reach public addresses only.
   - **A schedule** runs the rules by themselves every few minutes (the Decide check runs only on request, because it uses the model).
   - **Maintenance windows** keep planned work quiet: the rule still runs, but sends no message and its history shows grey. "Suggest from my documents" reads the maintenance times the SOPs state.
@@ -66,10 +66,9 @@ Some of the ideas for the interface come from the Kanshi project, which has a ve
 
 ## The floor: the plan, with controls, and a 3D factory
 
-The floor has a switch at the top: **2D**, **Cards** and **3D**.
+The floor has a switch at the top: **2D** and **3D**.
 
 - **2D is the floor plan,** drawn from the confirmed plan, at full size, with the data feeds. A **floating panel at the bottom** tracks the plant live: four tiles (running, failed, at risk, data check failing) that filter the stations, and two chips that go the same way as items in the left menu, **to approve** (Operations) and **rules failing** (Sentinel). Point at one of those chips and the matching menu item glows. **Stations** opens a list with the ones needing attention first. Click a station for its failure risk, the data it uses, the Sentinel rules that touch it, and the next step: **Find the cause and fix it**, or **Show it in 3D**. When a station fails, a red line at the top of the panel offers the fix at once.
-- **Cards** is an optional status map with one card per station. For a big plant it shows named dots.
 - **3D is for looking around.** The factory assembles itself from the confirmed plan. Data flows show as cables, and a failing data check puts an amber warning on the stations it feeds.
 
 <p align="center"><img src="docs/images/screens/00-floor-map.png" alt="The floor plan with the status tiles, the data-feed switch and the station list beside it" width="860"></p>

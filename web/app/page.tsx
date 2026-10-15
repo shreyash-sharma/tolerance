@@ -102,7 +102,7 @@ export default function Landing() {
           <div className="lp-steps">
             <div className="lp-step"><b className="n">1</b><h3>Give your files</h3><p>SOPs, vendor manuals, shift notes, emails. Word, PDF or text. Add a machine log, or connect a database or an MCP server.</p></div>
             <div className="lp-step"><b className="n">2</b><h3>See what it understood</h3><p>Facts with their quotes, stations the documents name but the data does not, documents that disagree. A hidden order in a file is removed, never obeyed.</p></div>
-            <div className="lp-step"><b className="n">3</b><h3>Shape the floor</h3><p>The Guide draws your floor. You can change all of it in the full editor.</p></div>
+            <div className="lp-step"><b className="n">3</b><h3>Shape the floor</h3><p>The Guide draws your floor. Move stations, add or delete them, and draw how parts flow.</p></div>
             <div className="lp-step"><b className="n">4</b><h3>Run it</h3><p>When a station fails, the agents find the cause, check it, and plan a fix. Warden scores it. You set how far it may go alone.</p></div>
           </div>
         </div>
@@ -126,11 +126,11 @@ export default function Landing() {
           <div className="lp-feat flip">
             <div>
               <span className="lp-ico"><PenTool size={20} /></span>
-              <h2 style={{ fontSize: 30 }}>Edit it like a pro.</h2>
-              <p>The Guide draws the floor from what it learnt. Then it is yours: move or delete a machine, add walls and equipment, rename things. The live floor shows your version.</p>
-              <ul><li>The full Pascal editor, next to what Tolerance learnt.</li><li>Draw it again from what was learnt, any time.</li></ul>
+              <h2 style={{ fontSize: 30 }}>Make the floor yours.</h2>
+              <p>The Guide draws the floor from what it learnt. Then it is yours: drag a station, add or delete one, rename it, and pull a line between two to show how parts flow. The plan and the 3D view follow at once.</p>
+              <ul><li>A node canvas, like the playbook one. Changes save as you go.</li><li>Your data feeds sit beside it, joined to the stations they carry data for.</li></ul>
             </div>
-            <Shot src="/landing/editor.png" alt="The floor editor" crop />
+            <Shot src="/landing/editor.png" alt="The layout editor" />
           </div>
 
           <div className="lp-feat">
