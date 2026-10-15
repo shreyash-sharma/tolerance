@@ -130,18 +130,25 @@ def plan_confirm(ok: int = Form(1), note: str = Form("")):
 
 # ----- what the owner says they use that this build cannot read yet (an MCP server, for example)
 @router.post("/wishes")
-def wishes_add(mcp_url: str = Form("")):
+def wishes_add(mcp_url: str = Form(""), name: str = Form(""), quote: str = Form("")):
+    """A plant has many MCP servers. Each one the owner names is written down with the sentence of theirs that named it. This build lists them; it does not call them yet."""
     import re
     url = re.sub(r"//[^/@\s]*@", "//", mcp_url.strip())[:300]   # a password must never be stored
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "An MCP server address starts with http:// or https://")
+    rec = {"id": store.new_id("mcp"), "name": (name.strip() or "MCP server")[:120], "url": url, "quote": quote.strip()[:300], "at": __import__("time").time()}
 
     def put(p):
         w = p.get("wishes") or {"also": [], "db_url": "", "mcp_url": ""}
-        w["mcp_extra"] = (w.get("mcp_extra") or [])[-4:] + [url]
+        w["mcp_servers"] = [x for x in (w.get("mcp_servers") or []) if x["url"] != url] + [rec]
         p["wishes"] = w
     PL.update(put)
-    return j({"ok": True})
+    return j({"ok": True, "server": rec})
+
+
+@router.get("/mcp_servers")
+def mcp_servers_list():
+    return j({"servers": ((PL.get().get("wishes") or {}).get("mcp_servers") or [])})
 
 
 # ----- the owner's edited floor (a Pascal scene graph kept per visitor)

@@ -9,6 +9,25 @@ STATIONS = ["Press-01", "Weld-02", "Paint-03", "Assembly-04", "Test-05", "Pack-0
 PRODUCTS = ["Bracket A", "Housing B", "Frame C"]
 
 
+DOCS = {
+    "01_it_landscape.md": """# IT landscape
+
+Station states come from the MES, which writes a log of RUN, IDLE and FAULT for every station.
+Inspection results for Paint-03, Assembly-04 and Test-05 are stored in the MongoDB collection `inspections` on mongo1.plant.local:27017.
+Maintenance notes are stored in the MongoDB collection `maintenance` on mongo2.plant.local:27017.
+Work orders and materials live in the ERP database `erp` on erp-db.plant.local:5432 (PostgreSQL).
+Vibration and motor temperature are published to an MQTT broker every 30 minutes.
+The MES MCP server runs at https://mcp-mes.plant.example/sse.
+The ERP MCP server runs at https://mcp-erp.plant.example/sse.
+""",
+    "02_sop_weld_02.md": """# SOP Weld-02
+
+Weld-02 feeds Paint-03. The weld arm must not run above 80 percent of its maximum speed.
+After 3 faults in a row, Weld-02 must stop and a technician must check it.
+""",
+}
+
+
 def _oid(r):
     return "".join(r.choice("0123456789abcdef") for _ in range(24))
 
@@ -94,6 +113,13 @@ def build(out, days=3, seed=7, now=None):
                 w.writerow([t.strftime("%Y-%m-%d %H:%M:%S"), st, round(abs(r.gauss(2.1 + (1.5 if st == "Weld-02" else 0), .5)), 2), round(r.gauss(58, 4), 1)])
             t += timedelta(minutes=30)
     files["iot"] = p
+
+    # the plant's documents: they name the systems that hold the data, with the same station names
+    d = os.path.join(out, "documents")
+    os.makedirs(d, exist_ok=True)
+    for fn, body in DOCS.items():
+        open(os.path.join(d, fn), "w", encoding="utf-8").write(body)
+    files["documents"] = d
     return files
 
 

@@ -71,6 +71,15 @@ SUPPORT = [
 LIVE_IDS = {c["id"] for c in CONNECTORS}
 
 
+def _systems():
+    """The data systems the documents name, each with the sentence that names it. The owner is asked for these, not for a generic list."""
+    from documents import systems as DS
+    try:
+        return DS.find(DE.list_docs())
+    except Exception:
+        return []
+
+
 def understood(st):
     """What the document readers understood, in numbers and in the plant's own words, for the owner to check."""
     claims = st["claims"]
@@ -89,7 +98,7 @@ def understood(st):
     have_data = CR.own_lake() or bool(PL.get().get("use_sample"))   # without machine data, "known" and "only in the text" mean nothing yet
     return {"documents": [{"name": d["name"], "kind": d["kind"], "claims": d["claims"]} for d in st["docs"]][:10], "facts": len(claims), "stations": stations, "named": named, "have_data": have_data,
             "limits": len(st.get("guardrails", [])), "conflicts": len(st["conflicts"]), "ghosts": [g["name"] for g in st["ghosts"]], "gaps": len(st["gaps"]),
-            "injections": len(st["injections"]), "samples": picks}
+            "injections": len(st["injections"]), "samples": picks, "systems": _systems()}
 
 
 def _say(text, card=None):
@@ -209,7 +218,7 @@ def start():
     return state()
 
 
-def connect(ids, also=None, db_url="", mcp_url=""):
+def connect(ids, also=None, db_url="", mcp_url="", named=None):
     all_items = {i["id"]: i for g in SUPPORT for i in g["items"]}
     also = [i for i in (also or []) if i in all_items and i not in LIVE_IDS]
     ids = [i for i in ids if i in LIVE_IDS]
@@ -225,6 +234,11 @@ def connect(ids, also=None, db_url="", mcp_url=""):
         said += ". Also in use: " + ", ".join(all_items[i]["title"] for i in also)
     if mcp_url:
         said += ". My MCP server is at " + mcp_url
+    named = [x for x in (named or []) if isinstance(x, dict) and x.get("name")][:40]
+    if named:
+        by = {k: [x["name"] + (" (" + x["note"] + ")" if x.get("note") and x["note"] != "written down for setup" else "") for x in named if x.get("state") == k] for k in ("connected", "written", "skipped", "open")}
+        said += ". Your documents named " + str(len(named)) + " systems. " + " ".join(f"{lab}: {', '.join(v)}." for lab, k in (("Connected", "connected"), ("Written down for setup", "written"), ("Skipped", "skipped"), ("Not dealt with yet", "open")) for v in [by[k]] if v)
+        PL.update(lambda p: p.update(systems=named))
     _user(said)
 
     def work():
@@ -314,7 +328,7 @@ def say(text=None, action=None):
     if action:
         t = action.get("type")
         if t == "connect":
-            return connect(action.get("ids") or [], action.get("also"), action.get("db_url", ""), action.get("mcp_url", ""))
+            return connect(action.get("ids") or [], action.get("also"), action.get("db_url", ""), action.get("mcp_url", ""), action.get("named"))
         if t == "answer":
             label = str(action.get("label") or action.get("value"))
             if _apply(action.get("qid"), action.get("value")) is None:

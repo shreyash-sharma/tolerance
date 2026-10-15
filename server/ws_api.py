@@ -112,11 +112,13 @@ async def upload(file: UploadFile = File(...), name: str = Form(""), system: str
 
 
 @router.post("/sources/url")
-def add_url(kind: str = Form(...), url: str = Form(...), name: str = Form("")):
+def add_url(kind: str = Form(...), url: str = Form(...), name: str = Form(""), system: str = Form("")):
     if kind not in ("api", "db_url"):
         raise HTTPException(400, "kind must be api or db_url")
     nm = name.strip() or ("api" if kind == "api" else "database")
-    s = SRC.add(kind, nm, url=url)
+    import re as _re
+    url = _re.sub(r"(//[^/@:\s]*):[^/@\s]*@", r"\g<1>@", url.strip())[:400]   # a password must never be stored; the user name stays
+    s = SRC.add(kind, nm, url=url, **({"system": system} if system in SRC.SYSTEMS else {}))
     r = SRC.sync(s["id"])
     SRC.LIVE.start()
     return j({"source": src_public(SRC.get(s["id"])), "sync": r})

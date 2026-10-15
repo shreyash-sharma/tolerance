@@ -119,6 +119,22 @@ function FilesStep({ data, reload }: { data: PlantData; reload: () => void }) {
 }
 
 // ------------------------------------------------------------------ 3. the guide
+async function connectUrl(kind: string, url: string, name: string, system: string) {
+  const fd = new FormData();
+  fd.append('kind', kind); fd.append('url', url); fd.append('name', name); fd.append('system', system);
+  const r = await fetch('/api/ws/sources/url', { method: 'POST', headers: await authHeader(), body: fd });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+async function connectMcp(url: string, name: string, quote: string) {
+  const fd = new FormData();
+  fd.append('mcp_url', url); fd.append('name', name); fd.append('quote', quote);
+  const r = await fetch('/api/jig/wishes', { method: 'POST', headers: await authHeader(), body: fd });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
 async function sampleEstate() {
   const r = await fetch('/api/ws/sources/sample?which=synthetic', { method: 'POST', headers: await authHeader() });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
@@ -127,10 +143,11 @@ async function sampleEstate() {
   return { machine: d.machine, read: (src.sources || []).map((x: any) => ({ name: x.name, system: x.system, rows: x.rows })) };
 }
 
-async function uploadLog(f: File) {
+async function uploadLog(f: File, system?: string, name?: string) {
   const fd = new FormData();
   fd.append('file', f);
-  fd.append('name', f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '));
+  if (system) fd.append('system', system);
+  fd.append('name', name || f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '));
   const r = await fetch('/api/ws/sources/upload', { method: 'POST', headers: await authHeader(), body: fd });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
@@ -146,7 +163,7 @@ function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onA
       <div style={{ maxWidth: '88%', background: mine ? '#f2b84b22' : '#ffffff0a', border: `1px solid ${mine ? '#f2b84b55' : 'var(--line)'}`, borderRadius: 18, padding: '12px 16px', lineHeight: 1.55 }}>
         {!mine && <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 2 }}>GUIDE</div>}
         <div>{m.text}</div>
-        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onUpload={uploadLog} onSample={sampleEstate} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
+        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onUpload={uploadLog} onSample={sampleEstate} onUrl={connectUrl} onMcp={connectMcp} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
         {last && !mine && card?.type === 'connectors' && (
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
             {card.options.map((c: any) => (

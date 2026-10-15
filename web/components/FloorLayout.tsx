@@ -98,7 +98,7 @@ export default function FloorLayout({ onDone }: { onDone: () => void }) {
       const st = stations.find((s) => s.name === n);
       if (!st) return;
       const hot = pn === n;
-      es.push({ id: `feed:${f.id}>${st.id}`, source: 'feed:' + f.id, target: st.id, selectable: false, deletable: false, focusable: false, style: { stroke: hot ? '#f2b84b' : SYSTEM_COLOR[f.system] || '#9aa6b5', strokeWidth: hot ? 2.2 : 1, strokeDasharray: '2 5', opacity: hot ? 1 : pn ? 0.08 : 0.28 } });
+      es.push({ id: `feed:${f.id}>${st.id}`, source: 'feed:' + f.id, target: st.id, deletable: false, focusable: false, style: { stroke: hot ? '#f2b84b' : SYSTEM_COLOR[f.system] || '#9aa6b5', strokeWidth: hot ? 2.2 : 1, strokeDasharray: '2 5', opacity: hot ? 1 : pn ? 0.08 : 0.28 } });
     }));
     setEdges(es);
   }, [flows, feeds, stations, picked?.name]); // eslint-disable-line react-hooks/exhaustive-deps
