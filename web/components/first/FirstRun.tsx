@@ -1,12 +1,11 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, post } from '@/lib/api';
-import { layoutHtml } from '@/lib/anatomy';
 import NameReveal from './NameReveal';
 import IngestCard from './IngestCard';
 import { authHeader, signOutUser, useAuth } from '@/lib/auth';
 import type { PlantData } from '@/lib/plant';
-import AnatomyFrame from './AnatomyFrame';
+import dynamic from 'next/dynamic';
 import Backdrop from './Backdrop';
 
 const Logo = () => (
@@ -21,6 +20,8 @@ function SignOut() {
   if (auth.status !== 'in') return null;
   return <button className="btn g sm" onClick={() => signOutUser()}>Sign out{auth.user?.email ? ` (${auth.user.email})` : auth.user?.guest ? ' (guest)' : ''}</button>;
 }
+
+const PlantPreview = dynamic(() => import('./PlantPreview'), { ssr: false, loading: () => <div className="card mut" style={{ minHeight: 560, display: 'grid', placeItems: 'center' }}>Drawing your plant…</div> });
 
 const shell: React.CSSProperties = { position: 'fixed', inset: 0, overflow: 'auto', background: 'radial-gradient(1200px 600px at 50% -10%, #1d1f23 0%, #111215 60%)', color: 'var(--ivory)', display: 'flex', flexDirection: 'column' };
 
@@ -275,7 +276,7 @@ function LayoutStep({ data, reload }: { data: PlantData; reload: () => void }) {
       <div style={eyebrow}>{data.plant.name}</div>
       <h1 style={{ ...h1, fontSize: 36 }}>This is your plant, as I understand it.</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.7fr) minmax(0,1fr)', gap: 28, alignItems: 'start' }}>
-        <AnatomyFrame title="Your plant" deps={JSON.stringify(lay)} build={() => layoutHtml(lay)} height={560} />
+        <PlantPreview lay={lay} height={560} />
         <div>
           {plan?.overview && <div style={{ display: 'grid', gap: 6 }}>{String(plan.overview).split(/(?<=[.!?])\s+/).map((t: string, i: number) => <p key={i} style={{ margin: 0 }}>{t}</p>)}</div>}
           {data.plant.goal && <p className="mut" style={{ marginTop: 14 }}>It makes: {data.plant.goal}</p>}
