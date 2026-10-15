@@ -60,6 +60,7 @@ export const signInGoogle = async () => { const { auth, mod } = need(); try { aw
 export const signInEmail = async (email: string, pw: string) => { const { auth, mod } = need(); try { await mod.signInWithEmailAndPassword(auth, email, pw); } catch (e) { fail(e); } };
 export const signUpEmail = async (email: string, pw: string) => { const { auth, mod } = need(); try { await mod.createUserWithEmailAndPassword(auth, email, pw); } catch (e) { fail(e); } };
 export const continueAsGuest = async () => { const { auth, mod } = need(); try { await mod.signInAnonymously(auth); } catch (e) { fail(e); } };
+export const resetPassword = async (email: string) => { const { auth, mod } = need(); try { await mod.sendPasswordResetEmail(auth, email); } catch (e: any) { if (e?.code === 'auth/user-not-found') return; fail(e); } };   // the same answer whether the account exists or not
 export const signOutUser = async () => { if (fb) await fb.mod.signOut(fb.auth); };
 
 export function useAuth(): AuthState {

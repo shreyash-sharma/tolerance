@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { api, post } from '@/lib/api';
 import { usePlant } from '@/lib/plant';
 import { useAuth, signOutUser } from '@/lib/auth';
-import LoginScreen from '@/components/first/LoginScreen';
 import FirstRun from '@/components/first/FirstRun';
 import CommandBar from '@/components/CommandBar';
 import Bell from '@/components/Bell';
@@ -72,7 +71,10 @@ export default function Shell({ children, full = false }: { children: React.Reac
   useEffect(() => { if (stage === 'tour' && steps[ti] && path !== steps[ti].path) router.push(steps[ti].path); }, [stage, ti, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (window.location.search.includes('embed=1')) document.documentElement.classList.add('embed'); }, []);
 
-  if (auth.status === 'out') return <LoginScreen />;
+  if (auth.status === 'out') {   // signed-out visitors go to the landing page, which has sign in and register; it brings them back here
+    if (typeof window !== 'undefined') window.location.replace('/?next=' + encodeURIComponent(window.location.pathname));
+    return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;
+  }
   if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;
   if (firstTime) return <FirstRun data={data} reload={reload} />;
 

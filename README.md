@@ -42,6 +42,10 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 - **Playbooks** (`/playbooks`): the owner draws what should happen when a station fails: a trigger, checks, a decision and actions. Checks read through the same policy gateway as the agents. Any action that changes the plant is scored by Warden first.
 - **Channels** (on the Warden page): Slack, Teams, Discord, Telegram or any webhook. "A person must approve", blocked actions, failing Sentinel rules and playbook messages reach people where they work. Addresses stay on the server.
 
+## The front door: landing page, sign in and register
+
+`/` is a public landing page. It shows what Tolerance does with the real screens, and has the way in built in: Sign in and Register tabs (Google, or email and password, with a password reset), and Continue as guest. A signed-in visitor goes straight to the floor, or to the page they asked for (`/?next=`). Add `?landing=1` to see the page while signed in.
+
 ## Easier to use
 
 Some of the ideas for the interface come from the Kanshi project, which has a very clear monitoring UI.
