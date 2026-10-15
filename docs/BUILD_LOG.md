@@ -71,3 +71,18 @@ Pages: `/onboard`, `/floor`, `/operations`, `/safety`, `/agents`, `/deck`. Rebui
 - The 3-minute video recording (use autoplay `A` on `/deck`).
 - Ask the owner to confirm: the rule that a score never overrides a hard limit.
 - Licence files for any open-source code we copy into the repo (MIT and Apache need the notice kept).
+
+## Update, 15 October 2026
+
+| Area | What changed | Where |
+|---|---|---|
+| Nine agents | Sentinel is the ninth agent. It is rule-driven and uses no model. The Guide is counted too: nine in all. | `foreman/agents.py`, `foreman/guide.py` |
+| Sentinel | A small Python rule engine: a rule has checks (field, operator, value) on a table of your data, a web address, a port, a service, or document claims. Service checks send the first message of the protocol and do not log in. | `sentinel/`, `tests/sentinel_test.py`, `tests/sentinel_protocols_test.py` |
+| Playbooks | The owner draws a trigger, checks, a decision and actions. Code walks it. Warden scores any action that changes the plant. | `foreman/playbook.py`, `web/components/Playbooks.tsx` |
+| Channels | Slack, Teams, Discord, Telegram or a webhook get approvals, blocked actions, failing rules and playbook messages. Private addresses are refused. | `foreman/notify.py`, `web/components/Channels.tsx` |
+| Floor editor | The full Pascal editor opens on the drawn floor, next to what Tolerance learnt. Saved edits show on the live floor. | `web/components/FloorEditor.tsx`, `/api/jig/floor` |
+| Own data | A visitor can upload their own machine log. It goes into a private database. Word states (RUN, FAULT) work. Quality files with a 0/1 result (Bosch) work. | `connectors/registry.py`, `physical/service.py`, `workspace/sources.py` |
+| Big plants | A plant with more than 16 stations draws one box per machine. 3D for 50 stations loads in about 20 seconds. | `web/components/Floor3D.tsx` |
+| Verifier | The Verifier and its reviewer see the last 24 hours, the whole log and the station summary. | `foreman/agents.py` |
+
+Not done: Kanshi's deep connector checks (a login, a query) are not ported. Service checks stop at the first protocol message.

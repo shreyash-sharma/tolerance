@@ -1,4 +1,4 @@
-"""The seven Tolerance agents. Each has a Contract (the catalog card) and a function. Every agent uses Gemini for at least one step.
+"""The nine Tolerance agents. Each has a Contract (the catalog card) and a function. Every agent uses Gemini for at least one step.
 Operations agents reach the plant only through foreman.gate (Cedar, default deny). Onboarding and operations are chained by the flows at the bottom."""
 import json, re
 
@@ -48,6 +48,12 @@ register(Contract(
     outcomes=["Score with factors", "Auto, approve or refuse", "Backtest on past incidents"], inputs=["Proposed action", "Limits", "Evidence"], tools=["Action Broker"],
     forbidden=["Let a high score override a hard limit"], output="Score and decision", success="No action that breaks a hard limit is ever applied", mode="rule-driven", gemini_use="Writes the plain reason for each decision", trust="decide",
     origin=["Cedar", "Strands human gates"]), None)
+register(Contract(
+    id="sentinel", name="Sentinel", team="operations", job="Checks your systems and the agents' own claims with plain rules, and tells a person when one fails.",
+    use_case="A plant's IT side fails quietly: a feed stops, a column changes, a service is slow. A model should not be the judge of that.", solution="Rules check a field with an operator and a value: on your data tables, a web address, a network port, a service protocol, or what the documents say. Code decides every result. A rule that starts failing tells your channels.",
+    outcomes=["Pass or fail for each rule", "What it saw", "A message to a person when a rule starts failing"], inputs=["Rules", "Connected tables", "Public addresses", "Document claims"], tools=["databases/list_tables", "Public web, port and protocol checks"],
+    forbidden=[FORBID_WRITE, "Let a model decide a result", "Reach a private network address", "Log in to a service or read its data"], output="Rule results", success="The same data and rule always give the same result", mode="rule-driven",
+    gemini_use="None. Plain rules decide every result.", trust="read", origin=["Kanshi assertion engine (own project)"]), None)
 
 SYS_SCOUT = ("You describe data sources in a factory. For each table given, say its role (one of: machine states, orders, inspection results, service metrics, alerts, catalog, other) and one short reason from its columns. "
              "Also list what a factory would still need that is missing. Reply as JSON: {\"tables\": [{\"name\": \"...\", \"role\": \"...\", \"reason\": \"...\"}], \"missing\": [\"...\"]}.")

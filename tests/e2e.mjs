@@ -67,7 +67,7 @@ if (LIVE_AUTH) {
     return await waitText("What is your plant called?", 40000) || (await waitText("Welcome", 100) && false);
   });
 }
-await step("Backend and web app are up", async () => { const a = await get("/jig/agents"); const w = await fetch(WEB + "/floor"); return { ok: a.agents.length === 8 && w.ok, note: `${a.agents.length} agents` }; });
+await step("Backend and web app are up", async () => { const a = await get("/jig/agents"); const w = await fetch(WEB + "/floor"); return { ok: a.agents.length === 9 && w.ok, note: `${a.agents.length} agents` }; });
 
 // a brand-new user: no plant, no documents
 await post("/jig/plant/reset");
@@ -101,12 +101,12 @@ await step("8 The Guide settles conflicts, ghost station and limits with the own
 await step("9 The owner confirms; the Guide draws the plant with Anatomy", async () => { await clickUntil("Yes, draw my plant", ["Drawing your plant", "This is your plant"], 20000); const ok = await waitText("This is your plant, as I understand it", 180000); await sleep(3500); return ok; });
 await step("10 The tour starts: only Floor is in the menu", async () => { await clickUntil("Looks right", ["GUIDE · 1 OF", "Floor"], 20000); const ok = await waitText("1 OF", 120000); const links = await ev("document.querySelectorAll('aside.side nav a').length"); return { ok: ok && links === 1, note: `${links} menu item` }; });
 await step("11 The Guide reveals the other sections one by one", async () => {
-  // a click can land while the page is changing, so keep pressing Next until all six sections are in the menu
+  // a click can land while the page is changing, so keep pressing Next until all eight sections are in the menu
   let links = 0;
-  for (let i = 0; i < 14 && links < 6; i++) { await click("Next"); await sleep(2200); links = await ev("document.querySelectorAll('aside.side nav a').length"); }
+  for (let i = 0; i < 14 && links < 8; i++) { await click("Next"); await sleep(2200); links = await ev("document.querySelectorAll('aside.side nav a').length"); }
   return { ok: links === 6, note: `${links} menu items` };
 });
-await step("12 The tour ends", async () => { await click("Finish"); await sleep(1500); return !(await text()).includes("OF 6"); });
+await step("12 The tour ends", async () => { await click("Finish"); await sleep(1500); return !(await text()).includes("OF 8"); });
 await go("/floor");
 await sleep(7000);
 await step("13 The floor opens in 2D; 3D shows a loader", async () => {
@@ -150,13 +150,13 @@ await step("18 Probes: a path fault is found", async () => {
   return await waitText("PATH FAULT", 90000);
 });
 await go("/agents");
-await step("19 Agent catalog", async () => { const t = await text(); return ["Guide", "Document Reader", "Connector Scout", "Plant Modeler", "Diagnosis", "Verifier", "Remediation Planner", "Warden"].every((n) => t.includes(n)); });
+await step("19 Agent catalog", async () => { const t = await text(); return ["Guide", "Document Reader", "Connector Scout", "Plant Modeler", "Diagnosis", "Verifier", "Remediation Planner", "Warden", "Sentinel"].every((n) => t.includes(n)); });
 
 await go("/compile");
 await step("20 Compiled model: facts with their quotes", async () => { const ok = await waitText("FACTS", 30000); const t = await text(); return { ok: ok && t.includes("Northfield Assembly Plant"), note: "plant name and facts shown" }; });
 await go("/deck");
 await step("21 Deck: title", async () => (await text()).includes("Tolerance"));
-for (const [k, n, needle] of [["3", "platform", "Eight agents"], ["5", "operations", "Verifier"], ["6", "warden", "two lines"], ["8", "gemma", "Gemma"]]) {
+for (const [k, n, needle] of [["3", "platform", "Nine agents"], ["5", "operations", "Verifier"], ["6", "warden", "two lines"], ["8", "gemma", "Gemma"]]) {
   await step(`22 Deck slide ${k}: ${n}`, async () => { await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: k, text: k }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: k }); await sleep(2500); return (await text()).includes(needle); });
 }
 await step("23 Deck appendix: diagrams", async () => { await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "End" }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "End" }); await sleep(500); await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight" }); await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight" }); await sleep(2000); return await ev("!!document.querySelector('img[src*=\"01-platform\"]')"); });

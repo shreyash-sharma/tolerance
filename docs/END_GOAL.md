@@ -112,3 +112,7 @@ Gap: I found no published Gemma study in a factory setting and no Gemma speed fi
 Built before this build: Document Reader, Diagnosis, Cedar gateway, MCP hub (4 servers, 22 tools), learner, factory twin, 3D floor, X-ray, assembly animation, 8-stage ingestion screen, benchmarks, the 3-minute deck.
 
 Built in this build: see `BUILD_LOG.md`.
+
+## Update, 15 October 2026
+
+The platform now has nine agents. Sentinel is the new one. It checks the plant's systems and the agents' own claims with plain rules, and no model decides a result. Around it are three new areas: playbooks (the owner draws what happens when a station fails), channels (people are told where they work) and a floor editor (the owner can change everything the Guide drew). Gemini is used by eight agents. Sentinel, playbooks and channels use none.

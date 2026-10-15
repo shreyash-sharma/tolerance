@@ -399,9 +399,10 @@ def _layout():
     _say("Here is your plant, as I understand it. Look it over. If something is wrong, tell me.", {"type": "layout"})
 
 
-SECTIONS = [("/floor", "Floor", "The factory in 3D. A failed machine lights up here."), ("/operations", "Operations", "Pick a failed station. The agents find the cause, check it, and plan a fix."),
-            ("/safety", "Warden", "You set how far the agents may act alone. See what your lines would have done on past incidents."), ("/agents", "Agents", "The seven agents, what each may touch and what it must never do."),
-            ("/probes", "Probes", "Small programs near the machines. They show whether a fault is the machine or the network path."), ("/compile", "Compiled model", "Everything I learned about this plant and where each fact came from.")]
+SECTIONS = [("/floor", "Floor", "The factory in 2D and 3D. A failed machine lights up here. You can edit the floor."), ("/operations", "Operations", "Pick a failed station. The agents find the cause, check it, and plan a fix."),
+            ("/safety", "Warden", "You set how far the agents may act alone. See what your lines would have done on past incidents."), ("/agents", "Agents", "The nine agents, what each may touch and what it must never do."),
+            ("/probes", "Probes", "Small programs near the machines. They show whether a fault is the machine or the network path."), ("/compile", "Compiled model", "Everything I learned about this plant and where each fact came from."),
+            ("/sentinel", "Sentinel", "Plain rules check your systems and what the documents say. A rule that starts failing tells you."), ("/playbooks", "Playbooks", "You draw what should happen when a station fails. Warden still scores every action.")]
 
 
 def tour():

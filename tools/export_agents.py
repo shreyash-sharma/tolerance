@@ -6,7 +6,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from foreman import core, agents, guide   # importing registers the contracts
 
-ORDER = ["guide", "reader", "scout", "modeler", "diagnosis", "verifier", "planner", "warden"]
+ORDER = ["guide", "reader", "scout", "modeler", "diagnosis", "verifier", "planner", "warden", "sentinel"]
 KEYS = ("id", "name", "team", "job", "use_case", "solution", "outcomes", "gemini_use", "mode", "trust", "forbidden", "tools")
 HEAD = ("/* Generated from the agents' own contracts (foreman/agents.py, foreman/guide.py). Regenerate with: python tools/export_agents.py */\n"
         "export type AgentCard = { id: string; name: string; team: string; job: string; use_case: string; solution: string; outcomes: string[]; gemini_use: string; mode: string; trust: string; forbidden: string[]; tools: string[] };\n"

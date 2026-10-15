@@ -1,4 +1,4 @@
-/* Fig 3 · The platform. Seven agents stand on one shared base: one gateway, one policy, one record. Onboarding agents at the back,
+/* Fig 3 · The platform. Nine agents stand on one shared base: one gateway, one policy, one record. Onboarding agents at the back,
    operations agents in front. The figure steps through the agents; the line under the figure says what each one does. */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -16,11 +16,12 @@ const PLATE = { x: -200, y: -122, w: 400, d: 250, r: 8 }, PLATE_H = 12, FOOT_H =
 const MOD_H = 22, BUS = { x: -184, y: 86, w: 368, d: 22, r: 3 }, BUS_H = 10;
 const W = 3, GAP = 12;
 const BACK = [["GUIDE", "Guide", "Talks with the owner and runs onboarding"], ["READER", "Document Reader", "Reads documents into claims, each with a quote"], ["SCOUT", "Connector Scout", "Maps what each connected source holds"], ["MODELER", "Plant Modeler", "Writes the overview and draws the 2D plan"]];
-const FRONT = [["DIAG", "Diagnosis", "Finds why a station failed, with read-only tools"], ["VERIFY", "Verifier", "Recomputes every number the diagnosis cites"], ["PLAN", "Remediation Planner", "Proposes the fix with exact settings"], ["WARDEN", "Warden", "Scores the fix against your two lines"]];
+const FRONT = [["DIAG", "Diagnosis", "Finds why a station failed, with read-only tools"], ["VERIFY", "Verifier", "Recomputes every number the diagnosis cites"], ["PLAN", "Remediation Planner", "Proposes the fix with exact settings"], ["WARDEN", "Warden", "Scores the fix against your two lines"], ["SENTINEL", "Sentinel", "Checks your systems and claims with plain rules"]];
 const mods = [];
 const MW = 84, MG = 12, X0 = -((4 * MW + 3 * MG) / 2);
 BACK.forEach((m, i) => { mods.push({ id: m[0], name: m[1], what: m[2], plan: { x: X0 + i * (MW + MG), y: -108, w: MW, d: 52, r: 3 } }); });
-FRONT.forEach((m, i) => { mods.push({ id: m[0], name: m[1], what: m[2], plan: { x: X0 + i * (MW + MG), y: 4, w: MW, d: 52, r: 3 } }); });
+const FW = 68, FG = 7, FX0 = -((FRONT.length * FW + (FRONT.length - 1) * FG) / 2);   // five modules in the front row, so they are a little narrower
+FRONT.forEach((m, i) => { mods.push({ id: m[0], name: m[1], what: m[2], plan: { x: FX0 + i * (FW + FG), y: 4, w: FW, d: 52, r: 3 } }); });
 
 const P = k.fitProjection([...k.boxCorners(PLATE, -PLATE_H - FOOT_H, 0), [0, 0, MOD_H + 30]], WIDTH, HEIGHT, { pad: 22, azimuth: 40 });
 const at = (p) => k.iso(p, P);
@@ -68,7 +69,7 @@ function module_(m) {
 const order = [...mods].sort((a, b) => k.depthOf([a.plan.x + a.plan.w / 2, a.plan.y + a.plan.d / 2, 0], P) - k.depthOf([b.plan.x + b.plan.w / 2, b.plan.y + b.plan.d / 2, 0], P));
 const svg = k.figureSvg({
   width: WIDTH, height: HEIGHT,
-  label: "Eight agents stand on one shared base. The onboarding team is at the back: Guide, Document Reader, Connector Scout and Plant Modeler. The operations team is in front: Diagnosis, Verifier, Remediation Planner and Warden. A bar along the front carries the gateway, the policy and the record they all share.",
+  label: "Nine agents stand on one shared base. The onboarding team is at the back: Guide, Document Reader, Connector Scout and Plant Modeler. The operations team is in front: Diagnosis, Verifier, Remediation Planner, Warden and Sentinel. A bar along the front carries the gateway, the policy and the record they all share.",
   body: [base(), bus(), ...order.map(module_)],
 });
 
@@ -91,14 +92,14 @@ stage.addEventListener("pointerdown", () => { show(); });
 
 const body = k.plateHtml({
   fig: "Fig 3",
-  title: "One platform, eight agents",
+  title: "One platform, nine agents",
   hint: "Click for the next agent",
   readout: "Document Reader · Reads documents into claims, each with a quote",
   keys: [{ mark: "lit", label: "Outline: the agent that is working" }],
-  caption: "The onboarding team builds the model of the plant, led by the Guide. The operations team keeps it running. All eight share one gateway, one policy and one record of every step.",
-  body: `<div class="iso-stage" tabindex="0" role="img" aria-label="Eight agents on one shared base">${svg}</div>`,
+  caption: "The onboarding team builds the model of the plant, led by the Guide. The operations team keeps it running. All nine share one gateway, one policy and one record of every step.",
+  body: `<div class="iso-stage" tabindex="0" role="img" aria-label="Nine agents on one shared base">${svg}</div>`,
 });
 
 const name = theme === "light" ? "platform-light.html" : "platform.html";
-writeFileSync(join(OUT, name), k.pageHtml({ title: "One platform, eight agents", theme, body, script: kitScript() + live, width: 940 }));
+writeFileSync(join(OUT, name), k.pageHtml({ title: "One platform, nine agents", theme, body, script: kitScript() + live, width: 940 }));
 console.log("wrote", join(OUT, name));

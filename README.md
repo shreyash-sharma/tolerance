@@ -2,13 +2,13 @@
 
 **An agentic platform for manufacturing, built around a Symbiotic Compiler.** Google Cloud AI Builder Cup 2026, Manufacturing theme.
 
-A new plant gives Tolerance its name and its documents. Eight agents read them, ask the owner what is unclear, connect to the plant's data, and compile everything into one checked model of the plant. Other agents then diagnose failures, check their own findings, propose fixes, and score how safe each fix is. The owner decides how far the agents may act alone. A hard limit written in the plant's own documents is never crossed, whatever the score.
+A new plant gives Tolerance its name and its documents. Nine agents work from them. Four read them, ask the owner what is unclear, connect to the plant's data, and compile everything into one checked model of the plant. Other agents then diagnose failures, check their own findings, propose fixes, and score how safe each fix is. The owner decides how far the agents may act alone. A hard limit written in the plant's own documents is never crossed, whatever the score.
 
 > Status: working prototype that runs locally. The Cloud Run deployment is scripted (`deploy.sh`, `Dockerfile`, `DEPLOY.md`) and the live address is added here after the first deploy.
 
 ## The idea in three diagrams
 
-**The platform.** Eight agents on Foreman, with shared services, one policy gateway, MCP connectors and probes, and the machines.
+**The platform.** Nine agents on Foreman, with shared services, one policy gateway, MCP connectors and probes, and the machines.
 
 <p align="center"><img src="docs/diagrams/01-platform.svg" alt="The Tolerance platform: assistant and router, the agent team on Foreman, shared services, the policy gateway, MCP connectors and probes, machines" width="760"></p>
 
@@ -26,8 +26,14 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 ## The floor editor, Sentinel, playbooks and channels
 
+| | |
+|---|---|
+| <img src="docs/images/screens/23-floor-editor.jpg" alt="The floor editor: what Tolerance learnt on the left, the full Pascal editor on the right"><br>**Floor editor.** What Tolerance learnt on the left, the full editor on the right. | <img src="docs/images/screens/19-sentinel.png" alt="Sentinel: rules with their checks and results"><br>**Sentinel.** Rules, their checks, and what each one saw. |
+| <img src="docs/images/screens/20-playbooks.png" alt="Playbooks: a canvas with a trigger, checks and actions"><br>**Playbooks.** Draw what happens when a station fails. | <img src="docs/images/screens/22-channels.jpg" alt="Channels: where Warden tells a person"><br>**Channels.** Slack, Teams, Discord, Telegram or a webhook. |
+
+
 - **Floor editor** (`/floor/edit`): the full Pascal editor opens on the floor the Guide drew, with a "what I learnt" panel beside it (stations, facts, limits, conflicts, data). The owner edits all of it. Saving keeps the scene on the server and moves or removes the matching stations in the plant model. The live floor then shows the owner's scene, with live colours and labels.
-- **Sentinel** (`/sentinel`): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, or what the documents say. It can suggest checks for your connected data. A rule that starts failing tells your channels. Web and port checks reach public addresses only.
+- **Sentinel** (`/sentinel`, the ninth agent): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, a service, or what the documents say. A service check sends the first message of the protocol (MQTT, Redis, PostgreSQL, MySQL, MongoDB, RabbitMQ, OPC UA, Memcached, InfluxDB, ClickHouse, Elasticsearch, SQL Server port) and does not log in. It can suggest checks for your connected data. A rule that starts failing tells your channels. Web, port and service checks reach public addresses only.
 - **Playbooks** (`/playbooks`): the owner draws what should happen when a station fails: a trigger, checks, a decision and actions. Checks read through the same policy gateway as the agents. Any action that changes the plant is scored by Warden first.
 - **Channels** (on the Warden page): Slack, Teams, Discord, Telegram or any webhook. "A person must approve", blocked actions, failing Sentinel rules and playbook messages reach people where they work. Addresses stay on the server.
 
@@ -43,7 +49,7 @@ These are interactive in the app and in the deck (they move). Here they are as s
 
 | | |
 |---|---|
-| <img src="docs/images/figures/gauge.png" alt="The tolerance gauge: a dial indicator measuring parts against a tolerance band"><br>**The tolerance gauge.** A part is measured against its tolerance band: in or out. | <img src="docs/images/figures/platform.png" alt="One platform, eight agents standing on a shared base"><br>**One platform.** The agents stand on one shared base: one gateway, one policy, one record. |
+| <img src="docs/images/figures/gauge.png" alt="The tolerance gauge: a dial indicator measuring parts against a tolerance band"><br>**The tolerance gauge.** A part is measured against its tolerance band: in or out. | <img src="docs/images/figures/platform.png" alt="One platform, nine agents standing on a shared base"><br>**One platform.** The agents stand on one shared base: one gateway, one policy, one record. |
 | <img src="docs/images/figures/interlock.png" alt="The interlock: a gate on a rail where read calls pass and a write call waits for a person"><br>**The interlock.** Every tool call reaches one gate. Reads pass. A write stops and waits for a person. | <img src="docs/images/figures/warden.png" alt="The Warden gates: two gates on a rail, the floor and the limit"><br>**The Warden gates.** The first gate is your floor, the second is your limit. A score between them waits for a person. |
 | <img src="docs/images/figures/selector.png" alt="The selector: a learner that chooses which evidence to read first"><br>**The selector.** A contextual bandit learns which evidence to read first, and a confirmed diagnosis rewards the choice. | |
 
@@ -60,7 +66,7 @@ The first-time flow, as a new visitor sees it. These screenshots come from the e
 | <img src="docs/images/screens/05-guide.png" alt="The Guide chats with the owner"><br>**5. The Guide talks with the owner.** It reads the documents, asks which data to connect, and asks what the plant makes. | <img src="docs/images/screens/06-plant-drawn.png" alt="Your plant as the Guide understands it, drawn with Anatomy"><br>**6. Your plant, drawn.** Gemini turns the confirmed understanding into a layout, and Anatomy draws it. | 
 | <img src="docs/images/screens/07-tour.png" alt="The tour: only Floor is in the menu and the Guide explains it"><br>**7. The tour.** The menu grows one section at a time while the Guide says what each is for. | <img src="docs/images/screens/08-operations.png" alt="Operations: what happened, what we suggest, and whether it needs approval"><br>**8. Operations.** What happened, what we suggest, and who must approve it. The agents' work is one click away. |
 | <img src="docs/images/screens/09-warden.png" alt="Warden: two sliders and a backtest on 465 past incidents"><br>**9. Warden.** You set two lines. The chart shows what they would have done on 465 recorded incidents. | <img src="docs/images/screens/10-warden-hard-limit.png" alt="Warden blocks an action that breaks a hard limit from the documents"><br>**10. A hard limit.** An action above a limit from your own documents is blocked, whatever its score. |
-| <img src="docs/images/screens/11-probes.png" alt="Probes: three places see the same machine, one path is cut"><br>**11. Probes.** Several places test the same machine. If only one fails, the fault is on its path. | <img src="docs/images/screens/12-agents.png" alt="The agent catalog: eight agents with what each may touch"><br>**12. Agents.** Eight agents, each with a card: what it may touch and what it must never do. |
+| <img src="docs/images/screens/11-probes.png" alt="Probes: three places see the same machine, one path is cut"><br>**11. Probes.** Several places test the same machine. If only one fails, the fault is on its path. | <img src="docs/images/screens/12-agents.png" alt="The agent catalog: nine agents with what each may touch"><br>**12. Agents.** Eight agents, each with a card: what it may touch and what it must never do. |
 | <img src="docs/images/screens/13-compiled-model.png" alt="The compiled model: every fact with the exact quote it came from"><br>**13. The compiled model.** Every fact keeps the exact words it came from. | |
 
 ## The pitch deck
@@ -69,8 +75,9 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 
 | | |
 |---|---|
-| <img src="docs/images/screens/14-deck-platform.png" alt="Deck slide: eight agents, one gateway"><br>The platform | <img src="docs/images/screens/15-deck-operations.png" alt="Deck slide: the Verifier catches the agent's mistake"><br>Operations: the Verifier catches a wrong number |
+| <img src="docs/images/screens/14-deck-platform.jpg" alt="Deck slide: nine agents, one gateway"><br>The platform | <img src="docs/images/screens/15-deck-operations.png" alt="Deck slide: the Verifier catches the agent's mistake"><br>Operations: the Verifier catches a wrong number |
 | <img src="docs/images/screens/16-deck-warden.png" alt="Deck slide: you set the two lines"><br>Warden | <img src="docs/images/screens/17-deck-roadmap.png" alt="Deck slide: next, a Gemma that knows your plant"><br>Roadmap |
+| <img src="docs/images/screens/24-deck-sentinel.jpg" alt="Deck appendix: Sentinel, playbooks, channels and the floor editor"><br>Appendix: rules, playbooks and people | |
 
 ## What a person sees
 
@@ -88,7 +95,7 @@ Settings has "Show me around" and "Start over".
 <p align="center"><img src="docs/images/figures/agent-team.png" alt="The agent team: the owner and the Guide, the onboarding and operations teams, shared services, connectors and machines" width="900"></p>
 
 
-Foreman is the layer that runs the agents: a contract card per agent, a visible record of every step, one policy gateway, and a record and replay for model calls. Every agent uses Gemini in at least one step. Plain code is labelled as such (model-driven, rule-driven, or mixed).
+Foreman is the layer that runs the agents: a contract card per agent, a visible record of every step, one policy gateway, and a record and replay for model calls. Eight agents use Gemini in at least one step. Sentinel does not: plain rules decide every result. Plain code is labelled as such (model-driven, rule-driven, or mixed).
 
 | Agent | Job | Where Gemini is used |
 |---|---|---|
@@ -100,6 +107,7 @@ Foreman is the layer that runs the agents: a contract card per agent, a visible 
 | Verifier | Recomputes every number the diagnosis cites | Reviews the argument. A failed number check cannot be argued away |
 | Remediation Planner | Proposes the fix with exact settings | Chooses the action and settings |
 | Warden | Scores each action from 0 to 100 | Writes the plain reason. The score itself is rule-driven so it can be audited |
+| Sentinel | Checks your systems and the agents' claims with plain rules | None. Code decides every result. It reads tables, web addresses, ports, service protocols and document claims, and tells your channels when a rule starts failing |
 
 **Warden.** Six factors give the score. The owner sets two lines: below the floor an action is refused, between the lines a person approves it, at or above the limit it may run by itself. Cedar enforces this at the Action Broker. The page shows a backtest on 465 recorded RCAEval incidents, so the owner sees what the lines would have done before trusting them.
 
@@ -147,7 +155,9 @@ The first visit starts the first-time flow. "Start over" in Plant settings bring
 ## Tests
 
 ```bash
-python -m tests.foreman_test        # 38 checks on Warden, the Cedar gate, the Verifier, contracts and the fallback. No Gemini needed
+python -m tests.foreman_test        # checks on Warden, the Cedar gate, the Verifier, the nine contracts and the fallback. No Gemini needed
+python tests/sentinel_test.py       # the Sentinel rule engine and its address guard
+python tests/sentinel_protocols_test.py   # the service checks, against small fake servers
 node tests/e2e.mjs                  # drives the whole app in real Chrome: first visit, Guide, tour, Operations, Warden, Probes, deck
 ```
 
@@ -157,11 +167,12 @@ node tests/e2e.mjs                  # drives the whole app in real Chrome: first
 
 | Folder | What |
 |---|---|
-| `foreman/` | The agents, the Guide, Warden, the gateway and the model layer |
+| `foreman/` | The agents, the Guide, Warden, the gateway, playbooks, channels and the model layer |
+| `sentinel/` | Sentinel: the rule engine, the checks, the service protocol checks and the address guard |
 | `server/` | FastAPI: `/api/jig/*` (platform), `/api/probes`, `/api/ws/*` (workspace) |
 | `probe/` | The probe program |
 | `documents/`, `mcpx/`, `fabric/`, `rca/` | Document engine, MCP servers and hub, policy gateway, incident investigator |
-| `web/` | Next.js app: first-time flow, Floor, Operations, Warden, Agents, Probes, deck at `/deck` |
+| `web/` | Next.js app: first-time flow, Floor and floor editor, Operations, Warden, Agents, Probes, Sentinel, Playbooks, deck at `/deck` |
 | `deck/` | Anatomy figures for the pitch deck |
 | `docs/` | End goal, build log, UX review, diagrams, end-to-end screenshots |
 

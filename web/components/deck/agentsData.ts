@@ -151,7 +151,8 @@ export const AGENTS: AgentCard[] = [
       "Approve a claim whose numbers do not match"
     ],
     "tools": [
-      "telemetry/failure_episodes"
+      "telemetry/failure_episodes",
+      "telemetry/list_stations"
     ]
   },
   {
@@ -197,6 +198,32 @@ export const AGENTS: AgentCard[] = [
     ],
     "tools": [
       "Action Broker"
+    ]
+  },
+  {
+    "id": "sentinel",
+    "name": "Sentinel",
+    "team": "operations",
+    "job": "Checks your systems and the agents' own claims with plain rules, and tells a person when one fails.",
+    "use_case": "A plant's IT side fails quietly: a feed stops, a column changes, a service is slow. A model should not be the judge of that.",
+    "solution": "Rules check a field with an operator and a value: on your data tables, a web address, a network port, a service protocol, or what the documents say. Code decides every result. A rule that starts failing tells your channels.",
+    "outcomes": [
+      "Pass or fail for each rule",
+      "What it saw",
+      "A message to a person when a rule starts failing"
+    ],
+    "gemini_use": "None. Plain rules decide every result.",
+    "mode": "rule-driven",
+    "trust": "read",
+    "forbidden": [
+      "Write to the plant",
+      "Let a model decide a result",
+      "Reach a private network address",
+      "Log in to a service or read its data"
+    ],
+    "tools": [
+      "databases/list_tables",
+      "Public web, port and protocol checks"
     ]
   }
 ];

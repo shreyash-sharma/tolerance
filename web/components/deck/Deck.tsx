@@ -7,9 +7,9 @@ type Live = { claims: number; guardrails: number; injections: number; conflicts:
 const FALLBACK: Live = { claims: 20, guardrails: 8, injections: 1, conflicts: 1, ghosts: 1, docs: 8, tools: 22, servers: ['databases', 'pcb', 'telemetry', 'opcua'] };
 
 const SLIDES = [
-  { id: 'title', secs: 10, notes: 'Tolerance. An agentic platform for manufacturing. Eight agents on one gateway, and they act only inside limits that people set.' },
+  { id: 'title', secs: 10, notes: 'Tolerance. An agentic platform for manufacturing. Nine agents on one gateway, and they act only inside limits that people set.' },
   { id: 'problem', secs: 15, notes: 'At three in the morning a machine stops. What you need is spread across an SOP, a vendor manual, an email and one person’s memory, and they disagree. Today a person reconciles that by hand.' },
-  { id: 'platform', secs: 25, notes: 'Tolerance is a platform with eight agents. They run on Foreman, our agent layer, behind one shared gateway. Three build the model of your plant: they read your documents, look at your connected data, and write the overview. Four keep it running: they diagnose, verify, plan, and score. Every agent uses Gemini. Every tool call passes one Cedar policy, and every step is recorded.' },
+  { id: 'platform', secs: 25, notes: 'Tolerance is a platform with nine agents. They run on Foreman, our agent layer, behind one shared gateway. Four build the model of your plant, led by the Guide: they read your documents, look at your connected data, and write the overview. Five keep it running: they diagnose, verify, plan, and score, and Sentinel checks your systems with plain rules. Eight agents use Gemini. Sentinel uses no model. Every tool call passes one Cedar policy, and every step is recorded.' },
   { id: 'onboard', secs: 30, notes: 'Onboarding takes four steps. Drop your documents. Connect your sources. Read the overview and the 2D plan, and confirm it. Only then the 3D factory is built. Watch it assemble. Station C-three is a ghost: the documents mention it, the telemetry does not. Two documents disagree about a speed limit, so a person decides, once. A hidden command in a handover note is removed, never executed.' },
   { id: 'ops', secs: 30, notes: 'A station fails. The Diagnosis agent picks read-only tools, and Cedar allows each call. It says the station failed two times. The Verifier recomputes the number from the data: it was one. The diagnosis is rejected and sent back once. The second round is supported. The Planner proposes a fix and Warden scores it.' },
   { id: 'warden', secs: 28, notes: 'Warden scores each action from zero to one hundred. You set two lines. Below the floor, refused. Between the lines, a person approves. Above the limit, it runs by itself. A hard limit from your documents is never crossed, whatever the score. We backtested your lines on four hundred sixty-five recorded incidents, so you see what they would have done before you trust them. The plant here is replayed data, so applied actions run in a simulator.' },
@@ -19,8 +19,9 @@ const SLIDES = [
   { id: 'd1', secs: 0, notes: 'Appendix. The platform: assistant and router, the agent team on Foreman, shared services, the policy gateway, connectors and probes, machines.' },
   { id: 'd2', secs: 0, notes: 'Appendix. What a person sees, in order: drop documents, connect machines, confirm the overview, build the 3D, a fault is found, the gate decides.' },
   { id: 'a1', secs: 0, notes: 'Appendix. The onboarding team: Guide, Document Reader, Connector Scout and Plant Modeler. Each has a use case, a solution and its outcomes.' },
-  { id: 'a2', secs: 0, notes: 'Appendix. The operations team: Diagnosis, Verifier, Remediation Planner and Warden. Each says what it must never do.' },
-  { id: 'a3', secs: 0, notes: 'Appendix. The same eight agents drawn as one machine on one shared gateway bar.' },
+  { id: 'a2', secs: 0, notes: 'Appendix. The operations team: Diagnosis, Verifier, Remediation Planner, Warden and Sentinel. Each says what it must never do.' },
+  { id: 'a2b', secs: 0, notes: 'Appendix. Sentinel, the playbooks, the channels and the floor editor. Plain rules check your systems. You draw what happens when a station fails. People are told where they work. You can edit the floor.' },
+  { id: 'a3', secs: 0, notes: 'Appendix. The same nine agents drawn as one machine on one shared gateway bar.' },
   { id: 'd3', secs: 0, notes: 'Appendix. The safety gate: hard limits first, then the Warden score against the two lines you set.' },
 ] as const;
 const TOTAL = SLIDES.reduce((a, s) => a + s.secs, 0);
@@ -91,7 +92,7 @@ function Title() {
         <div className="eyebrow" data-a>Google Cloud AI Builder Cup · Manufacturing</div>
         <div className="h1 mt-8" data-a style={D(0.15)}>Tolerance</div>
         <div className="mt-6 text-[54px] font-semibold amber" data-a style={D(0.35)}>Autonomy, within tolerance.</div>
-        <div className="lead mt-10" data-a style={D(0.55)}>An agentic platform for manufacturing. Eight agents, one gateway, and limits that you set.</div>
+        <div className="lead mt-10" data-a style={D(0.55)}>An agentic platform for manufacturing. Nine agents, one gateway, and limits that you set.</div>
       </div>
     </>
   );
@@ -243,9 +244,9 @@ function Platform({ active }: { active: boolean }) {
       <div className="frame" style={{ width: 1130, height: 636, marginTop: 58, background: '#0f1115', display: 'grid', placeItems: 'center' }} data-a="left"><img src="/deck/diagrams/04-agent-team.svg" alt="The Tolerance agent team: the owner and the Guide, the onboarding and operations teams, shared services, connectors and machines" style={{ width: '100%', height: '100%' }} /></div>
       <div className="flex-1">
         <div className="eyebrow" data-a>The platform · agents run on Foreman</div>
-        <div className="h2 mt-4" data-a style={{ fontSize: 58 }}>Eight agents.<br />One gateway.</div>
+        <div className="h2 mt-4" data-a style={{ fontSize: 58 }}>Nine agents.<br />One gateway.</div>
         <div className="mt-8 grid grid-cols-2 gap-4">
-          {[{ v: 8, l: 'agents, each with a card of what it may touch', a: true }, { v: tools, l: 'MCP tools behind one Cedar policy', a: false }, { v: 8, l: 'agents that use Gemini', a: false }, { v: 0, l: 'actions that skip the gateway', a: true }].map((x, i) => (
+          {[{ v: 9, l: 'agents, each with a card of what it may touch', a: true }, { v: tools, l: 'MCP tools behind one Cedar policy', a: false }, { v: 8, l: 'agents use Gemini. Sentinel uses plain rules', a: false }, { v: 0, l: 'actions that skip the gateway', a: true }].map((x, i) => (
             <div className="card" key={i} data-a style={D(0.3 + i * 0.15)}><div className={`stat ${x.a ? 'amber' : ''}`} style={{ fontSize: 64 }}><CountUp to={x.v} active={active} /></div><div className="statlabel" style={{ fontSize: 22 }}>{x.l}</div></div>
           ))}
         </div>
@@ -377,8 +378,15 @@ function Diagram({ src, eyebrow, title, w }: { src: string; eyebrow: string; tit
   );
 }
 
-function AgentCards({ ids, eyebrow, title }: { ids: string[]; eyebrow: string; title: string }) {
-  const cards = ids.map((id) => AGENTS.find((a) => a.id === id)!).filter(Boolean);
+type Card = { id: string; name: string; mode: string; gemini_use: string; use_case: string; solution: string; outcomes: string[]; forbidden: string[] };
+const EXTRA: Card[] = [
+  { id: 'playbooks', name: 'Playbooks', mode: 'rule-driven', gemini_use: 'None. Code walks the playbook.', use_case: 'Each plant reacts to a failure in its own way.', solution: 'The owner draws a trigger, checks, a decision and actions on a canvas. Code walks it. Warden scores any action that changes the plant.', outcomes: ['A trace of every block', 'Actions scored by Warden'], forbidden: ['Skip Warden for an action that changes the plant'] },
+  { id: 'channels', name: 'Channels', mode: 'rule-driven', gemini_use: 'None.', use_case: 'A person who is not in the app must still know when to approve.', solution: 'Warden messages Slack, Teams, Discord, Telegram or a webhook. Addresses stay on the server. Private addresses are refused.', outcomes: ['Approval requests', 'Blocked actions', 'Failing rules'], forbidden: ['Send to a private network address', 'Show a stored address again'] },
+  { id: 'editor', name: 'Floor editor', mode: 'rule-driven', gemini_use: 'None.', use_case: 'The drawn floor is never exactly right.', solution: 'The full Pascal editor opens on the floor the Guide drew, next to what it learnt. Edits are saved and the live floor shows them.', outcomes: ['Moved or deleted machines', 'Added walls and equipment'], forbidden: ['Change data or limits'] },
+];
+
+function AgentCards({ ids, eyebrow, title, extra = [] }: { ids: string[]; eyebrow: string; title: string; extra?: Card[] }) {
+  const cards: Card[] = [...ids.map((id) => AGENTS.find((a) => a.id === id)!).filter(Boolean), ...extra];
   const MODE: Record<string, string> = { 'model-driven': 'Model-driven', 'rule-driven': 'Rule-driven', mixed: 'Model and rules' };
   return (
     <div className="h-full">
@@ -387,13 +395,13 @@ function AgentCards({ ids, eyebrow, title }: { ids: string[]; eyebrow: string; t
       <div className="mt-5 grid grid-cols-2 gap-5" style={{ gridAutoRows: '1fr' }}>
         {cards.map((c, i) => (
           <div key={c.id} className="card" data-a style={{ ...D(0.15 + i * 0.1), padding: '18px 22px' }}>
-            <div className="flex items-center justify-between"><div className="text-[30px] font-semibold">{c.name}</div><div className="flex gap-2"><span className="chip" style={{ fontSize: 15, padding: '2px 12px' }}>{MODE[c.mode] ?? c.mode}</span><span className="chip" style={{ fontSize: 15, padding: '2px 12px', color: '#c9a6ff', borderColor: '#c9a6ff88' }}>Gemini</span></div></div>
+            <div className="flex items-center justify-between"><div className="text-[30px] font-semibold">{c.name}</div><div className="flex gap-2"><span className="chip" style={{ fontSize: 15, padding: '2px 12px' }}>{MODE[c.mode] ?? c.mode}</span>{!/^None/.test(c.gemini_use) && <span className="chip" style={{ fontSize: 15, padding: '2px 12px', color: '#c9a6ff', borderColor: '#c9a6ff88' }}>Gemini</span>}</div></div>
             <div className="mt-3 grid" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
               <div style={{ border: '1px solid rgba(143,180,255,.4)', borderRadius: 12, padding: '8px 14px' }}><b style={{ color: '#8fb4ff', fontSize: 15, letterSpacing: '.1em' }}>USE CASE</b><div style={{ fontSize: 19, lineHeight: 1.3 }}>{c.use_case}</div></div>
               <div style={{ border: '1px solid rgba(242,184,75,.4)', borderRadius: 12, padding: '8px 14px' }}><b style={{ color: '#f2b84b', fontSize: 15, letterSpacing: '.1em' }}>SOLUTION</b><div style={{ fontSize: 19, lineHeight: 1.3 }}>{c.solution}</div></div>
               <div style={{ border: '1px solid rgba(159,230,191,.4)', borderRadius: 12, padding: '8px 14px' }}><b style={{ color: '#9fe6bf', fontSize: 15, letterSpacing: '.1em' }}>OUTCOMES</b><div style={{ fontSize: 19, lineHeight: 1.3 }}>{c.outcomes.join(' · ')}</div></div>
             </div>
-            <div className="small mt-2" style={{ fontSize: 17 }}>Must never: {c.forbidden.join('; ').toLowerCase()}.</div>
+            <div className="small mt-2" style={{ fontSize: 17 }}>Must never: {c.forbidden.map((f) => f.charAt(0).toLowerCase() + f.slice(1)).join('; ')}.</div>
           </div>
         ))}
       </div>
@@ -484,8 +492,9 @@ export default function Deck() {
         <section className={on(10)}><Diagram src="/deck/diagrams/02-demo-journey.svg" eyebrow="The journey" title="From documents to a decision." w={1100} /></section>
         <section className={on(11)}><AgentCards ids={['guide', 'reader', 'scout', 'modeler']} eyebrow="Appendix · The onboarding team" title="Four agents that learn your plant." /></section>
         <section className={on(12)}><AgentCards ids={['diagnosis', 'verifier', 'planner', 'warden']} eyebrow="Appendix · The operations team" title="Four agents that keep it running." /></section>
-        <section className={on(13)}><div className="flex h-full gap-[64px]"><div className="frame" style={{ width: 1000, height: 780, marginTop: 40 }} data-a="left"><iframe title="One platform, eight agents" src="/deck/figures/platform-light.html" scrolling="no" /></div><div className="flex-1"><div className="eyebrow" data-a>Appendix · The platform as a machine</div><div className="h2 mt-4" data-a style={{ fontSize: 58 }}>One base. One gateway.</div><div className="lead mt-8" data-a style={D(0.4)}>The same eight agents, drawn with the Anatomy kit. Click the figure to step through them.</div></div></div></section>
-        <section className={on(14)}><Diagram src="/deck/diagrams/03-safety-gate.svg" eyebrow="The safety gate" title="Limits first. Then the score." w={1000} /></section>
+        <section className={on(13)}><AgentCards ids={['sentinel']} extra={EXTRA} eyebrow="Appendix · Rules, playbooks and people" title="Plain rules. Your playbooks. Your channels." /></section>
+        <section className={on(14)}><div className="flex h-full gap-[64px]"><div className="frame" style={{ width: 1000, height: 780, marginTop: 40 }} data-a="left"><iframe title="One platform, eight agents" src="/deck/figures/platform-light.html" scrolling="no" /></div><div className="flex-1"><div className="eyebrow" data-a>Appendix · The platform as a machine</div><div className="h2 mt-4" data-a style={{ fontSize: 58 }}>One base. One gateway.</div><div className="lead mt-8" data-a style={D(0.4)}>The same eight agents, drawn with the Anatomy kit. Click the figure to step through them.</div></div></div></section>
+        <section className={on(15)}><Diagram src="/deck/diagrams/03-safety-gate.svg" eyebrow="The safety gate" title="Limits first. Then the score." w={1000} /></section>
         {hud && (
           <div className="hud">
             <span>{cur + 1} / {SLIDES.length}</span>
