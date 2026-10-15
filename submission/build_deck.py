@@ -388,6 +388,62 @@ for i, (n, t) in enumerate([("1", "Open the final product link."), ("2", "Choose
     text(s, x + 0.1, 3.65, 2.8, 0.95, [{"t": t, "size": 11}], name="step text")
 
 
+
+# ------------------------------------------------------------------ benchmark slide (RCAEval), placed right after the performance slide
+from pptx.chart.data import CategoryChartData
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION
+s = S[22]
+set_title(s, "Benchmarking: finding the root cause on RCAEval")
+cd = CategoryChartData()
+cd.categories = ["Online Boutique", "Sock Shop", "Train Ticket"]
+cd.add_series("Official BARO, our run", (0.869, 0.954, 0.652))
+cd.add_series("BARO, published", (0.86, 0.95, 0.79))
+cd.add_series("Tolerance", (0.914, 0.976, 0.848))
+gf = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(0.3), Inches(1.25), Inches(5.9), Inches(3.55), cd)
+gf.name = "RCAEval chart"
+ch = gf.chart
+ch.has_title = True
+ch.chart_title.text_frame.text = "Avg@5 on RE1 (metrics only), higher is better"
+ch.chart_title.text_frame.paragraphs[0].runs[0].font.size = Pt(11)
+ch.chart_title.text_frame.paragraphs[0].runs[0].font.bold = True
+ch.has_legend = True
+ch.legend.position = XL_LEGEND_POSITION.BOTTOM
+ch.legend.include_in_layout = False
+ch.legend.font.size = Pt(10)
+va = ch.value_axis
+va.minimum_scale, va.maximum_scale = 0.5, 1.0
+va.has_major_gridlines = True
+va.major_gridlines.format.line.color.rgb = rgb(LINE)
+va.tick_labels.font.size = Pt(10)
+ch.category_axis.tick_labels.font.size = Pt(10)
+for ser, col in zip(ch.plots[0].series, ("9AA0A6", "BDC1C6", BLUE)):
+    ser.format.fill.solid()
+    ser.format.fill.fore_color.rgb = rgb(col)
+pl = ch.plots[0]
+pl.gap_width = 60
+pl.has_data_labels = True
+pl.data_labels.font.size = Pt(9)
+pl.data_labels.number_format = "0.00"
+pl.data_labels.number_format_is_linked = False
+pl.data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
+text(s, 6.4, 1.25, 3.3, 3.6, [
+    {"t": "What this is", "size": 12, "bold": True, "color": BLUE, "after": 4},
+    {"t": "Real fault-injection cases on three microservice systems. We use RCAEval's own scorer and the authors' own BARO code, unmodified.", "size": 10.5, "bullet": True, "after": 4},
+    {"t": "Our harness reproduces the paper on Online Boutique and Sock Shop. Train Ticket does not (0.652 against the paper's 0.79).", "size": 10.5, "bullet": True, "after": 4},
+    {"t": "Gemini is not used for these numbers.", "size": 10.5, "bullet": True, "after": 8},
+    {"t": "Where we do not win", "size": 12, "bold": True, "color": RED, "after": 4},
+    {"t": "On RE3 (code-level faults) the result is mixed: with weights tuned out of sample we win 1 of 3 systems.", "size": 10.5, "bullet": True, "after": 4},
+    {"t": "With out-of-sample fusion, Train Ticket on RE1 falls to 0.744, below the published 0.79.", "size": 10.5, "bullet": True},
+], name="benchmark notes")
+card(s, 0.3, 4.9, 9.4, 0.45, fill="E8F0FE", name="benchmark banner")
+text(s, 0.45, 4.9, 9.1, 0.45, [{"t": "A benchmark of software incidents, not of a factory: it tests the ranking behind Diagnosis. Everything is reproducible from the repository.", "size": 10.5, "bold": True, "color": BLUE}], anchor=MSO_ANCHOR.MIDDLE, name="benchmark banner text")
+
+# put it right after the performance slide
+perf = next(el for el in ids if prs.part.related_part(el.rId) is S[12].part)
+bn = next(el for el in ids if prs.part.related_part(el.rId) is S[22].part)
+ids.remove(bn)
+perf.addnext(bn)
+
 # ------------------------------------------------------------------ appendix: the same pages as the web deck's appendix
 import json, re
 raw = open(os.path.join(HERE, "..", "web", "components", "deck", "agentsData.ts"), encoding="utf-8").read()
