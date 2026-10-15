@@ -315,13 +315,16 @@ text(s, 6.97, 1.4, 2.65, 3.3, [
 # ------------------------------------------------------------------ 11. snapshots
 s = S[11]
 set_title(s, "Snapshots of the prototype")
-shots = [("floor_plan.png", "The floor in 2D with its data feeds"), ("floor_3d.png", "The same plant in 3D"), ("layout_editor.png", "The layout editor"),
-         ("warden_gate.png", "The Warden gate"), ("sentinel.png", "Sentinel rules"), ("agents.png", "The nine agents")]
-for i, (f, c) in enumerate(shots):
-    r, k = divmod(i, 3)
-    x, y = 0.3 + k * 3.17, 1.25 + r * 2.1
-    pic(s, A(f), x, y, 3.05, 1.72, name="screen")
-    caption(s, x, y + 1.74, 3.05, c)
+# two large pictures of the demo plant, then three smaller screens
+pic(s, A("floor_plan.png"), 0.3, 1.2, 4.65, 2.55, name="Floor in 2D")
+caption(s, 0.3, 3.78, 4.65, "The demo plant in 2D: data feeds, name tags and the status panel")
+pic(s, A("floor_3d.png"), 5.05, 1.2, 4.65, 2.55, name="Floor in 3D")
+caption(s, 5.05, 3.78, 4.65, "The same plant in 3D, with its data flows")
+small = [("layout_editor_crop.png", "The layout editor"), ("warden_gate.png", "The Warden gate"), ("sentinel.png", "Sentinel rules")]
+for i, (f, c) in enumerate(small):
+    x = 0.3 + i * 3.17
+    pic(s, A(f), x, 4.12, 3.05, 1.05, name="screen")
+    caption(s, x, 5.18, 3.05, c)
 
 # ------------------------------------------------------------------ 12. performance
 s = S[12]
