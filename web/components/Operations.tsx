@@ -21,6 +21,9 @@ export default function Operations() {
     api<any>('/ws/twin').then((t) => setRows((t.stations || []).filter((s: any) => !s.ghost && !String(s.id).startsWith('ghost:')).map((s: any) => ({ name: s.name, state: s.state, p: s.p_fail ?? null })).sort((a: any, b: any) => (b.state === 'failed' ? 2 : 0) + (b.p || 0) - ((a.state === 'failed' ? 2 : 0) + (a.p || 0))))).catch(() => {});
     try { const q = new URLSearchParams(window.location.search); if (q.get('station') && q.get('run') === '1') setTimeout(() => go(q.get('station')!), 400); } catch { /* the page waits for a click */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [busyMsg, setBusyMsg] = useState('');
+  const checkBusy = () => api<any>('/ws').then((w) => setBusyMsg(w?.gemini_busy || '')).catch(() => {});
+  useEffect(() => { checkBusy(); }, []);
   const go = async (name?: string) => {
     if (name) setStation(name);
     setBusy(true); setErr(''); setRun(null); setKids([]);
@@ -29,7 +32,7 @@ export default function Operations() {
       setRun(r);
       const all = await api('/jig/runs');
       setKids(all.filter((x: any) => x.parent === r.id).reverse());
-    } catch (e: any) { setErr(String(e.message)); } finally { setBusy(false); }
+    } catch (e: any) { setErr(String(e.message)); } finally { setBusy(false); void checkBusy(); }
   };
   const decide = async (i: number, ok: boolean) => {
     await post(`/jig/operations/${run.id}/${ok ? 'approve' : 'reject'}`, { index: String(i) });
@@ -39,6 +42,7 @@ export default function Operations() {
   return (
     <div>
       <p className="sub">Pick a station. The agents find the cause, check it, plan a fix, and Warden scores it.</p>
+      {busyMsg && <div role="status" style={{ border: '1px solid #f2b84b88', background: 'rgba(242,184,75,.08)', borderRadius: 12, padding: '10px 14px', margin: '0 0 12px', fontSize: 14 }}><b style={{ color: '#f2b84b' }}>{busyMsg}.</b> Where Gemini could not answer in time, the plain rules did that part and say less. Try again in a minute for the full reasoning.</div>}
       {rows.length > 0 && (
         <div className="card" style={{ padding: '6px 16px' }}>
           <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, padding: '8px 0 2px' }}>NEEDS ATTENTION FIRST</div>

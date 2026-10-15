@@ -71,7 +71,7 @@ await step("Backend and web app are up", async () => { const a = await get("/jig
 
 // a brand-new user: no plant, no documents
 await post("/jig/plant/reset");
-await go("/");
+await go("/floor/");
 if (LIVE_AUTH) await sleep(2500);
 await step("1 First visit: only one question, no menu", async () => { const t = await text(); const side = await ev("!!document.querySelector('aside.side')"); return { ok: t.includes("What is your plant called?") && !side, note: "no left panel" }; });
 await step("2 The plant name is typed", async () => { await setVal("input", "Northfield Assembly Plant"); await click("Continue"); return await ev("new Promise(r => setTimeout(() => r(!!document.querySelector('[data-reveal]')), 2000))"); });
@@ -81,7 +81,7 @@ await step("4 The drop zone asks for files", async () => { const ok = await wait
 await step("5 Sample pack chosen, the Guide starts reading", async () => { await clickUntil("use the sample pack", ["Let the Guide read 8"], 20000); await clickUntil("Let the Guide read 8", ["Reading your documents", "WHAT I UNDERSTOOD"], 20000); return await waitText("WHAT I UNDERSTOOD", 180000); });
 await step("5b The Guide shows what it understood and every source it can reach", async () => {
   const ok = await waitText("WHAT I UNDERSTOOD", 180000); const t = await text();
-  const need = ["WHERE DOES YOUR DATA LIVE", "Live in this build", "Plugs in with your URL", "Through a bridge", "MQTT", "OPC UA", "MCP server"].filter((x) => !t.includes(x));
+  const need = ["ANYTHING ELSE YOUR PLANT USES", "Live in this build", "Connects with your address", "Through a bridge", "MQTT", "OPC UA", "MCP server"].filter((x) => !t.includes(x));
   return { ok: ok && need.length === 0, note: need.length ? "missing: " + need.join(", ") : "facts, limits, sources and badges shown" };
 });
 await step("6 The Guide asks for connectors and looks at them", async () => { await clickUntil("Let the Guide look at these", ["Looking at the data sources", "What does this plant make"], 20000); return await waitText("What does this plant make", 180000); });
@@ -104,7 +104,7 @@ await step("11 The Guide reveals the other sections one by one", async () => {
   // a click can land while the page is changing, so keep pressing Next until all eight sections are in the menu
   let links = 0;
   for (let i = 0; i < 14 && links < 8; i++) { await click("Next"); await sleep(2200); links = await ev("document.querySelectorAll('aside.side nav a').length"); }
-  return { ok: links === 6, note: `${links} menu items` };
+  return { ok: links === 8, note: `${links} menu items` };
 });
 await step("12 The tour ends", async () => { await click("Finish"); await sleep(1500); return !(await text()).includes("OF 8"); });
 await go("/floor");
@@ -123,7 +123,7 @@ await post("/jig/warden/reset");
 await post("/jig/warden/settings", { floor: "40", limit: "99" });
 await go("/operations");
 await step("14 Operations: agents diagnose, verify, plan, score", async () => {
-  await clickUntil("Check it", ["Diagnosis, then the Verifier", "Proposed actions, scored by Warden"]); const ok = await waitText("Proposed actions, scored by Warden", 120000);
+  await clickUntil("Check it", ["Diagnosis, then the Verifier", "Proposed actions, scored by Warden"]); const ok = await waitText("Proposed actions, scored by Warden", 240000);
   const t = await text(); return { ok: ok && t.includes("Verifier") && /RUNS ALONE|NEEDS A PERSON/.test(t), note: "Verifier verdict and Warden scores shown" };
 });
 await step("15 A person approves an action that needs one", async () => {
@@ -135,6 +135,7 @@ await post("/jig/warden/settings", { floor: "40", limit: "80" });
 await go("/safety");
 await step("16 Warden: backtest and the two lines", async () => { const ok = await waitText("WRONG, RAN ALONE", 120000); const t = await text(); return { ok, note: (t.match(/(\d+)\s*INCIDENTS/) || [])[0] }; });
 await step("17 Warden: score an action that breaks a hard limit", async () => {
+  await ev(`document.querySelectorAll('details').forEach((d) => { d.open = true; })`);   // the expert panel is folded until opened
   await ev(`(() => { const s = document.querySelector('select'); s.value = 'adjust_speed'; s.dispatchEvent(new Event('change', {bubbles: true})); })()`);
   await sleep(300);
   await ev(`(() => { const i = [...document.querySelectorAll('input')].find(x => x.value.includes('max_speed_pct')); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '{"max_speed_pct": 90}'); i.dispatchEvent(new Event('input', {bubbles: true})); })()`);

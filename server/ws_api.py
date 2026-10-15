@@ -42,7 +42,7 @@ def workspace():
     items = M.reviewed_items(oir=_oir()) if M._cache["items"] is not None else []
     return j({"name": d["name"], "sources": [src_public(s) for s in d["sources"]], "model": M.summary(items) if items else None, "version": (d["versions"][-1] if d["versions"] else None),
               "incidents_open": sum(1 for i in d["incidents"] if i["status"] in ("open", "diagnosed", "plan_tested")), "decisions": bandit.get().stats()["n"], "compiled": len(d.get("compiled", [])),
-              "gemini": agents.gemini_available(), "log_time": (PH.live_only()["log_time"] if _has_state() else None)})
+              "gemini": agents.gemini_available(), "gemini_busy": agents.busy(), "log_time": (PH.live_only()["log_time"] if _has_state() else None)})
 
 
 def _has_state():

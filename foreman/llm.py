@@ -23,6 +23,7 @@ def _bounded(fn, seconds):
     try:
         return fut.result(timeout=seconds)
     except cf.TimeoutError:
+        FA.mark_busy("Gemini is slow to answer right now")
         raise LLMUnavailable(f"Gemini did not answer within {seconds} s")
 
 
@@ -122,6 +123,7 @@ def ask_json(agent, system, user, run=None, live=False, extra="", tries=3, timeo
         except Exception as e:
             why += f"; Gemma fallback failed: {type(e).__name__}: {str(e)[:100]}"
     _note(agent, "none", None, "unavailable", round((time.time() - t0) * 1000))
+    FA.mark_busy("Gemini is not answering right now")
     raise LLMUnavailable(why)
 
 
@@ -170,6 +172,7 @@ def tool_loop(agent, system, user, tools, call, final_decl, run, live=False, max
     t0, final, model, tool_steps = time.time(), None, None, []
     for _ in range(max_turns):
         if time.time() - t0 > max_seconds:
+            FA.mark_busy("Gemini is slow to answer right now")
             raise TimeoutError("Gemini took too long")
         try:
             resp = _bounded(lambda: FA.gen_with_retry(client, tries=4, max_wait=8, model="auto", contents=contents, config=cfg), 40)

@@ -141,6 +141,16 @@ def gemini_tool_decls(types, tool_names, registry):
 
 MODEL_POOL = [m for m in (os.environ.get("TOLERANCE_MODELS") or "gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-3-flash-preview,gemini-flash-latest,gemini-2.5-flash").split(",") if m]
 _dead = {}  # model -> time until which it is considered exhausted
+LOAD = {"until": 0.0, "why": ""}
+
+
+def mark_busy(why="Gemini is under heavy load", seconds=120):
+    """Gemini was slow, overloaded or out of quota just now. The screens say so for a couple of minutes, so a person knows why an answer came from the rules."""
+    LOAD["until"], LOAD["why"] = time.time() + seconds, why
+
+
+def busy():
+    return LOAD["why"] if time.time() < LOAD["until"] else ""
 
 
 def pick_model(preferred=None):
@@ -190,6 +200,7 @@ def gen_with_retry(client, tries=6, max_wait=65, **kw):
             msg = str(e)
             quota = "429" in msg or "RESOURCE_EXHAUSTED" in msg or ("404" in msg and "NOT_FOUND" in msg)   # a model this service does not have is skipped too
             if quota or "503" in msg or "UNAVAILABLE" in msg:
+                mark_busy("Gemini is under heavy load" if "503" in msg or "UNAVAILABLE" in msg else "Gemini's quota is used up for now")
                 m = re.search(r"retry in ([0-9.]+)s", msg)
                 wait = float(m.group(1)) + 1 if m else 8 * (i + 1)
                 if quota:

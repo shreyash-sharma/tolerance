@@ -159,8 +159,8 @@ def run_diagnosis(station, live=False, parent=None, feedback=None):
     tools += own
     try:
         try:
-            final, steps, src = llm.tool_loop("diagnosis", DIAG_SYS, f"Station {station} entered the failed state." + (" The plant also connected its own MCP servers; their read-only tools may help (for example the state of a station in the MES)." if own else "") + (f" A reviewer rejected your earlier answer: {feedback}. Use only numbers that the tools return." if feedback else ""), tools, lambda full, args: gate.call("diagnosis", full, args), _submit_decl, run, live=live)
-        except llm.LLMUnavailable:
+            final, steps, src = llm.tool_loop("diagnosis", DIAG_SYS, f"Station {station} entered the failed state." + (" The plant also connected its own MCP servers; their read-only tools may help (for example the state of a station in the MES)." if own else "") + (f" A reviewer rejected your earlier answer: {feedback}. Use only numbers that the tools return." if feedback else ""), tools, lambda full, args: gate.call("diagnosis", full, args), _submit_decl, run, live=live, max_seconds=100)
+        except (llm.LLMUnavailable, TimeoutError):   # Gemini is unavailable or too slow right now: the rules read the same tool and say less, instead of failing the run
             r = gate.call("diagnosis", "telemetry/failure_episodes", {"station": station, "hours": 24})
             run.step("tool", "telemetry/failure_episodes", decision="ALLOW" if r.get("ok") else "DENY")
             res = r.get("result") or {}

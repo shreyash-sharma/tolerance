@@ -10,7 +10,7 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "Submission Template _ AI Builder Cup.pptx")
+SRC = os.path.join(HERE, "template_extended.pptx")   # the template with five extra copies of a content slide, for the appendix
 OUT = os.path.join(HERE, "Tolerance - AI Builder Cup submission.pptx")
 A = lambda f: os.path.join(HERE, "assets", f)
 
@@ -383,6 +383,87 @@ for i, (n, t) in enumerate([("1", "Open the final product link."), ("2", "Choose
     card(s, x, 3.05, 3.0, 1.55, name="try step")
     text(s, x + 0.1, 3.1, 0.6, 0.5, [{"t": n, "size": 22, "bold": True, "color": BLUE}], name="step number")
     text(s, x + 0.1, 3.65, 2.8, 0.95, [{"t": t, "size": 11}], name="step text")
+
+
+# ------------------------------------------------------------------ appendix: the same pages as the web deck's appendix
+import json, re
+raw = open(os.path.join(HERE, "..", "web", "components", "deck", "agentsData.ts"), encoding="utf-8").read()
+AG = {a["id"]: a for a in json.loads(raw[raw.index("= [") + 2: raw.rindex("];") + 1])}
+MODE = {"model-driven": "Model-driven", "rule-driven": "Rule-driven", "mixed": "Model and rules"}
+EXTRA = [
+    {"name": "Playbooks", "mode": "rule-driven", "use_case": "Each plant reacts to a failure in its own way.",
+     "solution": "The owner draws a trigger, checks, a decision and actions on a canvas. Code walks it. Warden scores any action that changes the plant.",
+     "outcomes": ["A trace of every block", "Actions scored by Warden"], "forbidden": ["Skip Warden for an action that changes the plant"]},
+    {"name": "Channels", "mode": "rule-driven", "use_case": "A person who is not in the app must still know when to approve.",
+     "solution": "Warden messages Slack, Teams, Discord, Telegram or a webhook. Addresses stay on the server. Private addresses are refused.",
+     "outcomes": ["Approval requests", "Blocked actions", "Failing rules"], "forbidden": ["Send to a private network address", "Show an address back in the app"]},
+    {"name": "Layout editor", "mode": "rule-driven", "use_case": "The drawn floor is never exactly right.",
+     "solution": "A node canvas next to the live floor: move, add and delete stations, rename them, and draw how parts flow. Every change is saved at once and the plan and 3D view follow.",
+     "outcomes": ["Moved, added or deleted stations", "Part flows between stations"], "forbidden": ["Change data or limits"]},
+]
+SENT = dict(AG["sentinel"])
+SENT["solution"] = "Plain rules check a field against a value on your data tables, a web address, a port, a service or a certificate. A schedule runs them, maintenance windows keep planned work quiet, and an impact map shows which stations lose data. A rule that fails or recovers tells your channels."
+SENT["forbidden"] = ["Write to the plant", "Let a model say pass or fail", "Reach a private network address"]
+SENT["outcomes"] = ["Pass or fail for each rule", "The stations that lose data", "A message when a rule fails or recovers"]
+
+
+def agent_card(slide, a, x, y, w, h):
+    card(slide, x, y, w, h, name="agent card")
+    text(slide, x + 0.1, y + 0.05, w - 1.9, 0.32, [{"t": a["name"], "size": 13, "bold": True, "color": BLUE}], name="agent name")
+    mode = MODE.get(a.get("mode"), a.get("mode", ""))
+    text(slide, x + w - 1.85, y + 0.08, 1.75, 0.26, [{"t": mode + " · Gemini" if a.get("gemini_use", "None").lower() not in ("none", "none.") else mode, "size": 8.5, "color": MUTED, "align": PP_ALIGN.RIGHT}], name="agent mode")
+    out = " · ".join(a["outcomes"])
+    nev = "; ".join(a["forbidden"])
+    text(slide, x + 0.1, y + 0.4, w - 0.2, h - 0.45, [
+        {"t": [("Use case: ", {"bold": True, "color": BLUE}), (a["use_case"], {})], "size": 9, "after": 3},
+        {"t": [("Solution: ", {"bold": True, "color": AMBER}), (a["solution"], {})], "size": 9, "after": 3},
+        {"t": [("Outcomes: ", {"bold": True, "color": GREEN}), (out, {})], "size": 9, "after": 3},
+        {"t": [("Must never: ", {"bold": True, "color": RED}), (nev, {})], "size": 9, "color": MUTED},
+    ], name="agent text")
+
+
+def agents_slide(slide, title, cards, h1=2.05, h2=2.05):
+    set_title(slide, title)
+    for i, a in enumerate(cards):
+        r, c = divmod(i, 2)
+        agent_card(slide, a, 0.3 + c * 4.75, 1.2 if r == 0 else 1.2 + h1 + 0.08, 4.65, h1 if r == 0 else h2)
+
+
+apps = [S[17], S[18], S[19], S[20], S[21]]
+# 1. the journey
+s = apps[0]
+set_title(s, "Appendix: the journey, from documents to a decision")
+pic(s, A("02-demo-journey_crop.png"), 0.3, 1.3, 6.2, 2.9, border=False, name="Journey diagram")
+text(s, 6.7, 1.3, 3.0, 3.9, [
+    {"t": "Six steps", "size": 12, "bold": True, "color": BLUE, "after": 6},
+    {"t": "You provide the documents and name the systems that hold the data.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "The agents read, connect and compile. You confirm what was understood.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "The plant is built from the checked facts, in 2D and 3D.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "When a fault is found, the agents gather evidence. The gate decides: it runs alone, or it asks you.", "size": 10.5, "bullet": True},
+])
+text(s, 0.3, 4.2, 6.2, 0.9, [{"t": "Boxes in grey are what you provide, in blue what the agents do, in red a decision.", "size": 10, "color": MUTED}])
+# 2. the safety gate
+s = apps[1]
+set_title(s, "Appendix: the safety gate, limits first and then the score")
+pic(s, A("03-safety-gate_crop.png"), 0.3, 1.2, 5.6, 4.0, border=False, name="Safety gate diagram")
+text(s, 6.1, 1.3, 3.6, 3.9, [
+    {"t": "Why this order", "size": 12, "bold": True, "color": BLUE, "after": 6},
+    {"t": "A hard limit from your documents comes first. A score never overrides it.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "Warden then scores the action from 0 to 100 on six factors: can it be undone, how much it touches, distance from the limits, strength of the evidence, what people approved before, and the state of the plant.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "You set the floor and the limit. Below the floor it is refused. In the middle you approve. At or above the limit it runs by itself.", "size": 10.5, "bullet": True, "after": 5},
+    {"t": "You see what your lines would have done on 465 recorded incidents before you trust them.", "size": 10.5, "bullet": True},
+])
+# 3-5. the agents
+agents_slide(apps[2], "Appendix: the onboarding team, four agents that learn your plant", [AG["guide"], AG["reader"], AG["scout"], AG["modeler"]], 2.45, 1.7)
+agents_slide(apps[3], "Appendix: the operations team, four agents that keep it running", [AG["diagnosis"], AG["verifier"], AG["planner"], AG["warden"]])
+agents_slide(apps[4], "Appendix: plain rules, your playbooks, your channels", [SENT, EXTRA[0], EXTRA[1], EXTRA[2]], 2.45, 1.65)
+
+# the appendix goes before "Thank you"
+last = list(ids)
+thanks = last[-6]
+for el in last[-5:]:
+    ids.remove(el)
+    thanks.addprevious(el)
 
 prs.save(OUT)
 print("saved", OUT)
