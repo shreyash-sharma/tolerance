@@ -7,6 +7,7 @@ import IngestCard from './IngestCard';
 import { authHeader, signOutUser, useAuth } from '@/lib/auth';
 import type { PlantData } from '@/lib/plant';
 import AnatomyFrame from './AnatomyFrame';
+import Backdrop from './Backdrop';
 
 const Logo = () => (
   <div className="logo" style={{ padding: 0 }}>
@@ -23,12 +24,12 @@ function SignOut() {
 
 const shell: React.CSSProperties = { position: 'fixed', inset: 0, overflow: 'auto', background: 'radial-gradient(1200px 600px at 50% -10%, #1d1f23 0%, #111215 60%)', color: 'var(--ivory)', display: 'flex', flexDirection: 'column' };
 
-function Frame({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+function Frame({ children, wide = false, scene = false }: { children: React.ReactNode; wide?: boolean; scene?: boolean }) {
   return (
-    <div style={shell}>
+    <div style={scene ? { ...shell, background: 'transparent', zIndex: 1 } : shell}>
       <div style={{ padding: '22px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><Logo /><SignOut /></div>
-      <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '0 32px 48px' }}>
-        <div style={{ width: '100%', maxWidth: wide ? 1240 : 760 }}>{children}</div>
+      <div style={{ flex: 1, display: 'grid', placeItems: scene ? 'center start' : 'center', padding: scene ? '0 7vw 48px' : '0 32px 48px' }}>
+        <div style={{ width: '100%', maxWidth: scene ? 640 : wide ? 1240 : 760 }}>{children}</div>
       </div>
     </div>
   );
@@ -49,7 +50,7 @@ function NameStep({ onDone }: { onDone: (name: string) => void }) {
     try { await post('/jig/plant/name', { name: v.trim() }); onDone(v.trim()); } catch (e: any) { setErr(String(e.message || e)); setBusy(false); }
   };
   return (
-    <Frame>
+    <Frame scene>
       <div style={eyebrow}>Symbiotic Compiler</div>
       <h1 style={h1}>What is your plant called?</h1>
       <p style={lead}>Tolerance learns your plant from your own documents and data. It starts with the name.</p>
@@ -283,8 +284,9 @@ export default function FirstRun({ data, reload }: { data: PlantData; reload: ()
   const stage = data.plant.stage;
   const [brain, setBrain] = useState(false);
   const afterName = (name: string) => { setBrain(true); reload(); void name; };
-  if (stage === 'name') return <NameStep onDone={afterName} />;
-  if (brain && stage === 'files') return <NameReveal name={data.plant.name} onDone={() => setBrain(false)} />;
+  // the name screen and the reveal share one backdrop: the landing page's factory and helix
+  if (stage === 'name') return <><Backdrop /><NameStep onDone={afterName} /></>;
+  if (brain && stage === 'files') return <><Backdrop dim={0.55} /><NameReveal name={data.plant.name} onDone={() => setBrain(false)} /></>;
   if (stage === 'files') return <FilesStep data={data} reload={reload} />;
   if (stage === 'guide') return <GuideStep data={data} reload={reload} />;
   if (stage === 'layout') return <LayoutStep data={data} reload={reload} />;

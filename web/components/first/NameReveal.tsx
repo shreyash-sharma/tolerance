@@ -53,11 +53,11 @@ export default function NameReveal({ name, onDone }: { name: string; onDone: () 
     </svg>
   );
   return (
-    <div data-reveal={locked ? 'done' : 'running'} style={{ position: 'fixed', inset: 0, background: 'radial-gradient(900px 500px at 50% 45%, #1c1f27 0%, #101114 70%)', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+    <div data-reveal={locked ? 'done' : 'running'} style={{ position: 'fixed', inset: 0, background: 'radial-gradient(900px 500px at 50% 45%, rgba(12,16,18,.55) 0%, rgba(12,16,18,.78) 80%)', zIndex: 2, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
       <canvas ref={cv} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
       <div style={{ textAlign: 'center' }}>
         <div ref={text} style={{ position: 'relative', display: 'inline-block', fontSize: size, fontWeight: 700, letterSpacing: '-.04em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#2c2f37' }}>{name}</span>
+          <span style={{ color: '#3a4048' }}>{name}</span>
           <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, background: GRADIENT, backgroundSize: `${100 / Math.max(0.05, 1)}% 100%`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', clipPath: `inset(-10% ${100 - p * 100}% -10% 0)`, filter: locked ? 'drop-shadow(0 0 22px #9b72f255)' : 'none', transition: 'filter .6s' }}>{name}</span>
           {star}
         </div>
