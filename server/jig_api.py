@@ -212,6 +212,12 @@ def sentinel_get():
     return j(SV.public())
 
 
+@router.get("/sentinel/columns")
+def sentinel_columns(table: str):
+    from sentinel import service as SV
+    return j({"columns": SV.columns(table)})
+
+
 @router.post("/sentinel/rules")
 def sentinel_add(b: RuleBody):
     from sentinel import service as SV

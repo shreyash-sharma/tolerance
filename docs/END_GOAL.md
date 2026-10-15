@@ -115,4 +115,4 @@ Built in this build: see `BUILD_LOG.md`.
 
 ## Update, 15 October 2026
 
-The platform now has nine agents. Sentinel is the new one. It checks the plant's systems and the agents' own claims with plain rules, and no model decides a result. Around it are three new areas: playbooks (the owner draws what happens when a station fails), channels (people are told where they work) and a floor editor (the owner can change everything the Guide drew). Gemini is used by eight agents. Sentinel, playbooks and channels use none.
+The platform now has nine agents. Sentinel is the new one. It checks the plant's systems and the agents' own claims with plain rules, and no model decides a result. Around it are three new areas: playbooks (the owner draws what happens when a station fails), channels (people are told where they work) and a floor editor (the owner can change everything the Guide drew). Every agent can use Gemini. In Sentinel it only puts short texts into labels the owner chooses, and plain rules decide every result. Playbooks and channels use no model.

@@ -5,17 +5,18 @@ import { authHeader } from '@/lib/auth';
 
 type Assertion = { path: string; op: string; value?: string };
 type Rule = { id: string; name: string; kind: string; target: any; severity: string; text: string[]; history: boolean[]; last?: { at: number; ok: boolean; error?: string | null; seen: Record<string, any>; results: { ok: boolean; path: string; op: string; expected: any; actual: any; error?: string | null }[] } | null };
-type Data = { protocols: Record<string, { title: string; port: number; kind: string }>; rules: Rule[]; kinds: Record<string, string>; ops: Record<string, string>; no_value: string[]; tables: string[] };
+type Data = { engines: Record<string, string>; protocols: Record<string, { title: string; port: number; kind: string }>; rules: Rule[]; kinds: Record<string, string>; ops: Record<string, string>; no_value: string[]; tables: string[] };
 
 const HINT: Record<string, string> = {
   table: 'Fields: rows, column_count, worst_null_rate, schema_unchanged, newest_age_hours',
   http: 'Fields: reachable, status, latency_ms, size_bytes, json.<field>, headers.<name>',
   tcp: 'Fields: reachable, latency_ms',
   service: 'Fields: reachable, protocol_ok, latency_ms, auth_required, server_version. The check sends the first message of the protocol and does not log in',
+  decide: 'Fields: total, unsure_share, counts.<label>, share.<label>. A model puts each text into one of your labels. Plain checks judge the counts',
   claims: 'Fields: facts, conflicts, stations_only_in_text, gaps, hidden_orders_removed',
 };
 const FIRST: Record<string, Assertion> = {
-  table: { path: 'rows', op: 'gt', value: '0' }, http: { path: 'status', op: 'eq', value: '200' }, tcp: { path: 'reachable', op: 'eq', value: 'true' }, claims: { path: 'conflicts', op: 'eq', value: '0' }, service: { path: 'protocol_ok', op: 'eq', value: 'true' },
+  table: { path: 'rows', op: 'gt', value: '0' }, http: { path: 'status', op: 'eq', value: '200' }, tcp: { path: 'reachable', op: 'eq', value: 'true' }, claims: { path: 'conflicts', op: 'eq', value: '0' }, service: { path: 'protocol_ok', op: 'eq', value: 'true' }, decide: { path: 'unsure_share', op: 'lte', value: '0.5' },
 };
 
 /** Plain rules on the plant's systems and on what the documents say. A rule is a list of checks on a field. No model decides a result. */
@@ -27,6 +28,7 @@ export default function Sentinel() {
   const [name, setName] = useState('');
   const [target, setTarget] = useState<Record<string, string>>({});
   const [sev, setSev] = useState('warn');
+  const [cols, setCols] = useState<string[]>([]);
   const [asr, setAsr] = useState<Assertion[]>([FIRST.http]);
   const load = useCallback(async () => { try { setD(await api<Data>('/jig/sentinel')); } catch { /* empty */ } }, []);
   useEffect(() => { load(); }, [load]);
@@ -34,7 +36,8 @@ export default function Sentinel() {
   const add = async () => {
     setErr(''); setBusy('add');
     const proto = d?.protocols[target.protocol || ''];
-    const t = kind === 'service' ? (proto?.kind === 'http' ? { protocol: target.protocol, url: target.url } : { protocol: target.protocol, host: target.host, port: target.port }) : kind === 'tcp' ? { host: target.host, port: target.port } : kind === 'http' ? { url: target.url } : kind === 'table' ? { table: target.table } : {};
+    const dec = { source: target.source, table: target.table, column: target.column, question: target.question, options: target.options, engine: target.engine || 'gemini' };
+    const t = kind === 'decide' ? dec : kind === 'service' ? (proto?.kind === 'http' ? { protocol: target.protocol, url: target.url } : { protocol: target.protocol, host: target.host, port: target.port }) : kind === 'tcp' ? { host: target.host, port: target.port } : kind === 'http' ? { url: target.url } : kind === 'table' ? { table: target.table } : {};
     try {
       const r = await fetch('/api/jig/sentinel/rules', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ name, kind, target: t, assertions: asr, severity: sev }) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
@@ -44,6 +47,7 @@ export default function Sentinel() {
   };
   const del = async (id: string) => { const r = await fetch('/api/jig/sentinel/rules/' + id, { method: 'DELETE', headers: await authHeader() }); setD(await r.json()); };
   const set = (i: number, k: keyof Assertion, v: string) => setAsr(asr.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
+  useEffect(() => { if (kind === 'decide' && target.source === 'table' && target.table) api<{ columns: string[] }>('/jig/sentinel/columns?table=' + encodeURIComponent(target.table)).then((r) => setCols(r.columns)).catch(() => setCols([])); }, [kind, target.source, target.table]);
   if (!d) return <p className="dim">Loading…</p>;
   const failing = d.rules.filter((r) => r.last && !r.last.ok).length;
   return (
@@ -65,7 +69,7 @@ export default function Sentinel() {
       {d.rules.map((r) => (
         <div key={r.id} className="card">
           <div className="row sb">
-            <span><b>{r.name}</b> <span className="dim">· {d.kinds[r.kind]}{r.target?.url ? ' · ' + r.target.url : r.target?.host ? ` · ${r.target.host}:${r.target.port}` : r.target?.table ? ' · ' + r.target.table : ''}</span></span>
+            <span><b>{r.name}</b>{r.kind === 'decide' && <span className="tag v" style={{ marginLeft: 8 }} title="A model puts the texts into labels. Plain checks decide pass or fail.">AI-assisted</span>} <span className="dim">· {d.kinds[r.kind]}{r.target?.url ? ' · ' + r.target.url : r.target?.host ? ` · ${r.target.host}:${r.target.port}` : r.target?.table ? ' · ' + r.target.table : ''}</span></span>
             <span className="row">
               {r.last ? <span className={`tag ${r.last.ok ? 'ok' : 'bad'}`}>{r.last.ok ? 'passing' : r.severity === 'crit' ? 'failing · critical' : 'failing'}</span> : <span className="tag">not run yet</span>}
               <span title="Last runs, newest on the right" style={{ display: 'inline-flex', gap: 2 }}>{r.history.slice(-12).map((h, i) => <i key={i} style={{ width: 6, height: 14, borderRadius: 2, background: h ? '#7be0a6' : '#ef6b57' }} />)}</span>
@@ -77,6 +81,7 @@ export default function Sentinel() {
               const res = r.last?.results?.[i];
               return <div key={i} style={{ display: 'flex', gap: 8 }}><span style={{ width: 14, color: res ? (res.ok ? '#7be0a6' : '#ef6b57') : 'var(--dim)' }}>{res ? (res.ok ? '✓' : '✗') : '·'}</span><span>{t}</span>{res && <span className="dim">saw {res.error ? res.error : String(res.actual)}</span>}</div>;
             })}
+            {r.kind === 'decide' && r.last?.seen?.counts && <div className="dim" style={{ fontSize: 12.5 }}>Labels: {Object.entries(r.last.seen.counts).map(([k, v]) => `${k} ${v}`).join(' · ')} · answered by {r.last.seen.answered_by}</div>}
             {r.last?.error && <div style={{ color: '#ef6b57' }}>{r.last.error}</div>}
           </div>
         </div>
@@ -91,6 +96,19 @@ export default function Sentinel() {
             <select value={sev} onChange={(e) => setSev(e.target.value)}><option value="warn">Warning</option><option value="crit">Critical</option></select>
           </div>
           {kind === 'http' && <input value={target.url || ''} onChange={(e) => setTarget({ url: e.target.value })} placeholder="https://mes.example.com/health" />}
+          {kind === 'decide' && (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <select value={target.source || ''} onChange={(e) => setTarget({ ...target, source: e.target.value, table: '', column: '' })}><option value="">Where are the texts?</option><option value="table">A column of a table</option><option value="claims">The quotes from my documents</option></select>
+                {target.source === 'table' && <select value={target.table || ''} onChange={(e) => setTarget({ ...target, table: e.target.value, column: '' })}><option value="">Choose a table…</option>{d.tables.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
+                {target.source === 'table' && target.table && <select value={target.column || ''} onChange={(e) => setTarget({ ...target, column: e.target.value })}><option value="">Choose a column…</option>{cols.map((c) => <option key={c} value={c}>{c}</option>)}</select>}
+              </div>
+              <input value={target.question || ''} onChange={(e) => setTarget({ ...target, question: e.target.value })} placeholder="The question, for example: What kind of event is this alarm text?" />
+              <input value={target.options || ''} onChange={(e) => setTarget({ ...target, options: e.target.value })} placeholder="Your labels, separated by commas: safety, quality, routine" />
+              <select value={target.engine || 'gemini'} onChange={(e) => setTarget({ ...target, engine: e.target.value })}>{Object.entries(d.engines).map(([k, v]) => <option key={k} value={k} disabled={k === 'laya'}>{v}</option>)}</select>
+              <div className="dim" style={{ fontSize: 12.5 }}>The model only picks a label for each text, and its answer is limited to your labels. A text that gives orders is treated as data. Pass or fail is judged by the plain checks below, on the counts. The first 100 texts are used.</div>
+            </div>
+          )}
           {kind === 'service' && <div className="row" style={{ flexWrap: 'wrap' }}>
             <select value={target.protocol || ''} onChange={(e) => setTarget({ protocol: e.target.value })}><option value="">Choose a service…</option>{Object.entries(d.protocols).map(([k, v]) => <option key={k} value={k}>{v.title}</option>)}</select>
             {target.protocol && d.protocols[target.protocol].kind === 'http'

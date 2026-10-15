@@ -1,11 +1,11 @@
 """Sentinel rules for one visitor: stored, proposed from the visitor's data, run, and reported. A rule that turns from passing to failing tells the visitor's channels."""
 import time, uuid
 
-from sentinel import checks, engine, guard, protocols
+from sentinel import checks, decide, engine, guard, protocols
 from workspace import store
 
 MAX_RULES = 30
-KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "service": "A service on your network (MQTT, Redis, a database)", "claims": "What the documents say"}
+KINDS = {"table": "A table of your data", "http": "A web address", "tcp": "A network port", "service": "A service on your network (MQTT, Redis, a database)", "decide": "AI-assisted: put texts into labels you choose", "claims": "What the documents say"}
 _PRESET = {
     "rows_present": {"path": "rows", "op": "gt", "value": 0},
     "not_too_empty": {"path": "worst_null_rate", "op": "lte", "value": 0.5},
@@ -25,7 +25,14 @@ def public():
         last = s["last"].get(r["id"])
         out.append({**{k: v for k, v in r.items() if k != "baseline_cols"}, "last": last, "history": s["history"].get(r["id"], [])[-20:],
                     "text": [engine.describe(a) for a in r["assertions"]]})
-    return {"rules": out, "kinds": KINDS, "protocols": {k: {"title": v[0], "port": v[1], "kind": v[2]} for k, v in protocols.PROTOCOLS.items()}, "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables()}
+    return {"rules": out, "engines": decide.ENGINES, "kinds": KINDS, "protocols": {k: {"title": v[0], "port": v[1], "kind": v[2]} for k, v in protocols.PROTOCOLS.items()}, "ops": engine.OPS, "no_value": list(engine.NO_VALUE), "tables": _tables()}
+
+
+def columns(table):
+    """Column names of one table, for the Decide rule's picker."""
+    from connectors import registry as CR
+    df = CR.lake_query("select column_name c from information_schema.columns where table_schema = 'lake' and table_name = '" + str(table).replace("'", "''") + "' order by ordinal_position")
+    return [c for c in df["c"] if not c.startswith("_dlt")]
 
 
 def _tables():
@@ -55,6 +62,17 @@ def add(name, kind, target, assertions, severity="warn"):
             port = int(target.get("port") or protocols.PROTOCOLS[proto][1])
             guard.check_host(str(target.get("host", "")), port)
             target = {"protocol": proto, "host": str(target["host"]), "port": port}
+    elif kind == "decide":
+        if target.get("source") not in ("table", "claims"):
+            raise ValueError("choose where the texts come from")
+        if target["source"] == "table" and not (target.get("table") and target.get("column")):
+            raise ValueError("choose a table and a column")
+        if target.get("engine", "gemini") == "laya":
+            raise ValueError("Laya is not installed in this build. Choose Gemini.")
+        if target.get("engine", "gemini") not in decide.ENGINES:
+            raise ValueError("unknown engine")
+        target = {"source": target["source"], "table": target.get("table", ""), "column": target.get("column", ""), "question": str(target.get("question") or "")[:300],
+                  "options": decide.clean_options(target.get("options")), "engine": target.get("engine", "gemini")}
     elif kind == "table" and not target.get("table"):
         raise ValueError("choose a table")
     clean = []
@@ -108,6 +126,8 @@ def observe(rule):
         return checks.http_observation(t["url"])
     if k == "tcp":
         return checks.tcp_observation(t["host"], t["port"])
+    if k == "decide":
+        return decide.observe(t)
     if k == "service":
         return protocols.observe(t["protocol"], t.get("host", ""), t.get("port", 0), t.get("url", ""))
     if k == "claims":

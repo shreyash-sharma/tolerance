@@ -23,7 +23,7 @@ export default function Agents() {
   );
   return (
     <div>
-      <p className="sub">Nine agents share one platform: one gateway, one policy, one record of every step. Each agent has a card with what it may touch and what it must never do. Eight agents use Gemini for at least one step. Sentinel uses none: plain rules decide every result.</p>
+      <p className="sub">Nine agents share one platform: one gateway, one policy, one record of every step. Each agent has a card with what it may touch and what it must never do. Every agent can use Gemini. In Sentinel it only puts texts into labels you choose, and plain rules decide every result.</p>
       <h3 className="mut" style={{ fontSize: 12, letterSpacing: 1 }}>ONBOARDING TEAM</h3>
       <div className="grid g4" style={{ marginBottom: 18 }}>{team('onboarding').map(card)}</div>
       <h3 className="mut" style={{ fontSize: 12, letterSpacing: 1 }}>OPERATIONS TEAM</h3>

@@ -33,7 +33,7 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 
 - **Floor editor** (`/floor/edit`): the full Pascal editor opens on the floor the Guide drew, with a "what I learnt" panel beside it (stations, facts, limits, conflicts, data). The owner edits all of it. Saving keeps the scene on the server and moves or removes the matching stations in the plant model. The live floor then shows the owner's scene, with live colours and labels.
-- **Sentinel** (`/sentinel`, the ninth agent): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, a service, or what the documents say. A service check sends the first message of the protocol (MQTT, Redis, PostgreSQL, MySQL, MongoDB, RabbitMQ, OPC UA, Memcached, InfluxDB, ClickHouse, Elasticsearch, SQL Server port) and does not log in. It can suggest checks for your connected data. A rule that starts failing tells your channels. Web, port and service checks reach public addresses only.
+- **Sentinel** (`/sentinel`, the ninth agent): plain rules, no model. A rule is a list of checks (a field, an operator, a value) on a table of your data, a web address, a network port, a service, or what the documents say. A service check sends the first message of the protocol (MQTT, Redis, PostgreSQL, MySQL, MongoDB, RabbitMQ, OPC UA, Memcached, InfluxDB, ClickHouse, Elasticsearch, SQL Server port) and does not log in. The **Decide** check is optional and marked AI-assisted: Gemini puts up to 100 short texts (an alarm column, or the quotes from your documents) into labels you choose, its answer is limited to those labels, and a text that gives orders is treated as data. Plain checks then judge the counts. This follows the idea of Jev and Laya, small models with a fixed set of outputs. Laya, the open-source one, is listed but not installed in this build. It can suggest checks for your connected data. A rule that starts failing tells your channels. Web, port and service checks reach public addresses only.
 - **Playbooks** (`/playbooks`): the owner draws what should happen when a station fails: a trigger, checks, a decision and actions. Checks read through the same policy gateway as the agents. Any action that changes the plant is scored by Warden first.
 - **Channels** (on the Warden page): Slack, Teams, Discord, Telegram or any webhook. "A person must approve", blocked actions, failing Sentinel rules and playbook messages reach people where they work. Addresses stay on the server.
 
@@ -95,7 +95,7 @@ Settings has "Show me around" and "Start over".
 <p align="center"><img src="docs/images/figures/agent-team.png" alt="The agent team: the owner and the Guide, the onboarding and operations teams, shared services, connectors and machines" width="900"></p>
 
 
-Foreman is the layer that runs the agents: a contract card per agent, a visible record of every step, one policy gateway, and a record and replay for model calls. Eight agents use Gemini in at least one step. Sentinel does not: plain rules decide every result. Plain code is labelled as such (model-driven, rule-driven, or mixed).
+Foreman is the layer that runs the agents: a contract card per agent, a visible record of every step, one policy gateway, and a record and replay for model calls. Every agent can use Gemini. In Sentinel it only puts short texts into labels you choose, and plain rules decide every result. Plain code is labelled as such (model-driven, rule-driven, or mixed).
 
 | Agent | Job | Where Gemini is used |
 |---|---|---|
@@ -107,7 +107,7 @@ Foreman is the layer that runs the agents: a contract card per agent, a visible 
 | Verifier | Recomputes every number the diagnosis cites | Reviews the argument. A failed number check cannot be argued away |
 | Remediation Planner | Proposes the fix with exact settings | Chooses the action and settings |
 | Warden | Scores each action from 0 to 100 | Writes the plain reason. The score itself is rule-driven so it can be audited |
-| Sentinel | Checks your systems and the agents' claims with plain rules | None. Code decides every result. It reads tables, web addresses, ports, service protocols and document claims, and tells your channels when a rule starts failing |
+| Sentinel | Checks your systems and the agents' claims with plain rules | Only in the optional Decide check: Gemini puts short texts into labels you choose, and its answer is limited to those labels. Code decides every result |
 
 **Warden.** Six factors give the score. The owner sets two lines: below the floor an action is refused, between the lines a person approves it, at or above the limit it may run by itself. Cedar enforces this at the Action Broker. The page shows a backtest on 465 recorded RCAEval incidents, so the owner sees what the lines would have done before trusting them.
 

@@ -77,7 +77,7 @@ Pages: `/onboard`, `/floor`, `/operations`, `/safety`, `/agents`, `/deck`. Rebui
 | Area | What changed | Where |
 |---|---|---|
 | Nine agents | Sentinel is the ninth agent. It is rule-driven and uses no model. The Guide is counted too: nine in all. | `foreman/agents.py`, `foreman/guide.py` |
-| Sentinel | A small Python rule engine: a rule has checks (field, operator, value) on a table of your data, a web address, a port, a service, or document claims. Service checks send the first message of the protocol and do not log in. | `sentinel/`, `tests/sentinel_test.py`, `tests/sentinel_protocols_test.py` |
+| Sentinel | A small Python rule engine: a rule has checks (field, operator, value) on a table of your data, a web address, a port, a service, or document claims. Service checks send the first message of the protocol and do not log in. The optional Decide check lets Gemini put short texts into labels the owner chooses (answer limited to those labels); plain checks judge the counts. | `sentinel/`, `tests/sentinel_test.py`, `tests/sentinel_protocols_test.py` |
 | Playbooks | The owner draws a trigger, checks, a decision and actions. Code walks it. Warden scores any action that changes the plant. | `foreman/playbook.py`, `web/components/Playbooks.tsx` |
 | Channels | Slack, Teams, Discord, Telegram or a webhook get approvals, blocked actions, failing rules and playbook messages. Private addresses are refused. | `foreman/notify.py`, `web/components/Channels.tsx` |
 | Floor editor | The full Pascal editor opens on the drawn floor, next to what Tolerance learnt. Saved edits show on the live floor. | `web/components/FloorEditor.tsx`, `/api/jig/floor` |

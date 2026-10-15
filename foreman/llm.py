@@ -69,12 +69,12 @@ def _gemma_json(system, user, timeout=30):
     return json.loads(txt), model
 
 
-def _gemini_json(system, user, tries, timeout):
+def _gemini_json(system, user, tries, timeout, schema=None):
     from google.genai import types
     client = FA.make_client()
     try:
         resp = _bounded(lambda: FA.gen_with_retry(client, tries=tries, max_wait=6, model="auto", contents=user,
-                                                  config=types.GenerateContentConfig(system_instruction=system, response_mime_type="application/json", temperature=0)), timeout)
+                                                  config=types.GenerateContentConfig(system_instruction=system, response_mime_type="application/json", temperature=0, **({"response_schema": schema} if schema else {}))), timeout)
     except LLMUnavailable:
         raise
     except Exception as e:   # quota, network, overload
@@ -85,10 +85,10 @@ def _gemini_json(system, user, tries, timeout):
         raise LLMUnavailable("Gemini returned text that is not JSON")
 
 
-def ask_json(agent, system, user, run=None, live=False, extra="", tries=3, timeout=35):
+def ask_json(agent, system, user, run=None, live=False, extra="", tries=3, timeout=35, schema=None):
     """One structured answer. Returns (dict, source): "gemini", "gemma" (last-resort fallback) or "recorded".
     Order: a recording (unless live=True), then Gemini, then Gemma on Fireworks if configured. If all fail, LLMUnavailable: the caller uses its rules."""
-    key = "jig:" + _sha(agent, system, user, extra)
+    key = "jig:" + _sha(agent, system, user, extra, json.dumps(schema, sort_keys=True) if schema else "")
     if not live:
         rec = DC.get(key)
         if rec:
@@ -100,7 +100,7 @@ def ask_json(agent, system, user, run=None, live=False, extra="", tries=3, timeo
     why = "no Gemini key"
     if available():
         try:
-            out, model = _gemini_json(system, user, tries, timeout)
+            out, model = _gemini_json(system, user, tries, timeout, schema)
             ms = round((time.time() - t0) * 1000)
             if run:
                 run.step("llm", "Gemini answered", model=model, seconds=round(ms / 1000, 1))

@@ -190,7 +190,7 @@ def main():
     # --- contracts
     cat = core.catalog()
     check("nine agents are registered", len(cat) == 9, len(cat))
-    check("Sentinel is rule-driven and never uses a model", next(c for c in cat if c["id"] == "sentinel")["mode"] == "rule-driven" and next(c for c in cat if c["id"] == "sentinel")["trust"] == "read")
+    check("Sentinel only reads, and code decides every result", next(c for c in cat if c["id"] == "sentinel")["trust"] == "read" and "Plain code decides every result" in next(c for c in cat if c["id"] == "sentinel")["gemini_use"])
     check("every agent says how it uses Gemini", all(c["gemini_use"] for c in cat))
     check("every agent lists what it must never do", all(c["forbidden"] for c in cat))
     check("only Warden and Verifier decide", sorted(c["id"] for c in cat if c["trust"] == "decide") == ["verifier", "warden"])
