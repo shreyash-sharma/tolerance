@@ -105,7 +105,7 @@ export default function Sentinel() {
               </div>
               <input value={target.question || ''} onChange={(e) => setTarget({ ...target, question: e.target.value })} placeholder="The question, for example: What kind of event is this alarm text?" />
               <input value={target.options || ''} onChange={(e) => setTarget({ ...target, options: e.target.value })} placeholder="Your labels, separated by commas: safety, quality, routine" />
-              <select value={target.engine || 'gemini'} onChange={(e) => setTarget({ ...target, engine: e.target.value })}>{Object.entries(d.engines).map(([k, v]) => <option key={k} value={k} disabled={k === 'laya'}>{v}</option>)}</select>
+              <select value={target.engine || 'gemini'} onChange={(e) => setTarget({ ...target, engine: e.target.value })}>{Object.entries(d.engines).map(([k, v]) => <option key={k} value={k} disabled={k === 'gemma'}>{v}</option>)}</select>
               <div className="dim" style={{ fontSize: 12.5 }}>The model only picks a label for each text, and its answer is limited to your labels. A text that gives orders is treated as data. Pass or fail is judged by the plain checks below, on the counts. The first 100 texts are used.</div>
             </div>
           )}

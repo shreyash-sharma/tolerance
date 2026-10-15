@@ -1,6 +1,6 @@
 """Tests Sentinel's Decide check with a stand-in for the model. Run:  python tests/sentinel_decide_test.py
-What it proves: the labels are always from the owner's list or "unsure", a short or bad answer is never guessed, Laya says it is not installed,
-and plain assertions judge the counts."""
+What it proves: the labels are always from the owner's list or "unsure", a short or bad answer is never guessed,
+and plain assertions judge the counts. The tuned Gemma engine says it is not ready."""
 import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -48,10 +48,10 @@ check("a short answer is padded with unsure, not guessed", labels[3] == "unsure"
 check("the schema limits decoding to the labels and unsure", calls and calls[0]["items"]["enum"] == ["safety", "quality", "routine", "unsure"], calls)
 
 try:
-    D.classify(texts, "q", ["a", "b"], engine="laya")
-    check("Laya must say it is not installed", False)
+    D.classify(texts, "q", ["a", "b"], engine="gemma")
+    check("the tuned Gemma must say it is not ready", False)
 except ValueError as e:
-    check("Laya message is plain", "not installed" in str(e), str(e))
+    check("the Gemma message is plain", "not ready" in str(e), str(e))
 
 # the counts feed plain assertions
 obs = {"total": 4, "counts": {"safety": 1, "unsure": 3}, "share": {"safety": 0.25, "unsure": 0.75}, "unsure_share": 0.75}

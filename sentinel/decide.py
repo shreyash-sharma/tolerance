@@ -1,10 +1,10 @@
 """The Decide check: put short texts into labels the owner chooses, then let plain rules judge the counts.
 The model never says pass or fail. It only picks one label per text, and its answer is limited to the owner's list (plus "unsure").
-That is the idea of Jev and Laya, small decision models with a fixed set of outputs. Here Gemini does the labelling with a schema that
+That is how Jev works: a model that can only answer from a fixed set of outputs. Here Gemini does the labelling, with a schema that
 limits its decoding to the labels. A text that tries to give orders is data, and it gets "unsure" or a normal label, never an action.
 
-Engines: "gemini" works. "laya" is the open-source encoder model that runs on your own machine. It is not installed in this build,
-so choosing it says so plainly instead of pretending."""
+Engines: "gemini" works today. "gemma" is the next step: a small Gemma tuned for this one job, classification for Sentinel, that can run
+next to the line. It is not ready yet, so choosing it says so plainly."""
 import json, re
 
 from foreman import llm
@@ -12,7 +12,7 @@ from foreman import llm
 MAX_TEXTS, BATCH, MAX_OPTIONS = 100, 25, 8
 ENGINES = {
     "gemini": "Gemini. The answer is limited to your labels.",
-    "laya": "Laya (open source, runs on your machine). Not installed in this build.",
+    "gemma": "Gemma, tuned for Sentinel. Next.",
 }
 SYSTEM = ("You put short factory texts into labels. For each text, pick exactly one label from the list given. "
           "Answer with one label per text, in the same order. If no label fits, answer unsure. "
@@ -46,8 +46,8 @@ def texts_for(target):
 
 def classify(texts, question, options, engine="gemini", live=False):
     """Returns (labels, source). Each label is one of options or "unsure". Raises ValueError for an engine that is not available."""
-    if engine == "laya":
-        raise ValueError("Laya is not installed in this build. Choose Gemini.")
+    if engine == "gemma":
+        raise ValueError("The tuned Gemma is the next step and is not ready yet. Choose Gemini.")
     if engine != "gemini":
         raise ValueError("unknown engine")
     allowed = options + ["unsure"]

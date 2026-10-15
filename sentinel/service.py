@@ -67,8 +67,8 @@ def add(name, kind, target, assertions, severity="warn"):
             raise ValueError("choose where the texts come from")
         if target["source"] == "table" and not (target.get("table") and target.get("column")):
             raise ValueError("choose a table and a column")
-        if target.get("engine", "gemini") == "laya":
-            raise ValueError("Laya is not installed in this build. Choose Gemini.")
+        if target.get("engine", "gemini") == "gemma":
+            raise ValueError("The tuned Gemma is the next step and is not ready yet. Choose Gemini.")
         if target.get("engine", "gemini") not in decide.ENGINES:
             raise ValueError("unknown engine")
         target = {"source": target["source"], "table": target.get("table", ""), "column": target.get("column", ""), "question": str(target.get("question") or "")[:300],

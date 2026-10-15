@@ -14,7 +14,7 @@ const SLIDES = [
   { id: 'ops', secs: 30, notes: 'A station fails. The Diagnosis agent picks read-only tools, and Cedar allows each call. It says the station failed two times. The Verifier recomputes the number from the data: it was one. The diagnosis is rejected and sent back once. The second round is supported. The Planner proposes a fix and Warden scores it.' },
   { id: 'warden', secs: 28, notes: 'Warden scores each action from zero to one hundred. You set two lines. Below the floor, refused. Between the lines, a person approves. Above the limit, it runs by itself. A hard limit from your documents is never crossed, whatever the score. We backtested your lines on four hundred sixty-five recorded incidents, so you see what they would have done before you trust them. The plant here is replayed data, so applied actions run in a simulator.' },
   { id: 'results', secs: 17, notes: 'We measured the diagnosis on RCAEval with the authors’ own scorer. On the metrics-only suite we win all three systems. On the multi-source suite we win one and lose two, and we say so. The document pipeline scores ninety percent precision and full recall on a seeded pack.' },
-  { id: 'gemma', secs: 15, notes: 'Next is a Gemma tuned for your plant. Google documents tuning Gemma with LoRA. Studies show small models can be tuned for manufacturing. We did not find a Gemma study on factory data, so that is the gap, and it needs GPU compute we do not have yet.' },
+  { id: 'gemma', secs: 15, notes: 'Today Gemini sorts short plant texts into your labels, and its answer is limited to those labels. That is how Jev works. Next we tune a small Gemma for this one job, classification for Sentinel. Google documents tuning Gemma with LoRA and on Vertex AI. A small model runs next to the line and keeps plant texts on site. Tuning needs GPU compute and labelled plant texts that we do not have yet.' },
   { id: 'close', secs: 7, notes: 'Tolerance. An agentic platform for manufacturing. Autonomy, within tolerance.' },
   { id: 'd1', secs: 0, notes: 'Appendix. The platform: assistant and router, the agent team on Foreman, shared services, the policy gateway, connectors and probes, machines.' },
   { id: 'd2', secs: 0, notes: 'Appendix. What a person sees, in order: drop documents, connect machines, confirm the overview, build the 3D, a fault is found, the gate decides.' },
@@ -312,18 +312,18 @@ function WardenSlide({ active }: { active: boolean }) {
 
 function Gemma() {
   const cards = [
-    { t: 'Google supports it', d: 'Gemma has documented tuning paths: LoRA in Keras and Hugging Face, and Vertex AI.' },
-    { t: 'Studies point the same way', d: 'LLM-MANUF (Advanced Engineering Informatics, 2025) fine-tunes language models for manufacturing decisions. A 2026 automotive study (arXiv 2608.10710) names fine-tuning as the next step after ensembles of prompted models.' },
-    { t: 'Small is the goal', d: 'The sllm4prod project (Leuphana) targets models of 10 billion parameters or fewer for manufacturing, small enough to run next to the line.' },
+    { t: 'Today: Gemini', d: 'Gemini sorts short plant texts into your labels. Its answer is limited to those labels. This is how Jev works.' },
+    { t: 'Next: a small Gemma', d: 'We tune Gemma for one job: classification for Sentinel. Google documents tuning Gemma with LoRA and on Vertex AI.' },
+    { t: 'Why small', d: 'It runs next to the line, keeps plant texts on site, and is fast and cheap for many short texts.' },
   ];
   return (
     <div className="h-full">
       <div className="eyebrow" data-a>Roadmap</div>
-      <div className="h2 mt-4" data-a style={{ ...D(0.1), fontSize: 64 }}>Next: a Gemma that knows your plant.</div>
+      <div className="h2 mt-4" data-a style={{ ...D(0.1), fontSize: 64 }}>Next: a small Gemma for Sentinel.</div>
       <div className="mt-8 grid grid-cols-3 gap-8">
         {cards.map((c, i) => <div className="card" key={c.t} data-a style={D(0.3 + i * 0.2)}><div className="text-[34px] font-semibold amber">{c.t}</div><div className="lead mt-4" style={{ fontSize: 28 }}>{c.d}</div></div>)}
       </div>
-      <div className="card mt-8" data-a style={D(1)}><div className="lead"><b>The gap, stated plainly.</b> We found no Gemma study on factory data and no speed figures for it at the edge. Filling that gap needs GPU compute that we do not have yet. Today every agent runs on Gemini.</div></div>
+      <div className="card mt-8" data-a style={D(1)}><div className="lead"><b>What we need.</b> GPU compute and a set of labelled plant texts. We do not have them yet. Today every agent runs on Gemini.</div></div>
     </div>
   );
 }
