@@ -15,3 +15,10 @@ web/out
 node_modules
 *.log
 .env
+
+# secrets and local settings never go into the image or the build upload
+infra/cloudrun.local.env.yaml
+tools/uat_credentials.txt
+.env.*
+!.env.example
+*.local.env.yaml
