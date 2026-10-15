@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { continueAsGuest, resetPassword, signInEmail, signInGoogle, signUpEmail } from '@/lib/auth';
 
 /** Sign in or register, with Google, with an email and a password, or as a guest. It is used on the landing page and on the login screen. */
-export default function AuthCard({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+export default function AuthCard({ compact = false, initialMode = 'in' }: { compact?: boolean; initialMode?: 'in' | 'up' }) {
+  const [mode, setMode] = useState<'in' | 'up'>(initialMode);
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');

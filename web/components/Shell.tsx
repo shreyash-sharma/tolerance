@@ -72,7 +72,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
   useEffect(() => { if (window.location.search.includes('embed=1')) document.documentElement.classList.add('embed'); }, []);
 
   if (auth.status === 'out') {   // signed-out visitors go to the landing page, which has sign in and register; it brings them back here
-    if (typeof window !== 'undefined') window.location.replace('/?next=' + encodeURIComponent(window.location.pathname));
+    if (typeof window !== 'undefined') window.location.replace('/signin/?next=' + encodeURIComponent(window.location.pathname));
     return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;
   }
   if (!data) return <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)' }} />;

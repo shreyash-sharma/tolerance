@@ -55,7 +55,7 @@ const get = async (p) => (await fetch(API + p, { headers: await hdr() })).json()
 // ---- the run
 const setVal = (sel, v) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); const proto = e.tagName === 'TEXTAREA' ? HTMLTextAreaElement : HTMLInputElement; Object.getOwnPropertyDescriptor(proto.prototype, 'value').set.call(e, ${JSON.stringify(v)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 if (LIVE_AUTH) {
-  await go("/");
+  await go("/signin/");
   await step("0 The login screen, then sign in (" + LIVE_AUTH + ")", async () => {
     if (!(await waitText("Welcome back.", 40000))) return { ok: false, note: "no login screen" };
     if (LIVE_AUTH === "guest") { await clickUntil("Continue as guest", ["What is your plant called?"], 40000); }

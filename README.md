@@ -44,7 +44,7 @@ After the owner gives the documents, the Guide shows what it understood (facts w
 
 ## The front door: landing page, sign in and register
 
-`/` is a public landing page. It shows what Tolerance does with the real screens, and has the way in built in: Sign in and Register tabs (Google, or email and password, with a password reset), and Continue as guest. A signed-in visitor goes straight to the floor, or to the page they asked for (`/?next=`). Add `?landing=1` to see the page while signed in.
+`/` is the public landing page (static files in `web/public`, an animated factory scene and the Symbiotic Compiler story). Sign in, Register and "Try it as a guest" are in the top bar and under the headline, and again at the end. They lead to `/signin/`, which has Google, email and password (with a password reset), and a guest button. A signed-in visitor goes straight to the floor, or to the page they asked for (`/signin/?next=`). Further down, an "Inside the product" section shows real screens of the floor with data feeds, the layout editor, the nine agents, Warden, Sentinel and playbooks. "Watch the journey" opens `/enter/`, an interactive follow-a-fault story that needs no account.
 
 ## Data feeds from many systems
 
