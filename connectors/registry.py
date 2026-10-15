@@ -5,10 +5,45 @@ import dlt
 from dlt.sources.sql_database import sql_database
 
 from plant import core
+from workspace import store
 
 LAKE = os.path.join(core.DATA, "estate.duckdb")
 PIPES = os.path.join(core.DATA, "dlt")
 STATE = os.path.join(core.DATA, "connectors.json")
+_OWN = {}   # visitor -> (has their own lake, checked at)
+
+
+def _safe(uid):
+    return "".join(ch for ch in uid if ch.isalnum() or ch in "-_")[:64]
+
+
+def own_lake():
+    """A visitor who brings their own machine data gets their own database file, so their plant never mixes with the sample or with anyone else's."""
+    uid = store.UID.get()
+    if uid == "local":
+        return False
+    hit = _OWN.get(uid)
+    if hit and (hit[0] or time.time() - hit[1] < 3):
+        return hit[0]
+    flag = bool(store.load().get("own_lake"))
+    _OWN[uid] = (flag, time.time())
+    return flag
+
+
+def set_own_lake():
+    uid = store.UID.get()
+    d = store.load()
+    d["own_lake"] = True
+    store.save(d)
+    _OWN[uid] = (True, time.time())
+
+
+def lake_path():
+    return os.path.join(core.DATA, "users", "lake_" + _safe(store.UID.get()) + ".duckdb") if own_lake() else LAKE
+
+
+def pipes_dir():
+    return os.path.join(core.DATA, "users", "dlt_" + _safe(store.UID.get())) if own_lake() else PIPES
 LOCK = threading.RLock()
 
 
@@ -115,7 +150,7 @@ def sync(sid):
         st = _load_state()
         h = st.setdefault(sid, {"syncs": 0, "rows": 0, "history": []})
         mode = "snapshot" if h["syncs"] == 0 else "live"
-        pipe = dlt.pipeline(pipeline_name="src_" + sid, destination=dlt.destinations.duckdb(LAKE), dataset_name="lake", pipelines_dir=PIPES)
+        pipe = dlt.pipeline(pipeline_name="src_" + sid, destination=dlt.destinations.duckdb(lake_path()), dataset_name="lake", pipelines_dir=pipes_dir())
         t0 = time.time()
         pipe.run(_build(s))
         rc = {k: v for k, v in (pipe.last_trace.last_normalize_info.row_counts or {}).items() if not k.startswith("_dlt")}
@@ -144,7 +179,8 @@ def lake_query(sql):
     """Read from the lake. Serialised with syncs and opened with the same configuration as dlt's connection (DuckDB allows one config per file per process)."""
     import duckdb
     with LOCK:
-        c = duckdb.connect(LAKE)
+        os.makedirs(os.path.dirname(lake_path()), exist_ok=True)
+        c = duckdb.connect(lake_path())
         try:
             return c.sql(sql).df()
         finally:

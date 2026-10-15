@@ -1,0 +1,6 @@
+Shift handover, night to morning.
+
+PACKER-4 stopped three times in a row around 03:10. The carton magazine jammed. Operators cleared it each time.
+Orders above 5000 euro need supervisor approval before we release them to the line.
+CONV-A was slow at the start of the shift but recovered.
+QC-CAM is running on its own for now. It has not been connected to the plant system yet.

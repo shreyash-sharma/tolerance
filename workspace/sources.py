@@ -17,6 +17,24 @@ def slug(s):
 
 
 # ------------------------------------------------------------------ resources
+# Machine logs often say RUN or FAULT instead of 0, 1, 2. The loader adds a code column next to such a column: 0 idle, 1 busy, 2 failed.
+STATE_WORDS = {
+    "idle": {"idle", "standby", "waiting", "stopped", "stop", "off", "starved", "blocked", "paused", "ready", "setup"},
+    "busy": {"run", "running", "busy", "active", "producing", "production", "on", "auto", "operating"},
+    "failed": {"fault", "faulted", "failed", "failure", "error", "alarm", "down", "breakdown", "estop", "e-stop", "emergency"},
+}
+STATE_CODE = {"idle": 0, "busy": 1, "failed": 2}
+
+
+def state_codes(col):
+    """If every value in this text column is a known machine-state word (and at least two kinds appear), return the code for each value, else None."""
+    vals = {str(v).strip().lower() for v in col.dropna().unique()}
+    word = {w: k for k, ws in STATE_WORDS.items() for w in ws}
+    if len(vals) < 2 or not vals <= set(word):
+        return None
+    return col.map(lambda v: STATE_CODE[word[str(v).strip().lower()]] if str(v).strip().lower() in word else None)
+
+
 def csv_resource(path, table):
     """Append-only CSV. Each sync reads only the rows after the ones already loaded (a growing file behaves like a live feed)."""
     import pandas as pd
@@ -29,6 +47,10 @@ def csv_resource(path, table):
         n = 0
         for chunk in pd.read_csv(path, skiprows=skip, chunksize=40000):
             chunk.columns = [slug(c) for c in chunk.columns]
+            for col in [c for c in chunk.columns if (chunk[c].dtype == object or pd.api.types.is_string_dtype(chunk[c])) and not c.endswith("_code")]:
+                codes = state_codes(chunk[col])
+                if codes is not None:
+                    chunk[col + "_code"] = codes.astype("int64")
             n += len(chunk)
             yield chunk.to_dict("records")
         st["rows_done"] = done + n
@@ -109,7 +131,7 @@ def get(sid):
 
 
 def _pipeline(sid):
-    return dlt.pipeline(pipeline_name="ws_" + sid, destination=dlt.destinations.duckdb(CR.LAKE), dataset_name="lake", pipelines_dir=CR.PIPES)
+    return dlt.pipeline(pipeline_name="ws_" + sid, destination=dlt.destinations.duckdb(CR.lake_path()), dataset_name="lake", pipelines_dir=CR.pipes_dir())
 
 
 def sync(sid):

@@ -11,7 +11,7 @@ from workspace import store
 
 LABEL = {0: "idle", 1: "busy", 2: "failed"}
 _FC = {"t": 0, "rows": {}}
-_INF = {"n": -1, "flows": []}
+_INF = store.PerUser(lambda: {"n": -1, "flows": []})
 
 
 def _tw(d):
@@ -91,7 +91,8 @@ def build():
         model, _, df = PH.compile_physical()
         fc = _forecast(model, df)
         win = PH.recent_window(0.5)
-        for a, g in win.groupby("asset"):
+        # a machine that has run steadily has no event in the last half hour, so every machine in the log counts, with its latest known state
+        for a, g in pd.concat([win, df[~df.asset.isin(set(win.asset))].groupby("asset").tail(48)]).groupby("asset"):
             live[a] = {"spark": [int(x) for x in g.status.tail(48)], "state": LABEL.get(int(g.status.iloc[-1]), "idle"), "last": str(g.ts.iloc[-1])}
         if _INF["n"] != len(df):
             _INF.update(n=len(df), flows=infer_flows(df))

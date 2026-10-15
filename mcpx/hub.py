@@ -5,10 +5,12 @@ import asyncio, json, threading, time
 
 from mcp.shared.memory import create_connected_server_and_client_session
 
+from mcpx import servers as _srv
 from mcpx.servers import SERVERS
 
 LOG = []  # recent calls, newest last
 _lock = threading.Lock()
+_call_lock = threading.RLock()
 
 
 class Hub:
@@ -69,8 +71,11 @@ class Hub:
         if server not in self.sessions:
             raise RuntimeError(self.error or f"no MCP server {server}")
         t0 = time.time()
-        fut = asyncio.run_coroutine_threadsafe(self.sessions[server].call_tool(tool, args or {}), self.loop)
-        res = fut.result(timeout=timeout)
+        from workspace import store
+        with _call_lock:   # one call at a time, so the visitor set for the tools is the visitor who asked
+            _srv.CUR_UID["uid"] = store.UID.get()
+            fut = asyncio.run_coroutine_threadsafe(self.sessions[server].call_tool(tool, args or {}), self.loop)
+            res = fut.result(timeout=timeout)
         text = "".join(c.text for c in res.content if getattr(c, "type", "") == "text")
         try:
             out = json.loads(text) if text else None

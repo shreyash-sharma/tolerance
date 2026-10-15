@@ -29,10 +29,22 @@ def clean(o):
     return o
 
 
+CUR_UID = {"uid": "local"}   # set by the hub for the call in flight
+
+
 def _thread(fn):
     """Run a blocking function off the event loop."""
     async def run(*a, **k):
-        return clean(await asyncio.to_thread(fn, *a, **k))
+        uid = CUR_UID["uid"]   # the hub says which visitor this call is for; the in-memory server task does not inherit it
+
+        def act():
+            from workspace import store
+            tok = store.UID.set(uid)
+            try:
+                return fn(*a, **k)
+            finally:
+                store.UID.reset(tok)
+        return clean(await asyncio.to_thread(act))
     run.__name__ = fn.__name__
     run.__doc__ = fn.__doc__
     # keep the signature so MCP can build the tool schema

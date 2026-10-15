@@ -17,6 +17,26 @@ def _path():
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, "".join(c for c in uid if c.isalnum() or c in "-_")[:64] + ".json")
 LOCK = threading.RLock()
+
+
+class PerUser:
+    """A small cache or setting that each visitor has their own copy of. Behaves like a dict; the visitor is the one in UID."""
+    def __init__(self, make):
+        self._make, self._d = make, {}
+
+    def _cur(self):
+        return self._d.setdefault(UID.get(), self._make())
+
+    def __getitem__(self, k): return self._cur()[k]
+    def __setitem__(self, k, v): self._cur()[k] = v
+    def get(self, k, d=None): return self._cur().get(k, d)
+    def update(self, *a, **k): return self._cur().update(*a, **k)
+    def __iter__(self): return iter(self._cur())
+    def keys(self): return self._cur().keys()
+    def items(self): return self._cur().items()
+    def __len__(self): return len(self._cur())
+
+
 _DEFAULT = {"name": "My plant", "sources": [], "corrections": [], "versions": [], "incidents": [], "decisions": [], "notes": []}
 
 

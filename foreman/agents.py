@@ -33,7 +33,7 @@ register(Contract(
 register(Contract(
     id="verifier", name="Verifier", team="operations", job="Checks the diagnosis against the data and rejects what the data does not support.",
     use_case="A model can sound sure and be wrong.", solution="Rule checks recompute every cited number from the tool results. Gemini then reviews the argument. A hard check cannot be talked away.",
-    outcomes=["Supported or not", "Issues list", "Evidence score"], inputs=["Diagnosis", "Tool results"], tools=["telemetry/failure_episodes"],
+    outcomes=["Supported or not", "Issues list", "Evidence score"], inputs=["Diagnosis", "Tool results"], tools=["telemetry/failure_episodes", "telemetry/list_stations"],
     forbidden=["Approve a claim whose numbers do not match"], output="Verdict and score", success="No number in the diagnosis differs from the data", mode="mixed", gemini_use="Reviews the argument for gaps", trust="decide",
     origin=["DeepEval", "Ragas", "Strands critic loop"]), None)
 register(Contract(
@@ -177,6 +177,19 @@ def run_verifier(station, diag, live=False, parent=None):
         for ep in data.get("episodes", []):
             truth_nums.setdefault("durations", []).append(ep["duration_s"])
         pool = [v for v in [truth_nums["failures"], truth_nums["mean_ttr_s"]] + truth_nums.get("durations", []) if v is not None]
+        # A diagnosis may cite the whole history or the station's forecast, not only the last 24 hours. Those numbers come from the same read-only tools, so they count too.
+        wider = {}
+        for call, args in (("telemetry/failure_episodes", {"station": station, "hours": 24 * 3650}), ("telemetry/list_stations", {})):
+            more = gate.call("verifier", call, args)
+            run.step("tool", call, decision="ALLOW" if more.get("ok") else "DENY")
+            mr = more.get("result") or {}
+            if "stations" in mr:
+                mr = next((x for x in mr["stations"] if str(x.get("name", "")).lower() == station.lower()), {})
+            wider["whole_log" if "episodes" in mr else "station_summary"] = {k: v for k, v in mr.items() if k != "episodes"}
+            pool += [float(v) for k, v in mr.items() if isinstance(v, (int, float)) and not isinstance(v, bool) and k in ("failures", "mean_ttr_s", "p_fail_4h", "window_hours")]
+            pool += [float(e["duration_s"]) for e in mr.get("episodes", [])]
+            if "failures" in mr and call == "telemetry/failure_episodes":
+                truth_nums["failures_all_time"] = mr.get("failures")
         issues, hard_ok, checked = [], True, 0
         for ev in diag.get("evidence", []):
             n = ev.get("number")
@@ -184,13 +197,13 @@ def run_verifier(station, diag, live=False, parent=None):
                 continue
             checked += 1
             if not any(abs(float(n) - float(v)) <= max(0.6, 0.06 * abs(float(v))) for v in pool):
-                issues.append(f"The number {n} for “{ev.get('claim')}” is not in the data (data has {truth_nums['failures']} failures, mean repair {truth_nums['mean_ttr_s']} s).")
+                issues.append(f"The number {n} for “{ev.get('claim')}” is not in the data (last 24 h: {truth_nums['failures']} failures, mean repair {truth_nums['mean_ttr_s']} s; whole log: {truth_nums.get('failures_all_time')} failures).")
                 hard_ok = False
         run.step("check", f"Recomputed {checked} cited numbers: {'all match' if hard_ok else str(len(issues)) + ' do not match'}", ok=hard_ok)
         review, src = {"gaps": [], "supported": True}, "rule"
         try:
-            review, src = llm.ask_json("verifier", "You review a factory diagnosis against the data. Say if the argument has gaps (a claim with no evidence, a cause the data does not point to). "
-                                       "Reply as JSON: {\"supported\": true|false, \"gaps\": [\"...\"]}.", json.dumps({"diagnosis": diag, "data": data}, default=str)[:6000], run=run, live=live)
+            review, src = llm.ask_json("verifier", "You review a factory diagnosis against the data. The data has the last 24 hours, the whole log and a station summary; a number is supported if any of them shows it. Say if the argument has gaps (a claim with no evidence, a cause the data does not point to). "
+                                       "Reply as JSON: {\"supported\": true|false, \"gaps\": [\"...\"]}.", json.dumps({"diagnosis": diag, "data_last_24h": data, **wider}, default=str)[:6000], run=run, live=live)
         except llm.LLMUnavailable:
             pass
         gaps = [str(g) for g in review.get("gaps", [])][:4]

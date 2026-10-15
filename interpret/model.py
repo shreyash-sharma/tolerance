@@ -6,7 +6,7 @@ import time
 from interpret import engine as E
 from workspace import store
 
-_cache = {"items": None, "profiles": None, "at": 0}
+_cache = store.PerUser(lambda: {"items": None, "profiles": None, "at": 0})
 
 
 def build_items(force=False, oir=None):
@@ -24,6 +24,8 @@ def build_items(force=False, oir=None):
     for sl in state_logs:
         stats = E.state_stats(sl)
         labels, conf = E.propose_state_labels(stats)
+        if sl["status"].endswith("_code"):   # the loader made this code from words such as RUN and FAULT, so the meaning is known
+            labels, conf = {c: {0: "idle", 1: "busy", 2: "failed"}.get(c, "idle") for c in labels}, {c: 0.95 for c in labels}
         items.append({"id": f"state:{sl['table']}", "type": "state_map", "title": f"Machine states in {sl['table']}", "confidence": round(min(conf.values()) if conf else .5, 2),
                       "summary": "Which status code means what. This decides what counts as a failure.", "by": "heuristic",
                       "detail": {**sl, "stats": stats, "labels": {str(k): v for k, v in labels.items()}, "confidence_by_code": {str(k): v for k, v in conf.items()}, "notes": ann.get("state_notes", "")}})

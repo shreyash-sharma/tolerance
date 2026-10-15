@@ -58,21 +58,44 @@ def sources():
     return j({"sources": [src_public(s) for s in d["sources"]], "replayer": rep.status() if rep else None, "live": SRC.LIVE.run, "errors": SRC.LIVE.errors})
 
 
+def adopt_state_log():
+    """After a machine log is uploaded: find the state log in the visitor's data, take its meaning (RUN, FAULT and so on), and make it the plant's log. Returns what was found."""
+    from documents import engine as DE
+    items = M.reviewed_items(force=True)
+    st = M.effective(items)["state"]
+    if not st:
+        return None
+    PH.configure(st["table"], st["ts"], st["asset"], st["status"], st["labels"], st["fail"])
+    DE._ST.update(t=0)
+    df = PH.lake_df()
+    return {"table": st["table"], "stations": sorted(df.asset.astype(str).unique()), "rows": int(len(df)), "labels": {str(k): v for k, v in st["labels"].items()},
+            "from": str(df.ts.min())[:16], "to": str(df.ts.max())[:16]}
+
+
 @router.post("/sources/upload")
 async def upload(file: UploadFile = File(...), name: str = Form("")):
     fn = file.filename or "upload"
     ext = os.path.splitext(fn)[1].lower()
     if ext not in (".csv", ".db", ".sqlite", ".sqlite3"):
         raise HTTPException(400, "Upload a .csv or a SQLite file (.db / .sqlite). For other systems add a URL.")
+    data = await file.read()
+    if len(data) > 25_000_000:
+        raise HTTPException(413, "file too large (25 MB at most)")
     nm = name.strip() or os.path.splitext(fn)[0]
-    path = os.path.join(SRC.UPLOADS, f"{SRC.slug(nm)}{ext}")
+    CR.set_own_lake()   # the visitor brings their own data: it goes into their own database, apart from the sample
+    path = os.path.join(SRC.UPLOADS, f"{CR._safe(store.UID.get())}_{SRC.slug(nm)}{ext}")
     with open(path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(data)
     kind = "csv" if ext == ".csv" else "sqlite"
     s = SRC.add(kind, nm, path=path)
     r = SRC.sync(s["id"])
     SRC.LIVE.start()
-    return j({"source": src_public(SRC.get(s["id"])), "sync": r})
+    machine = None
+    try:
+        machine = adopt_state_log()
+    except Exception as e:
+        machine = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
+    return j({"source": src_public(SRC.get(s["id"])), "sync": r, "machine": machine})
 
 
 @router.post("/sources/url")
@@ -169,7 +192,7 @@ def interpret():
 def model():
     items = M.reviewed_items(force=M._cache["items"] is None, oir=_oir())
     d = store.load()
-    return j({"items": items, "summary": M.summary(items), "versions": d["versions"], "state": PH.CFG})
+    return j({"items": items, "summary": M.summary(items), "versions": d["versions"], "state": dict(PH.CFG.items())})
 
 
 @router.post("/model/items")
@@ -226,7 +249,7 @@ def _rebuild(note):
     effects = []
     if eff["state"]:
         st = eff["state"]
-        before = dict(PH.CFG)
+        before = dict(PH.CFG.items())
         PH.configure(st["table"], st["ts"], st["asset"], st["status"], st["labels"], st["fail"])
         effects.append(f"machine states: failure = code {st['fail']} in {st['table']}" + ("" if st["reviewed"] else " (not yet reviewed)"))
     removed = 0

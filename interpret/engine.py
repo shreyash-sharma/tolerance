@@ -96,7 +96,7 @@ def find_state_logs(profiles):
     for p in profiles:
         cols = {c["name"]: c for c in p["columns"]}
         ts = [c["name"] for c in p["columns"] if c["role"] == "timestamp"]
-        assets = [c["name"] for c in p["columns"] if c["role"] in ("category", "identifier") and 2 <= c["distinct"] <= 80]
+        assets = [c["name"] for c in p["columns"] if c["role"] in ("category", "identifier") and 2 <= c["distinct"] <= 80 and c["name"] + "_code" not in cols]
         codes = [c["name"] for c in p["columns"] if c["role"] == "code" and 2 <= c["distinct"] <= 8]
         if ts and assets and codes and p["rows"] >= 200:
             out.append({"table": p["table"], "ts": ts[0], "asset": assets[0], "status": codes[0], "rows": p["rows"]})

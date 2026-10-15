@@ -5,10 +5,43 @@ import numpy as np
 import pandas as pd
 
 from connectors import registry as R
+from workspace import store
 from physical import reliability as REL
 
-_cache = {"n": -1, "model": None, "val": None}
-CFG = {"table": "station_states", "ts": "ts", "asset": "asset", "status": "status", "fail": 2, "labels": {0: "idle", 1: "busy", 2: "FAILED"}, "reviewed": False}
+_cache = store.PerUser(lambda: {"n": -1, "model": None, "val": None})
+_DEFAULT_CFG = {"table": "station_states", "ts": "ts", "asset": "asset", "status": "status", "fail": 2, "labels": {0: "idle", 1: "busy", 2: "FAILED"}, "reviewed": False}
+
+
+class _Cfg:
+    """Which table is the machine state log and what its codes mean. The sample plant uses the shared default; a visitor with their own machine data has their own."""
+    def __init__(self):
+        self._own = {}
+
+    def _cur(self):
+        if not R.own_lake():
+            return _DEFAULT_CFG
+        uid = store.UID.get()
+        if uid not in self._own:
+            saved = store.load().get("phys_cfg")
+            self._own[uid] = {**_DEFAULT_CFG, **(saved or {})}
+        return self._own[uid]
+
+    def __getitem__(self, k): return self._cur()[k]
+    def get(self, k, d=None): return self._cur().get(k, d)
+    def keys(self): return self._cur().keys()
+    def __iter__(self): return iter(self._cur())
+    def items(self): return self._cur().items()
+
+    def update(self, *a, **k):
+        cur = self._cur()
+        cur.update(*a, **k)
+        if cur is not _DEFAULT_CFG:
+            d = store.load()
+            d["phys_cfg"] = {x: cur[x] for x in ("table", "ts", "asset", "status", "fail", "labels", "reviewed") if x in cur}
+            store.save(d)
+
+
+CFG = _Cfg()
 
 
 def configure(table, ts, asset, status, labels, fail):
@@ -25,6 +58,7 @@ SEALS = []  # sealed forecasts, newest last
 
 def lake_df():
     c = CFG
+    REL.FAIL = c["fail"]   # the failure code belongs to this visitor's plant
     df = R.lake_query(f'select "{c["ts"]}" as ts, "{c["asset"]}" as asset, "{c["status"]}" as status from lake."{c["table"]}" order by 1')
     df["ts"] = pd.to_datetime(df["ts"], utc=True).dt.tz_localize(None)
     return df

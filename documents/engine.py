@@ -24,7 +24,18 @@ VOCAB = {
     "inspection_interval_h": "inspection interval in operating hours",
 }
 RULES = {"max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "approval_threshold_eur", "inspection_interval_h"}
-EXPECT = {"TR": ["max_speed_pct"], "AGV": ["max_speed_ms", "payload_max_kg"], "C1": ["belt_speed_ms"], "C2": ["belt_speed_ms"]}
+def expect_for(name):
+    """Which limits a station of this kind should have in the documents, judged from its name. Anything else is not asked about."""
+    n = name.lower()
+    if re.search(r"agv|vehicle|forklift|\bamr\b", n):
+        return ["max_speed_ms", "payload_max_kg"]
+    if re.search(r"conv|belt|\bc\d+\b", n):
+        return ["belt_speed_ms"]
+    if re.search(r"pallet|depallet", n):
+        return ["payload_max_kg"]
+    if re.search(r"robot|\barm\b|transfer|gantry|\btr\b", n):
+        return ["max_speed_pct"]
+    return []
 INJ = [r"ignore (all )?(the )?(previous|prior|above) instructions", r"disregard (all )?(the )?(previous|prior|above)", r"^\W*(system|assistant)\s*:", r"do not tell", r"you are now", r"mark (every|all) .{0,30}approved"]
 MODEL = os.environ.get("TOLERANCE_NAMING_MODEL") or "gemini-3.1-flash-lite"
 
@@ -149,7 +160,7 @@ def extract(doc, stations):
     return {"claims": claims, "by": "gemini", "flagged": flagged}
 
 
-_ST = {"t": 0.0, "v": []}
+_ST = store.PerUser(lambda: {"t": 0.0, "v": []})
 
 
 def _stations():
@@ -228,7 +239,7 @@ def state():
             guard.append({"id": gid, "subject": sub, "predicate": pred, "value": pick["value"] if pick else None, "quote": pick["quote"] if pick else None, "doc": pick["doc"] if pick else None,
                           "status": "blocked" if not pick else res.get(gid, "proposed"), "why_blocked": None if pick else "documents disagree; resolve the conflict first"})
     have = {(c["subject_resolved"], c["predicate"]) for c in claims}
-    gaps = [{"subject": a, "predicate": p, "why": f"No document states {p} for {a}."} for a, ps in EXPECT.items() if a in st for p in ps if (a, p) not in have] if claims else []
+    gaps = [{"subject": a, "predicate": p, "why": f"No document states {p} for {a}."} for a, ps in ((a, expect_for(a)) for a in st) for p in ps if (a, p) not in have] if claims else []
     inj = [{"doc": p["name"], "quote": f["quote"], "action": "removed before extraction; never executed"} for p in D.get("per", []) for f in p["flagged"]]
     return {"docs": D.get("per", []), "claims": claims, "ghosts": ghosts, "conflicts": conflicts, "gaps": gaps, "guardrails": guard, "injections": inj, "aliases": alias, "stations": st}
 

@@ -84,7 +84,10 @@ def understood(st):
         if len(picks) == 6:
             break
     stations = sorted({c["subject_resolved"] for c in claims if c.get("known") and c["subject_resolved"] != "ORDER"})
-    return {"documents": [{"name": d["name"], "kind": d["kind"], "claims": d["claims"]} for d in st["docs"]][:10], "facts": len(claims), "stations": stations,
+    named = sorted({c["subject_resolved"] for c in claims if c["subject_resolved"] != "ORDER" and c["predicate"] in ("installed", "feeds", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "inspection_interval_h")})
+    from connectors import registry as CR
+    have_data = CR.own_lake() or bool(PL.get().get("use_sample"))   # without machine data, "known" and "only in the text" mean nothing yet
+    return {"documents": [{"name": d["name"], "kind": d["kind"], "claims": d["claims"]} for d in st["docs"]][:10], "facts": len(claims), "stations": stations, "named": named, "have_data": have_data,
             "limits": len(st.get("guardrails", [])), "conflicts": len(st["conflicts"]), "ghosts": [g["name"] for g in st["ghosts"]], "gaps": len(st["gaps"]),
             "injections": len(st["injections"]), "samples": picks}
 
@@ -210,12 +213,14 @@ def connect(ids, also=None, db_url="", mcp_url=""):
     all_items = {i["id"]: i for g in SUPPORT for i in g["items"]}
     also = [i for i in (also or []) if i in all_items and i not in LIVE_IDS]
     ids = [i for i in ids if i in LIVE_IDS]
-    if not ids:
-        raise ValueError("choose at least one connector that is live in this build")
+    from connectors import registry as CR
+    own = CR.own_lake()   # the owner uploaded a machine log of their own
+    if not ids and not own:
+        raise ValueError("choose at least one connector that is live in this build, or upload your own machine log")
     import re
     db_url, mcp_url = (re.sub(r"//[^/@\s]*@", "//", str(x or "").strip())[:300] for x in (db_url, mcp_url))   # a password must never be stored, so any user:password part is cut
     PL.update(lambda p: p.update(connectors=ids, wishes={"also": also, "db_url": db_url, "mcp_url": mcp_url}))
-    said = "Connect: " + ", ".join(c["title"] for c in CONNECTORS if c["id"] in ids)
+    said = "Connect: " + (", ".join(c["title"] for c in CONNECTORS if c["id"] in ids) or "my own machine log")
     if also:
         said += ". Also in use: " + ", ".join(all_items[i]["title"] for i in also)
     if mcp_url:
@@ -224,18 +229,28 @@ def connect(ids, also=None, db_url="", mcp_url=""):
 
     def work():
         JOB["what"] = "Connecting the machine data"
-        ensure_data()
+        mine = None
+        if own:
+            JOB["what"] = "Matching your documents to your stations"
+            DE._ST.update(t=0)
+            mine = DE.run_all()   # read again: the station names are now the plant's own
+        else:
+            ensure_data()
         JOB["what"] = "Looking at the data sources"
         r = AGS.run_scout()
         res = r.get("result") or {}
         tables = res.get("tables") or []
         default = {"message": "I looked through the connected data. " + "; ".join(f"{t['name']} holds {t['role']}" for t in tables[:5]) + "."}
-        out, _ = _ask(VOICE + " The Connector Scout looked at the data sources. Say in two or three short sentences what the plant's data holds and what is missing. Reply as JSON: {\"message\": \"...\"}.",
+        out, _ = _ask(VOICE + " The Connector Scout looked at the data sources. Say in two or three short sentences what the plant's data holds, and name at most two kinds of data that would help the owner most (for example maintenance records or quality results). Do not list more. Reply as JSON: {\"message\": \"...\"}.",
                       {"connected": ids, "tables": tables, "missing": res.get("missing")}, default)
         extra = ""
         if also or db_url or mcp_url:
             extra = " I wrote down the rest you named (" + ", ".join(filter(None, [*(all_items[i]["title"] for i in also), "your database address" if db_url else "", "your MCP server" if mcp_url else ""])) + "). This build reads only the sample sources. After setup, the Connect page takes your own database address, and your MCP server joins the same gateway, behind the same Warden gate."
-        _say(str(out.get("message") or default["message"]) + " The machine data is a real manufacturing lab's state log, replayed as if it were live." + extra)
+        tail = " The machine data is a real manufacturing lab's state log, replayed as if it were live."
+        if mine is not None:
+            known = DE._stations()
+            tail = f" Your machine log has {len(known)} stations: {', '.join(known)}. Matched against your documents, {len(mine['conflicts'])} {'fact disagrees' if len(mine['conflicts']) == 1 else 'facts disagree'}, {len(mine['ghosts'])} {'station appears' if len(mine['ghosts']) == 1 else 'stations appear'} only in the text" + (" (" + ", ".join(g["name"] for g in mine["ghosts"]) + ")" if mine["ghosts"] else "") + f", {len(mine['gaps'])} expected {'limit is' if len(mine['gaps']) == 1 else 'limits are'} missing and {len(mine['injections'])} hidden {'order was' if len(mine['injections']) == 1 else 'orders were'} removed."
+        _say(str(out.get("message") or default["message"]) + tail + extra)
         PL.update(lambda p: p.update(phase="qa"))
         _next()
     _job("Looking at the data sources", work)

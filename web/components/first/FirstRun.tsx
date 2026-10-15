@@ -112,6 +112,15 @@ function FilesStep({ data, reload }: { data: PlantData; reload: () => void }) {
 }
 
 // ------------------------------------------------------------------ 3. the guide
+async function uploadLog(f: File) {
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('name', 'Machine log');
+  const r = await fetch('/api/ws/sources/upload', { method: 'POST', headers: await authHeader(), body: fd });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
 function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onAct: (a: any, text?: string) => void; disabled: boolean; conn: PlantData['connectors'] }) {
   const mine = m.role === 'user';
   const [sel, setSel] = useState<string[]>(conn.map((c) => c.id));
@@ -122,7 +131,7 @@ function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onA
       <div style={{ maxWidth: '88%', background: mine ? '#f2b84b22' : '#ffffff0a', border: `1px solid ${mine ? '#f2b84b55' : 'var(--line)'}`, borderRadius: 18, padding: '12px 16px', lineHeight: 1.55 }}>
         {!mine && <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 2 }}>GUIDE</div>}
         <div>{m.text}</div>
-        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
+        {last && !mine && card?.type === 'ingest' && <div id="ingest-card"><IngestCard understood={card.understood} support={card.support} disabled={disabled} onUpload={uploadLog} onGo={(a) => onAct({ type: 'connect', ...a })} /></div>}
         {last && !mine && card?.type === 'connectors' && (
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
             {card.options.map((c: any) => (

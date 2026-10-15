@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 
-type Understood = { documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[] };
+type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[] };
 type Item = { id: string; title: string; about: string; status: 'live' | 'plug' | 'bridge' };
 type Group = { group: string; items: Item[] };
 
@@ -17,12 +17,22 @@ function Tile({ v, l, warn }: { v: number | string; l: string; warn?: boolean })
 }
 
 /** After the documents are read: what the Guide understood, then every kind of source it can reach and how far each goes today. */
-export default function IngestCard({ understood: u, support, disabled, onGo }: { understood: Understood; support: Group[]; disabled: boolean; onGo: (a: { ids: string[]; also: string[]; db_url: string; mcp_url: string }) => void }) {
+export default function IngestCard({ understood: u, support, disabled, onGo, onUpload }: { understood: Understood; support: Group[]; disabled: boolean; onUpload: (f: File) => Promise<any>; onGo: (a: { ids: string[]; also: string[]; db_url: string; mcp_url: string }) => void }) {
   const live = support.flatMap((g) => g.items).filter((i) => i.status === 'live').map((i) => i.id);
   const [sel, setSel] = useState<string[]>(live);
   const [also, setAlso] = useState<string[]>([]);
   const [db, setDb] = useState('');
   const [mcp, setMcp] = useState('');
+  const [up, setUp] = useState<{ busy: boolean; err: string; machine: any }>({ busy: false, err: '', machine: null });
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    setUp({ busy: true, err: '', machine: null });
+    try {
+      const r = await onUpload(f);
+      if (r.machine?.stations?.length) { setSel([]); setUp({ busy: false, err: '', machine: r.machine }); }
+      else setUp({ busy: false, err: r.machine?.error || 'I could not find machine states in that file. I need a time, a machine name and a state.', machine: null });
+    } catch (e: any) { setUp({ busy: false, err: String(e.message || e), machine: null }); }
+  };
   const toggle = (it: Item) => {
     if (it.status === 'live') setSel((v) => (v.includes(it.id) ? v.filter((x) => x !== it.id) : [...v, it.id]));
     else setAlso((v) => (v.includes(it.id) ? v.filter((x) => x !== it.id) : [...v, it.id]));
@@ -34,13 +44,15 @@ export default function IngestCard({ understood: u, support, disabled, onGo }: {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <Tile v={u.documents.length} l="documents" />
           <Tile v={u.facts} l="facts, each quoted" />
-          <Tile v={u.stations.length} l="stations known" />
+          {u.have_data === false ? <Tile v={(u.named || []).length} l="stations named" /> : <Tile v={u.stations.length} l="stations known" />}
           <Tile v={u.limits} l="limits found" />
           <Tile v={u.conflicts} l="documents disagree" warn={u.conflicts > 0} />
-          <Tile v={u.ghosts.length} l="stations only in text" warn={u.ghosts.length > 0} />
+          {u.have_data !== false && <Tile v={u.ghosts.length} l="stations only in text" warn={u.ghosts.length > 0} />}
           <Tile v={u.injections} l="hidden orders removed" warn={u.injections > 0} />
         </div>
-        {u.stations.length > 0 && <div className="mut" style={{ fontSize: 13, marginTop: 8 }}>Stations: <b style={{ color: 'var(--ivory)' }}>{u.stations.join(', ')}</b>{u.ghosts.length > 0 && <> · only in the documents: <b style={{ color: '#f2b84b' }}>{u.ghosts.join(', ')}</b></>}</div>}
+        {u.have_data === false
+          ? (u.named || []).length > 0 && <div className="mut" style={{ fontSize: 13, marginTop: 8 }}>Stations named in your documents: <b style={{ color: 'var(--ivory)' }}>{(u.named || []).join(', ')}</b>. Upload your machine log below and I will match them to the data.</div>
+          : u.stations.length > 0 && <div className="mut" style={{ fontSize: 13, marginTop: 8 }}>Stations: <b style={{ color: 'var(--ivory)' }}>{u.stations.join(', ')}</b>{u.ghosts.length > 0 && <> · only in the documents: <b style={{ color: '#f2b84b' }}>{u.ghosts.join(', ')}</b></>}</div>}
         <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
           {u.samples.map((s, i) => (
             <div key={i} style={{ fontSize: 13, borderLeft: '2px solid #f2b84b88', paddingLeft: 10 }}>
@@ -54,6 +66,18 @@ export default function IngestCard({ understood: u, support, disabled, onGo }: {
       <div>
         <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, marginBottom: 4 }}>WHERE DOES YOUR DATA LIVE?</div>
         <div className="mut" style={{ fontSize: 13, marginBottom: 8 }}>Tick what the plant uses. I only read. I never write. Sources that are not live here are written down for setup.</div>
+        <div style={{ border: '1px dashed var(--line)', borderRadius: 12, padding: '10px 14px', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Your own machine log <span className="mut" style={{ fontWeight: 400 }}>(CSV or SQLite file)</span></div>
+          <div className="mut" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>One row per change of state: a time, a machine name and a state. States can be numbers or words such as RUN, IDLE and FAULT. It replaces the sample data for your plant.</div>
+          <input type="file" accept=".csv,.db,.sqlite,.sqlite3" disabled={up.busy || disabled} onChange={(e) => pick(e.target.files?.[0])} />
+          {up.busy && <div className="mut" style={{ marginTop: 6 }}>Reading your log…</div>}
+          {up.err && <div style={{ marginTop: 6, color: '#ef6b57', fontSize: 13 }}>{up.err}</div>}
+          {up.machine && <div style={{ marginTop: 8, fontSize: 13 }}>
+            <b style={{ color: '#7be0a6' }}>Read {up.machine.rows.toLocaleString()} state changes</b> · {up.machine.from} to {up.machine.to}<br />
+            Stations: <b>{up.machine.stations.join(', ')}</b><br />
+            <span className="mut">States understood as: {Object.entries(up.machine.labels).map(([k, v]) => `${k} = ${v}`).join(', ')}</span>
+          </div>}
+        </div>
         {support.map((g) => (
           <div key={g.group} style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 600, margin: '6px 0' }}>{g.group}</div>
@@ -82,7 +106,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo }: {
           <div className="mut" style={{ fontSize: 12 }}>An MCP server joins the same gateway. Every tool it brings passes the Warden gate like the others.</div>
         </div>
       </div>
-      <div><button className="btn" disabled={disabled || sel.length === 0} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
+      <div><button className="btn" disabled={disabled || up.busy || (sel.length === 0 && !up.machine)} onClick={() => onGo({ ids: sel, also, db_url: db.trim(), mcp_url: mcp.trim() })}>Let the Guide look at these</button></div>
     </div>
   );
 }
