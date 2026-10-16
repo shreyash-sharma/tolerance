@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from server import hostops, rbac
@@ -97,6 +97,23 @@ def api_get(project, instance):
     d = r.json()
     ips = [x.get("ipAddress") for x in d.get("ipAddresses", []) if x.get("type") == "PRIMARY"]
     return {"state": d.get("state", ""), "policy": (d.get("settings") or {}).get("activationPolicy", ""), "ip": ips[0] if ips else "", "version": d.get("databaseVersion", "")}
+
+
+def api_find(project, host):
+    """The instance in this project that the database address points to: matched by its IP, or by its name. Raises ValueError with a plain sentence."""
+    tok = _token()
+    if not tok:
+        raise ValueError("I have no Google Cloud credentials here. Press Connect Google Cloud.")
+    r = httpx.get(f"https://sqladmin.googleapis.com/v1/projects/{project}/instances", headers={"Authorization": f"Bearer {tok}"}, timeout=20)
+    if r.status_code in (401, 403):
+        raise ValueError("Google refused: this account may not list Cloud SQL instances in that project.")
+    if r.status_code >= 400:
+        raise ValueError(f"Google answered {r.status_code}.")
+    for d in r.json().get("items", []):
+        ips = [x.get("ipAddress") for x in d.get("ipAddresses", [])]
+        if host in ips or host == d.get("name"):
+            return d["name"]
+    raise ValueError("No Cloud SQL instance in that project has this address. Check the project id.")
 
 
 def api_start(project, instance):
@@ -200,21 +217,28 @@ def oauth_start(request: Request):
     return JSONResponse({"url": f"{AUTH_URL}?{q}"})
 
 
+def _done(back, result):
+    """Opened as a small window (from the connect step): close it, the page behind notices. Opened as a page: go back to Probes."""
+    return HTMLResponse(f"<!doctype html><meta charset=utf-8><title>Google Cloud</title><body style='font:16px sans-serif;background:#111;color:#ddd;padding:24px'>"
+                        f"<p>{'Connected. You can close this window.' if result == 'connected' else 'Not connected.'}</p>"
+                        f"<script>if(window.opener){{window.close()}}else{{location.replace('{back}?google={result}')}}</script>")
+
+
 @router.get("/oauth/callback")
 def oauth_callback(request: Request, code: str = "", state: str = "", error: str = ""):
     """Google sends the browser back here. Public route: only a state sealed by this server is trusted."""
     back = "/probes/"
     if error or not code:
-        return RedirectResponse(f"{back}?google=declined")
+        return _done(back, "declined")
     try:
         uid = json.loads(vault._fernet().decrypt(state.encode(), ttl=900))["uid"]
     except Exception:
-        return RedirectResponse(f"{back}?google=expired")
+        return _done(back, "expired")
     r = httpx.post(TOKEN_URL, data={"code": code, "client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""), "client_secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
                                     "redirect_uri": _redirect_uri(request), "grant_type": "authorization_code"}, timeout=15)
     d = r.json() if r.status_code == 200 else {}
     if not d.get("refresh_token"):
-        return RedirectResponse(f"{back}?google=failed")
+        return _done(back, "failed")
     email = ""
     try:
         part = d.get("id_token", "").split(".")[1]
@@ -231,7 +255,7 @@ def oauth_callback(request: Request, code: str = "", state: str = "", error: str
         _ACCESS.pop(uid, None)
     finally:
         store.UID.reset(tok)
-    return RedirectResponse(f"{back}?google=connected")
+    return _done(back, "connected")
 
 
 @router.delete("/oauth", dependencies=[Depends(rbac.need("connect_systems"))])
@@ -264,6 +288,24 @@ def save(b: Body):
     store.save(d)
     watch(store.UID.get())
     return JSONResponse({"config": d["cloud_sql"]})
+
+
+class Auto(BaseModel):
+    host: str
+    project: str = ""
+
+
+@router.post("/auto", dependencies=[Depends(rbac.need("connect_systems"))])
+def auto(b: Auto):
+    """Find the Cloud SQL instance behind the database address (with the connected Google account) and start watching it."""
+    project = b.project.strip() or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    if not project:
+        raise HTTPException(400, "Give the Google Cloud project id.")
+    try:
+        name = api_find(project, b.host.strip())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return save(Body(project=project, instance=name, affects=[]))
 
 
 @router.delete("", dependencies=[Depends(rbac.need("connect_systems"))])

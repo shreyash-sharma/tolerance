@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { authHeader } from '@/lib/auth';
 import FeedIcon from '@/components/FeedIcon';
 
 export type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[]; systems?: Named[] };
@@ -58,6 +59,57 @@ function prefill(n: Named) {
 }
 
 /** One system the documents name: the sentence that names it, then exactly what to give for it, with a Test button that logs in and reads. A plant has many of each kind, so every one gets its own card. */
+// Postgres on Google Cloud SQL: one click to let Tolerance start the instance again if it stops
+function GoogleControl({ address }: { address: string }) {
+  const [s, setS] = useState<any>(null);
+  const [project, setProject] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const host = (() => { try { return new URL(address.trim().replace(/^postgres(ql)?:/i, 'http:')).hostname; } catch { return ''; } })();
+  const load = async () => { try { const d = await (await fetch('/api/cloud', { headers: await authHeader() })).json(); setS(d); return d; } catch { return null; } };
+  useEffect(() => { void load(); }, []);
+  const watch = async () => {
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch('/api/cloud/auto', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ host, project }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
+      await load();
+    } catch (e: any) { setErr(String(e.message || e)); }
+    setBusy(false);
+  };
+  const connect = async () => {
+    setErr('');
+    try {
+      const r = await fetch('/api/cloud/oauth/start', { method: 'POST', headers: await authHeader() });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
+      const w = window.open(d.url, 'google-connect', 'width=520,height=680');
+      const t = setInterval(async () => { const x = await load(); if (x?.oauth?.connected || !w || w.closed) { clearInterval(t); if (x?.oauth?.connected) void watch(); } }, 1500);
+    } catch (e: any) { setErr(String(e.message || e)); }
+  };
+  if (!s?.oauth?.available) return null;
+  const c = s.config, l = c?.last;
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'grid', gap: 6 }}>
+      {c ? (
+        <div style={{ fontSize: 13.5 }}><b style={{ color: '#7be0a6' }}>Watching {c.instance}</b> <span className="mut">· {l?.error ? 'cannot check' : l?.up ? 'running' : l?.starting ? 'starting' : 'stopped'}. If it stops, I propose to start it again, and a person approves.</span></div>
+      ) : (
+        <>
+          <div className="mut" style={{ fontSize: 13 }}>Google Cloud database? Connect your Google account and I find this instance, watch it, and start it again after an approval if it stops. I only ever send a start.</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input value={project} onChange={(e) => setProject(e.target.value)} placeholder={s.default_project ? `Project id (default ${s.default_project})` : 'Google Cloud project id'} aria-label="Google Cloud project id" style={{ width: 250 }} />
+            {s.oauth.connected
+              ? <button type="button" className="btn sm" disabled={busy || !host || !(project.trim() || s.default_project)} onClick={watch}>{busy ? 'Looking…' : `Watch it (signed in as ${s.oauth.email || 'you'})`}</button>
+              : <button type="button" className="btn sm" disabled={!host} onClick={connect}>Connect Google Cloud</button>}
+          </div>
+        </>
+      )}
+      {err && <div role="alert" style={{ color: '#ef6b57', fontSize: 13 }}>{err}</div>}
+    </div>
+  );
+}
+
 export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
   const probe = PROBE[n.type];
   const [val, setVal] = useState(prefill(n));
@@ -145,6 +197,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
           </div>
         </>
       )}
+      {n.type === 'postgres' && <GoogleControl address={val} />}
       {st.err && <div style={{ color: '#ef6b57', fontSize: 13 }}>{st.err}</div>}
     </div>
   );
