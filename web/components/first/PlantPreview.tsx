@@ -1,14 +1,13 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { initSpatialGridSync, loadPlugin } from '@pascal-app/core';
+import { initSpatialGridSync } from '@pascal-app/core';
 import { applySceneGraphToEditor, ParametricViewerRooms, useViewerFloorDisplay, ViewerSelectionManager, ViewerStage, type ViewerStageMode } from '@pascal-app/editor';
-import { builtinPlugin } from '@pascal-app/nodes';
+import { ensureBuiltin } from '@/lib/pascal';
 import { InteractiveSystem, SceneEnvironment, Viewer, useViewer } from '@pascal-app/viewer';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { api } from '@/lib/api';
 import { buildScene } from '@/components/Floor3D';
 
-let pluginReady: Promise<unknown> | null = null;
 type Lay = { stations: { name: string; kind: string; caption: string }[]; ghosts?: any[]; callouts?: { station: string; text: string }[] };
 
 /** The plant the Guide understood, drawn with Pascal: the same plan and 3D the live floor uses, read only. It opens as the 2D plan, which is quick; 3D starts when asked for. */
@@ -24,7 +23,7 @@ export default function PlantPreview({ lay, height = 560 }: { lay: Lay; height?:
 
   useEffect(() => {
     let alive = true;
-    pluginReady = pluginReady || loadPlugin(builtinPlugin);
+    const pluginReady = ensureBuiltin();
     pluginReady.then(() => { useViewer.getState().setSceneTheme('overcast'); if (alive) setReady(true); }).catch((e) => setErr(String(e)));
     return () => { alive = false; };
   }, []);

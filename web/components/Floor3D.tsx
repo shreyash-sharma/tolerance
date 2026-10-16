@@ -1,8 +1,8 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BlockNode, BuildingNode, ColumnNode, emitter, HvacEquipmentNode, ItemNode, ShelfNode, WallNode, LevelNode, SiteNode, SlabNode, createBoxBlockTopology, initSpatialGridSync, loadPlugin, useScene } from '@pascal-app/core';
+import { BlockNode, BuildingNode, ColumnNode, emitter, HvacEquipmentNode, ItemNode, ShelfNode, WallNode, LevelNode, SiteNode, SlabNode, createBoxBlockTopology, initSpatialGridSync, useScene } from '@pascal-app/core';
 import { applySceneGraphToEditor, FirstPersonControls, ParametricViewerRooms, useEditor, useViewerFloorDisplay, ViewerSelectionManager, ViewerStage, type ViewerStageMode, WalkthroughHud, useFirstPersonHud } from '@pascal-app/editor';
-import { builtinPlugin } from '@pascal-app/nodes';
+import { ensureBuiltin } from '@/lib/pascal';
 import { InteractiveSystem, SceneEnvironment, Viewer, useViewer } from '@pascal-app/viewer';
 import { flushSync } from 'react-dom';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -270,7 +270,6 @@ export function buildScene(tw: Twin) {
   return { nodes, root: [site.id], ids, anims, flowIds, legend, plan, hallIds: hallIds as string[], nodeStation, posOf };
 }
 
-let pluginReady: Promise<unknown> | null = null;
 
 export default function Floor3D() {
   const [ready, setReady] = useState(false);
@@ -326,7 +325,7 @@ export default function Floor3D() {
 
   useEffect(() => {
     let alive = true;
-    pluginReady = pluginReady || loadPlugin(builtinPlugin);
+    const pluginReady = ensureBuiltin();
     pluginReady.then(() => { const v = useViewer.getState(); v.setSceneTheme('overcast'); if (alive) setReady(true); }).catch((e) => setErr(String(e)));
     return () => { alive = false; };
   }, []);
