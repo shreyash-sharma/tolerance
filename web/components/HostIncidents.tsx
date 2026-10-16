@@ -69,13 +69,14 @@ export function HostSetup() {
 /** A Google Cloud SQL database that Tolerance watches. When it stops, Tolerance proposes to start it again; a person approves. */
 export function CloudSqlCard() {
   const [c, setC] = useState<any>(null);
+  const [og, setOg] = useState<any>(null);
   const [dp, setDp] = useState('');
   const [project, setProject] = useState('');
   const [instance, setInstance] = useState('');
   const [aff, setAff] = useState('WH1, C1, C2');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => api<any>('/cloud').then((d) => { setC(d.config); setDp(d.default_project || ''); }).catch(() => {}), []);
+  const load = useCallback(() => api<any>('/cloud').then((d) => { setC(d.config); setOg(d.oauth || null); setDp(d.default_project || ''); }).catch(() => {}), []);
   useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
   const save = async () => {
     setBusy(true); setErr('');
@@ -88,6 +89,17 @@ export function CloudSqlCard() {
     setBusy(false);
   };
   const remove = async () => { await api('/cloud', { method: 'DELETE' }); await load(); };
+  const connect = async () => {
+    setErr('');
+    try {
+      const r = await fetch('/api/cloud/oauth/start', { method: 'POST', headers: await (await import('@/lib/auth')).authHeader() });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
+      window.location.href = d.url;
+    } catch (e: any) { setErr(String(e.message || e)); }
+  };
+  const disconnect = async () => { await api('/cloud/oauth', { method: 'DELETE' }); await load(); };
+  const back = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('google') : null;
   const l = c?.last;
   return (
     <div className="card" style={{ margin: '0 0 14px', padding: '12px 16px', display: 'grid', gap: 8 }}>
@@ -105,7 +117,18 @@ export function CloudSqlCard() {
         </>
       ) : (
         <>
-          <div className="mut" style={{ fontSize: 13 }}>Name the instance. Tolerance checks its state every few seconds, and starts it again after an approval if it stops. It uses this app's Google Cloud service account.</div>
+          <div className="mut" style={{ fontSize: 13 }}>Name the instance. Tolerance checks its state every few seconds, and starts it again after an approval if it stops.</div>
+          {og?.available && (
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              {og.connected ? (
+                <><span style={{ fontSize: 13.5 }}>Connected to Google Cloud as <b>{og.email || 'your account'}</b></span><button className="btn g sm" onClick={disconnect}>Disconnect</button></>
+              ) : (
+                <><button className="btn sm" onClick={connect}>Connect Google Cloud</button>
+                  <span className="mut" style={{ fontSize: 12.5, maxWidth: 520 }}>You sign in with Google and agree on Google's screen. Tolerance uses this only to read the state of the instance you name and to start it. The only command it ever sends is a start. Disconnect any time.</span></>
+              )}
+            </div>
+          )}
+          {back && <div className="mut" style={{ fontSize: 13 }}>{back === 'connected' ? 'Google Cloud is connected.' : back === 'declined' ? 'You did not agree on the Google screen. Nothing was connected.' : 'The Google sign-in did not finish. Press Connect Google Cloud again.'}</div>}
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <input value={project} onChange={(e) => setProject(e.target.value)} placeholder={dp ? `Project id (default ${dp})` : 'Project id'} aria-label="Project id" style={{ width: 230 }} />
             <input value={instance} onChange={(e) => setInstance(e.target.value)} placeholder="Instance name, like tolerance-erp" aria-label="Instance name" style={{ width: 240 }} />

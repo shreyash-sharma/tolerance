@@ -2,15 +2,16 @@
 it opens an incident like any other service going down: Warden scores the fix, a person approves it in the app or on Telegram, and then Tolerance starts the instance.
 The only thing it can do to the instance is start it (activation policy ALWAYS). It never stops, deletes or changes anything else, and only for the one instance the owner named.
 Credentials: the Cloud Run service account (role roles/cloudsql.editor or admin on this instance). On a laptop: gcloud application-default credentials, or the gcloud login."""
-import subprocess, threading, time
+import base64, json, os, subprocess, threading, time
+from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from server import hostops, rbac
-from workspace import store
+from workspace import store, vault
 
 router = APIRouter(prefix="/api/cloud")
 API = "https://sqladmin.googleapis.com/v1/projects/{p}/instances/{i}"
@@ -19,8 +20,54 @@ _THREADS = {}
 UNIT = "cloud_sql"
 
 
+SCOPES = "https://www.googleapis.com/auth/sqlservice.admin openid email"
+AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+_ACCESS = {}   # uid -> (access token, expiry)
+
+
+def oauth_ready():
+    return bool(os.environ.get("GOOGLE_OAUTH_CLIENT_ID") and os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET"))
+
+
+def _oauth_cfg():
+    return store.load().get("google_oauth") or None
+
+
+def _oauth_token():
+    """An access token for the person who pressed Connect Google Cloud, made from the refresh token in the vault. None when nobody connected."""
+    g = _oauth_cfg()
+    if not g:
+        return None
+    uid = store.UID.get()
+    hit = _ACCESS.get(uid)
+    if hit and hit[1] > time.time() + 60:
+        return hit[0]
+    refresh = vault.get(g["ref"])
+    if not refresh:
+        raise ValueError("The Google sign-in is gone. Press Connect Google Cloud again.")
+    r = httpx.post(TOKEN_URL, data={"client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""), "client_secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+                                    "refresh_token": refresh, "grant_type": "refresh_token"}, timeout=15)
+    if r.status_code != 200:
+        raise ValueError("Google ended your sign-in (it expires after a few days in test mode). Press Connect Google Cloud again.")
+    d = r.json()
+    _ACCESS[uid] = (d["access_token"], time.time() + int(d.get("expires_in", 3000)))
+    return d["access_token"]
+
+
+def _redirect_uri(request):
+    base = os.environ.get("TOLERANCE_PUBLIC_URL", "").rstrip("/")
+    if not base:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+        base = f"{proto}://{request.headers.get('x-forwarded-host', request.headers.get('host', ''))}"
+    return base + "/api/cloud/oauth/callback"
+
+
 def _token():
-    """An access token. The service account on Cloud Run, else application-default credentials, else the gcloud login of this computer."""
+    """An access token. The signed-in person's Google connection first, else the service account on Cloud Run, else application-default credentials, else the gcloud login of this computer."""
+    mine = _oauth_token()
+    if mine:
+        return mine
     try:
         import google.auth
         from google.auth.transport.requests import Request
@@ -136,9 +183,71 @@ class Body(BaseModel):
 
 @router.get("")
 def status():
-    import os
     c = _cfg()
-    return JSONResponse({"config": c, "default_project": os.environ.get("GOOGLE_CLOUD_PROJECT", "")})
+    g = _oauth_cfg()
+    return JSONResponse({"config": c, "default_project": os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
+                         "oauth": {"available": oauth_ready(), "connected": bool(g), "email": (g or {}).get("email", "")}})
+
+
+@router.post("/oauth/start", dependencies=[Depends(rbac.need("connect_systems"))])
+def oauth_start(request: Request):
+    """The address of Google's consent screen. The state is sealed with the vault key and names the plant, so the callback needs no sign-in."""
+    if not oauth_ready():
+        raise HTTPException(400, "This server has no Google OAuth client yet (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET).")
+    state = vault._fernet().encrypt(json.dumps({"uid": store.UID.get()}).encode()).decode()
+    q = urlencode({"client_id": os.environ["GOOGLE_OAUTH_CLIENT_ID"], "redirect_uri": _redirect_uri(request), "response_type": "code", "scope": SCOPES,
+                   "access_type": "offline", "prompt": "consent", "state": state})
+    return JSONResponse({"url": f"{AUTH_URL}?{q}"})
+
+
+@router.get("/oauth/callback")
+def oauth_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    """Google sends the browser back here. Public route: only a state sealed by this server is trusted."""
+    back = "/probes/"
+    if error or not code:
+        return RedirectResponse(f"{back}?google=declined")
+    try:
+        uid = json.loads(vault._fernet().decrypt(state.encode(), ttl=900))["uid"]
+    except Exception:
+        return RedirectResponse(f"{back}?google=expired")
+    r = httpx.post(TOKEN_URL, data={"code": code, "client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""), "client_secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+                                    "redirect_uri": _redirect_uri(request), "grant_type": "authorization_code"}, timeout=15)
+    d = r.json() if r.status_code == 200 else {}
+    if not d.get("refresh_token"):
+        return RedirectResponse(f"{back}?google=failed")
+    email = ""
+    try:
+        part = d.get("id_token", "").split(".")[1]
+        email = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))).get("email", "")
+    except Exception:
+        pass
+    tok = store.UID.set(uid)
+    try:
+        old = _oauth_cfg()
+        ref = vault.put(d["refresh_token"])
+        store.update(lambda s: s.__setitem__("google_oauth", {"ref": ref, "email": email, "at": time.time()}))
+        if old:
+            vault.drop(old["ref"])
+        _ACCESS.pop(uid, None)
+    finally:
+        store.UID.reset(tok)
+    return RedirectResponse(f"{back}?google=connected")
+
+
+@router.delete("/oauth", dependencies=[Depends(rbac.need("connect_systems"))])
+def oauth_disconnect():
+    g = _oauth_cfg()
+    if g:
+        try:
+            rt = vault.get(g["ref"])
+            if rt:
+                httpx.post("https://oauth2.googleapis.com/revoke", data={"token": rt}, timeout=10)
+        except Exception:
+            pass
+        vault.drop(g["ref"])
+        store.update(lambda s: s.pop("google_oauth", None))
+        _ACCESS.pop(store.UID.get(), None)
+    return JSONResponse({"oauth": {"available": oauth_ready(), "connected": False, "email": ""}})
 
 
 @router.post("", dependencies=[Depends(rbac.need("connect_systems"))])
