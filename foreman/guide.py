@@ -290,8 +290,8 @@ def connect(ids, also=None, db_url="", mcp_url="", named=None):
 def ensure_data():
     """The plant's machine data comes from the sample sources (a real lab's machine log, replayed as if live). Attach them if the lake is empty."""
     try:
-        from physical import service as PH
-        if len(PH.lake_df()):
+        from workspace import twin as _T
+        if _T.has_state():   # other sources (a database with orders, say) do not count: the stations come from the machine states
             return True
     except Exception:
         pass
