@@ -156,32 +156,38 @@ function machineParts(kind: string, parent: string, ox: number, oz: number, s: S
   const y0 = 0.05 + 0.12; // above the pad
   const P = (x: number, y: number, z: number): [number, number, number] => [ox + x, y0 + y, oz + z];
   const out: any[] = [];
-  const acc = s.ghost === 'proposed' ? '#b9a7ff' : ACCENT[kind] || ACCENT.machine, body = '#8b95a3', panel = '#eef1f5', dark = '#2a3038', crate = ['#c9a56b', '#d8b982', '#b58f55'];
+  const M = (file: string, x: number, y: number, z: number, rotY = 0, sc = 1) => { const n = glb(parent, `${s.name} ${file}`, file, P(x, y, z), rotY, sc); out.push(n); return n; };
+  const acc = s.ghost === 'proposed' ? '#b9a7ff' : ACCENT[kind] || ACCENT.machine, body = '#8b95a3', dark = '#2a3038';
+  if (s.ghost === 'proposed') {   // a ghost is a plain violet block, so it never looks like a machine that exists
+    out.push(box(parent, `${s.name} ghost`, P(0, 0, 0), [1.8, 1.2, 1.2], acc));
+    return out;
+  }
   if (kind === 'warehouse') {
     for (const dz of [-0.8, 0.8]) out.push(ShelfNode.parse({ parentId: parent, name: `${s.name} rack`, position: [ox, y0 - 0.12, oz + dz], width: 2.6, depth: 0.8, height: 2.3, thickness: 0.05, style: 'open-rack', rows: 4, columns: 3 }));
+    M('box-large', -1.0, 0, 1.55, 0.2, 1); M('box-large', -1.0, 0.55, 1.55, -0.1, 0.9); M('box-wide', 0.2, 0, 1.55, 0, 1); M('box-small', 1.0, 0, 1.55, 0.4, 1);
+    for (const [x, z] of [[-1.5, -1.4], [1.5, -1.4], [-1.5, 1.2], [1.5, 1.2]]) M('structure-yellow-tall', x, 0, z, Math.PI / 2, 1);
   } else if (kind === 'conveyor') {
-    out.push(box(parent, `${s.name} base`, P(0, 0, 0), [3.8, 0.35, 1.05], acc));
-    out.push(box(parent, `${s.name} belt`, P(0, 0.35, 0), [3.6, 0.06, 0.82], '#15181c'));
-    out.push(box(parent, `${s.name} rail`, P(0, 0.35, 0.47), [3.8, 0.16, 0.06], panel));
-    out.push(box(parent, `${s.name} rail`, P(0, 0.35, -0.47), [3.8, 0.16, 0.06], panel));
-    for (let i = 0; i < 3; i++) { const b = box(parent, `${s.name} part`, P(-1.2 + i * 1.2, 0.41, 0), [0.5, 0.36, 0.5], crate[i % 3]); out.push(b); reg({ id: b.id, kind: 'belt', ox, oy: y0 + 0.41, oz, i }); }
+    M('conveyor-long-stripe-sides', -1.0, 0, 0, 0, 1); M('conveyor-long-stripe-sides', 1.0, 0, 0, 0, 1);
+    const cr = ['box-small', 'box-wide', 'box-small'];
+    for (let i = 0; i < 3; i++) { const c = M(cr[i], -1.2 + i * 1.2, 0.4, 0, 0, 0.62); reg({ id: c.id, kind: 'belt', ox, oy: y0 + 0.4, oz, i }); }
   } else if (kind === 'transfer') {
-    out.push(box(parent, `${s.name} base`, P(0, 0, 0), [1.4, 0.4, 1.4], dark));
-    out.push(box(parent, `${s.name} column`, P(0, 0.4, 0), [0.5, 0.9, 0.5], acc));
-    const a1 = box(parent, `${s.name} arm`, P(0.6, 1.2, 0), [1.7, 0.26, 0.3], acc), a2 = box(parent, `${s.name} arm2`, P(1.3, 0.8, 0), [0.24, 0.5, 0.24], dark);
-    out.push(a1, a2); reg({ id: a1.id, kind: 'swing', ox, oy: y0 + 1.2, oz }); reg({ id: a2.id, kind: 'swing2', ox, oy: y0 + 0.8, oz });
+    out.push(box(parent, `${s.name} base`, P(0, 0, 0), [1.7, 0.3, 1.7], dark));
+    const arm = M('robot-arm-b', 0, 0.3, 0, 0, 1.6); reg({ id: arm.id, kind: 'yaw', ox, oy: y0 + 0.3, oz });
+    M('conveyor-stripe-sides', -1.4, 0, 0, 0, 1); M('conveyor-stripe-sides', 1.4, 0, 0, 0, 1); M('box-small', 1.4, 0.4, 0, 0.3, 0.7);
   } else if (kind === 'agv') {
     const g1 = box(parent, `${s.name} body`, P(0, 0, 0), [1.6, 0.38, 1.0], acc), g2 = box(parent, `${s.name} deck`, P(0, 0.38, 0), [1.2, 0.14, 0.82], body), g3 = box(parent, `${s.name} light`, P(0.78, 0.2, 0), [0.06, 0.06, 0.5], '#fff3b0');
     out.push(g1, g2, g3); reg({ id: g1.id, kind: 'patrol', ox, oy: y0, oz, i: 0 }); reg({ id: g2.id, kind: 'patrol', ox, oy: y0 + 0.38, oz, i: 0 }); reg({ id: g3.id, kind: 'patrol', ox: ox + 0.78, oy: y0 + 0.2, oz, i: 0 });
+    const load = M('box-large', 0, 0.52, 0, 0, 0.9); reg({ id: load.id, kind: 'patrol', ox, oy: y0 + 0.52, oz, i: 0 });
   } else if (kind === 'inspect') {
-    out.push(box(parent, `${s.name} table`, P(0, 0, 0), [2.2, 0.34, 1.6], acc));
-    out.push(box(parent, `${s.name} board`, P(0, 0.34, 0), [0.9, 0.04, 0.6], '#1f6b4f'));
-    out.push(box(parent, `${s.name} post`, P(-1.15, 0, 0), [0.14, 1.9, 0.14], body));
-    out.push(box(parent, `${s.name} post`, P(1.15, 0, 0), [0.14, 1.9, 0.14], body));
-    out.push(box(parent, `${s.name} beam`, P(0, 1.7, 0), [2.5, 0.22, 0.26], body));
-    out.push(box(parent, `${s.name} camera`, P(0, 1.45, 0), [0.32, 0.26, 0.32], panel));
-  } else {
-    out.push(HvacEquipmentNode.parse({ parentId: parent, name: `${s.name} equipment`, position: [ox, y0 - 0.12, oz], equipmentType: 'air-handler', width: 2, depth: 1.4, height: 1.8 }));
+    M('conveyor-long-stripe-sides', 0, 0, 0, 0, 1.15);
+    M('scanner-high', 0.1, 0, 0, 0, 1.15);
+    M('box-small', -0.7, 0.46, 0, 0.2, 0.6);
+    M('screen-panel-wide', 1.3, 0, 1.15, Math.PI, 1.2);
+  } else {   // an oven, a press, any machine
+    M('machine-fortified', -0.3, 0, 0, 0, 1.9);
+    M('hopper-round', 1.35, 0, 0.1, 0, 1.4);
+    M('piston-square', -1.5, 0, -0.1, 0, 1.4);
+    M('screen-wide', -0.3, 0, 1.4, Math.PI, 1.2);
   }
   return out;
 }
