@@ -41,7 +41,3 @@ The Sentinel rule engine, the playbooks and the notification channels are new co
 | Machine state log | Industry 4.0 Lab, University of Southern Denmark, Zenodo record 5078737 | CC BY 4.0 |
 | Incident cases | RCAEval benchmark datasets | See the RCAEval project |
 | Inspection data | UCI SECOM | See the UCI repository |
-
-## Not included
-
-Material in the local `CW/` folder (research notes on a third party's product) is not part of this repository and is excluded by `.gitignore`.

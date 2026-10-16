@@ -22,3 +22,8 @@ Data Bosch/
 
 FT-db/cloudsql.secret
 FT-db/secrets.env
+
+# local VM and database setup notes, test screenshots and run logs
+FT-db/
+docs/e2e/
+bench/results/*.log
