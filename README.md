@@ -1,10 +1,12 @@
-# Tolerance
+<p align="center"><img src="docs/images/logo.svg" alt="Tolerance logo" width="96"></p>
+
+<h1 align="center">Tolerance</h1>
 
 **An agentic platform for manufacturing, built around a Symbiotic Compiler.** Google Cloud AI Builder Cup 2026, Manufacturing theme.
 
 A new plant gives Tolerance its name and its documents. Nine agents work from them. Four read them, ask the owner what is unclear, connect to the plant's data, and compile everything into one checked model of the plant. Other agents then diagnose failures, check their own findings, propose fixes, and score how safe each fix is. The owner decides how far the agents may act alone. A hard limit written in the plant's own documents is never crossed, whatever the score.
 
-> Status: working prototype that runs locally. The Cloud Run deployment is scripted (`deploy.sh`, `Dockerfile`, `DEPLOY.md`) and the live address is added here after the first deploy.
+> Status: a working prototype. It runs on a laptop, and a copy runs on Google Cloud Run: https://tolerance-749288317336.asia-southeast1.run.app (sign in with Google, email, or as a guest). `deploy.sh`, the `Dockerfile` and `DEPLOY.md` describe the deployment.
 
 ## The idea in three diagrams
 
@@ -22,7 +24,16 @@ A new plant gives Tolerance its name and its documents. Nine agents work from th
 
 ## The ingestion step
 
-After the owner gives the documents, the Guide shows what it understood (facts with their quotes, stations, limits, conflicts, hidden orders removed). Then it asks where the data lives and shows every source family with an honest label: **live in this build**, **plugs in with your URL**, or **through a bridge**. The owner can also name an MCP server or a read-only database address; passwords are cut out and never stored. Sources that are not live here are written down for setup.
+After the owner gives the documents, the Guide shows what it understood (facts with their quotes, stations, limits, conflicts, hidden orders removed). Then a short **stepper** connects the systems the documents name, one kind at a time: **Databases**, **Streams**, **Files and exports**, **Alerts**, and a **Review**. Each system gets its own card with the sentence that names it. The owner can connect it, write it down for setup, or skip it, and **Use the sample data for all** is one button.
+
+<p align="center"><img src="docs/images/screens/05a-connect-understood.png" alt="The Guide shows what it understood: documents, facts, stations, limits, conflicts and hidden orders removed" width="860"></p>
+<p align="center"><img src="docs/images/screens/05b-connect-databases.png" alt="The stepper: one card for each database the documents name, with Test, Connect and Skip" width="860"></p>
+
+- **One address field for a database.** Paste a full connection string. The password goes to an encrypted vault and is never shown again.
+- **Test before Connect.** Test logs in, runs one safe read and reports what it found.
+- **Alerts is a choice.** The owner picks **Telegram**, **Slack**, **Microsoft Teams**, **Discord** or **Any webhook**, then fills in only that channel's setup (Telegram uses a short pairing code, see below).
+- **A database on Google Cloud SQL** also asks the owner to sign in with Google, so Tolerance can watch the instance and start it again after an approval. The card says Connected only when both the login and the Google step worked.
+- **The Guide helps with the questions.** It suggests what the plant makes from the documents (and keeps a field for anything else), asks once about all stations that have no data, and tries a step again by itself if it failed before saying anything.
 
 ## The floor editor, Sentinel, playbooks and channels
 
@@ -62,6 +73,26 @@ After the documents are read, the Guide lists every system they name. Each datab
 
 The tests follow the Kanshi executors (same login, same safe-read rule, same answer shape). Only reads are allowed: SELECT, SHOW, DESCRIBE, EXPLAIN, WITH, VALUES. Passwords and tokens are encrypted with a key from `TOLERANCE_VAULT_KEY` (a key file is made on a laptop with none) and are never sent back to the browser. In the cloud, addresses inside a private network are refused. A plant system on a private network needs a probe or tunnel to reach it. Tests: `tests/probes_test.py`, `tests/live_sources_test.py`, `tests/mcp_remote_test.py`, `tests/systems_test.py` (they use a real PostgreSQL and a real MQTT broker, a MongoDB stand-in, and a local MCP server; Kafka and Oracle and SQL Server are not tested against a live server).
 
+## Watching a server and a database, and approving fixes
+
+Tolerance does not only look at machines. It can watch the computers and databases the plant runs on, and fix them after a person approves.
+
+- **A probe on a server.** A small program (`probe/`) runs on the plant's server. It only makes outbound HTTPS calls, so no port is opened. It reports which services are up (the MQTT broker and the database, for example) and readings such as the oven temperature. The Probes page shows the two values to put in the probe's settings.
+- **Incidents.** When a service stops, an incident opens: *waiting*, then *applying* once a person approves, then *resolved*. Warden scores the proposed fix first. A hard limit from the documents is never crossed: the oven setpoint can be lowered to a safe value, and a value above the limit is refused.
+- **A short list of commands.** The probe runs only commands on its own list (restart a named service, set the oven setpoint), and only after an approval.
+- **Google Cloud SQL.** The owner presses **Connect Google Cloud** and signs in on Google's screen. Tolerance keeps the refresh token in the encrypted vault and checks the instance state every few seconds. When the instance is stopped, it opens an incident, and after an approval it sends one command: start. It never stops or deletes anything. The scope asked for is `sqlservice.admin`, and it acts with the rights of the person who signed in.
+- **Approve on Telegram.** The owner pairs a bot with `/pair CODE`. Each incident arrives as a message with **Approve** and **Reject** buttons, and a *resolved* message follows. A tap is checked against the team: only a person whose role may approve fixes can approve. Tolerance reads the taps by polling Telegram, so it needs no public webhook.
+
+## People and roles
+
+The **Team** page lists who may do what. Cedar, the same policy engine that decides what the agents may do, decides for people too, and the server checks every protected request.
+
+<p align="center"><img src="docs/images/screens/25-team.jpg" alt="The Team page: people, roles and the permissions each role holds" width="860"></p>
+
+- Four built-in roles (**Owner**, **Supervisor**, **Operator**, **Viewer**), and custom roles made from seven permissions: see, run checks, approve or reject a fix, change thresholds, connect systems, manage alert channels, manage the team.
+- Someone with a role that may not approve gets a refusal, and the refusal is written to the audit log.
+- On a laptop, **Acting as** lets the owner pick a person to show what each role can and cannot do. In the cloud, the signed-in person owns their own plant.
+
 ## Data feeds from many systems
 
 Upload several files at once and each one becomes a feed with its own icon: a machine log (MES), a MongoDB export (`.json` or `.jsonl`, as `mongoexport` writes it; `_id`, `$date` and number wrappers are unwrapped and nested fields become columns), an ERP database or CSV, an IoT log. Tolerance names the system from the file or from a tag, then finds which stations each feed carries data for by looking for station names in its columns. The icons sit down the left of the 2D plan (point at one for its rows, freshness and stations), and in the Cards view lines join a feed to its stations.
@@ -85,9 +116,9 @@ Some of the ideas for the interface come from the Kanshi project, which has a ve
 The floor has a switch at the top: **2D** and **3D**.
 
 - **2D is the floor plan,** drawn from the confirmed plan, at full size, with the data feeds. A **floating panel at the bottom** tracks the plant live: four tiles (running, failed, at risk, data check failing) that filter the stations, and two chips that go the same way as items in the left menu, **to approve** (Operations) and **rules failing** (Sentinel). Point at one of those chips and the matching menu item glows. **Stations** opens a list with the ones needing attention first. Click a station for its failure risk, the data it uses, the Sentinel rules that touch it, and the next step: **Find the cause and fix it**, or **Show it in 3D**. When a station fails, a red line at the top of the panel offers the fix at once.
-- **3D is for looking around.** The factory assembles itself from the confirmed plan. Data flows show as cables, and a failing data check puts an amber warning on the stations it feeds.
+- **3D is for looking around.** The factory assembles itself from the confirmed plan, with machines built from the CC0 Kenney Factory Kit models (conveyors with crates, a turning robot arm, scanners, hoppers) and Pascal shelving racks. Data flows show as cables, and a failing data check puts an amber warning on the stations it feeds.
 
-<p align="center"><img src="docs/images/screens/00-floor-map.png" alt="The floor plan with the status tiles, the data-feed switch and the station list beside it" width="860"></p>
+<p align="center"><img src="docs/images/screens/00-floor-map.jpg" alt="The floor plan with the status tiles, the data-feed switch and the station list beside it" width="860"></p>
 <p align="center"><img src="docs/images/screens/00-floor-3d.png" alt="The 3D factory in Fast quality: shelves, a robot arm, conveyors, data cables and station labels" width="860"></p>
 
 **How 3D should be used, and why it is built this way.** The Pascal viewer is a full rendering engine with a heavy post-processing pipeline: ambient occlusion, global illumination, anti-aliasing and outlines. That is the main cost, and on a weak or shared graphics card it makes the page stall. So:
@@ -115,17 +146,17 @@ The first-time flow also draws the owner's own plant in this style, from what th
 
 ## The app, screen by screen
 
-The first-time flow, as a new visitor sees it. These screenshots come from the end-to-end test on the live site (`node tests/e2e.mjs`), which saves one for every step.
+The first-time flow, as a new visitor sees it. These screenshots come from the end-to-end test (`node tests/e2e.mjs`), which saves one for every step.
 
 | | |
 |---|---|
-| <img src="docs/images/screens/01-login.png" alt="Login: Google, email and password, or continue as guest"><br>**1. Sign in** with Google or email, or continue as a guest. Each visitor gets a private plant. | <img src="docs/images/screens/02-plant-name.png" alt="What is your plant called?"><br>**2. The plant name.** The only question on the first screen. No menu yet. |
-| <img src="docs/images/screens/03-spark-reveal.png" alt="A spark sweeps across the plant name and fills the letters with colour"><br>**3. A spark takes over the name.** It sweeps across the name and the letters fill with colour. | <img src="docs/images/screens/04-drop-zone.png" alt="Drop your documents here"><br>**4. Drop your documents.** Manuals, work instructions, safety rules, emails. A sample pack is there for people who have none. |
-| <img src="docs/images/screens/05-guide.png" alt="The Guide chats with the owner"><br>**5. The Guide talks with the owner.** It reads the documents, asks which data to connect, and asks what the plant makes. | <img src="docs/images/screens/06-plant-drawn.png" alt="Your plant as the Guide understands it, drawn with Anatomy"><br>**6. Your plant, drawn.** Gemini turns the confirmed understanding into a layout, and Anatomy draws it. | 
-| <img src="docs/images/screens/07-tour.png" alt="The tour: only Floor is in the menu and the Guide explains it"><br>**7. The tour.** The menu grows one section at a time while the Guide says what each is for. | <img src="docs/images/screens/08-operations.png" alt="Operations: what happened, what we suggest, and whether it needs approval"><br>**8. Operations.** What happened, what we suggest, and who must approve it. The agents' work is one click away. |
-| <img src="docs/images/screens/09-warden.png" alt="Warden: two sliders and a backtest on 465 past incidents"><br>**9. Warden.** You set two lines. The chart shows what they would have done on 465 recorded incidents. | <img src="docs/images/screens/10-warden-hard-limit.png" alt="Warden blocks an action that breaks a hard limit from the documents"><br>**10. A hard limit.** An action above a limit from your own documents is blocked, whatever its score. |
-| <img src="docs/images/screens/11-probes.png" alt="Probes: three places see the same machine, one path is cut"><br>**11. Probes.** Several places test the same machine. If only one fails, the fault is on its path. | <img src="docs/images/screens/12-agents.png" alt="The agent catalog: nine agents with what each may touch"><br>**12. Agents.** Eight agents, each with a card: what it may touch and what it must never do. |
-| <img src="docs/images/screens/13-compiled-model.png" alt="The compiled model: every fact with the exact quote it came from"><br>**13. The compiled model.** Every fact keeps the exact words it came from. | |
+| <img src="docs/images/screens/02-plant-name.png" alt="What is your plant called?"><br>**1. The plant name.** The only question on the first screen. No menu yet. | <img src="docs/images/screens/04-drop-zone.png" alt="Drop your documents here"><br>**2. Drop your documents.** Manuals, work instructions, safety rules, emails. The list fills a box of fixed height, so the button stays put. |
+| <img src="docs/images/screens/05b-connect-databases.png" alt="Connect your databases, one card for each"><br>**3. Connect your systems,** one kind at a time, with Test, Connect or Skip. | <img src="docs/images/screens/05-guide.png" alt="The Guide chats with the owner"><br>**4. The Guide talks with the owner.** It asks what the plant makes, then settles conflicts between documents. |
+| <img src="docs/images/screens/06-plant-drawn.png" alt="Your plant as the Guide understands it, drawn with Anatomy"><br>**5. Your plant, drawn.** Gemini turns the confirmed understanding into a layout. | <img src="docs/images/screens/07-tour.png" alt="The tour: only Floor is in the menu and the Guide explains it"><br>**6. The tour.** The menu grows one section at a time while the Guide says what each is for. |
+| <img src="docs/images/screens/00-floor-map.jpg" alt="The 2D floor plan with status tiles at the bottom"><br>**7. The floor in 2D,** with live status tiles. | <img src="docs/images/screens/00-floor-3d.png" alt="The 3D factory with racks, a robot arm and conveyors"><br>**8. The floor in 3D.** Data flows show as cables. |
+| <img src="docs/images/screens/08-operations.png" alt="Operations: what happened, what we suggest, and whether it needs approval"><br>**9. Operations.** What happened, what we suggest, and whether it needs a person. | <img src="docs/images/screens/09-warden.png" alt="Warden: two sliders and a backtest on 465 past incidents"><br>**10. Warden.** You set two lines. The chart shows what they would have done on 465 recorded incidents. |
+| <img src="docs/images/screens/10-warden-hard-limit.png" alt="Warden blocks an action that breaks a hard limit from the documents"><br>**11. A hard limit.** An action above a limit from your documents is blocked, whatever the score. | <img src="docs/images/screens/12-agents.png" alt="The agent catalog with what each agent may touch"><br>**12. Agents.** Each agent has a card: what it may touch and what it may not. |
+| <img src="docs/images/screens/13-compiled-model.png" alt="The compiled model: every fact with the exact quote it came from"><br>**13. The compiled model.** Every fact keeps the exact words it came from. | <img src="docs/images/screens/25-team.jpg" alt="The Team page"><br>**14. The Team.** People, roles and permissions, checked by Cedar. |
 
 ## The pitch deck
 
@@ -142,6 +173,7 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 1. **Plant name.** The only question on the first screen. No menu, no panels.
 2. **A spark takes over the name.** A glowing spark sweeps across the typed plant name and the letters fill with colour. It lasts about four seconds and can be skipped.
 3. **Drop your documents.** A real drag-and-drop area. A sample pack of eight documents is available for people who have none.
+3b. **Connect your systems.** A stepper goes through the databases, streams, files and alerts the documents name (see "The ingestion step").
 4. **The Guide talks with the owner.** It reads the documents, asks which data sources to connect, asks what the plant makes, and settles conflicts between documents, missing stations and hard limits, one question at a time.
 5. **The plant, drawn.** Gemini turns the confirmed understanding into a layout, and the Anatomy kit draws it.
 6. **A tour.** The menu grows one section at a time: Floor (3D), Operations, Warden, Agents, Probes, Compiled model. The Guide says what each is for, tied to what the plant makes.
@@ -175,6 +207,8 @@ Foreman is the layer that runs the agents: a contract card per agent, a visible 
 |---|---|---|
 | **Gemini** (Vertex AI when deployed, Google AI Studio on a laptop) | Every agent above, plus the incident investigator with tool use, semantic naming and the chat | `fabric/agents.py` (client, model pool, retry), `foreman/llm.py` (JSON answers, tool loop, record and replay, call ledger), `documents/engine.py`, `foreman/guide.py`, `foreman/agents.py`, `rca/gemini.py`, `compiler/semantics.py`, `interpret/engine.py`, `discover/fingerprint.py`, `workspace/graph.py` |
 | **Vertex AI** | Gemini without an API key in the container, using the Cloud Run service account | `fabric/agents.py` (`GOOGLE_GENAI_USE_VERTEXAI`), `deploy.sh` |
+| **Cloud SQL Admin API** | Reads the state of a Cloud SQL instance and starts it again after an approval, using the signed-in person's Google account (OAuth, scope `sqlservice.admin`) or the Cloud Run service account | `server/cloudsql.py` |
+| **Firebase Authentication** | Sign in with Google, email and password, or as a guest | `web/lib/auth.ts`, `server/auth.py` |
 | **Cloud Run** | Hosting the backend and the screens | `Dockerfile`, `deploy.sh`, `DEPLOY.md` |
 | **Cloud Build** | Building the container from source (`gcloud run deploy --source .`) | `deploy.sh` |
 
@@ -218,6 +252,12 @@ python tests/sentinel_test.py       # the Sentinel rule engine and its address g
 python tests/sentinel_protocols_test.py   # the service checks, against small fake servers
 python tests/sentinel_decide_test.py      # the Decide check, with a stand-in for the model
 python tests/sentinel_service_test.py     # heartbeats, maintenance windows, the schedule and failure messages
+python tests/hostops_test.py        # server incidents, approvals, the probe's command list
+python tests/cloudsql_test.py       # the Cloud SQL watch: stop, approve, start, resolve
+python tests/cloud_oauth_test.py    # the Google connection: sealed state, vault, refresh, disconnect
+python tests/rbac_test.py           # people, roles and the Cedar checks
+python tests/telegram_buttons_test.py   # approval buttons; telegram_pair_test.py for the pairing
+python tests/guide_flow_test.py     # the Guide's retry and suggestions; guide_own_lake_test.py for database-only plants
 node tests/e2e.mjs                  # drives the whole app in real Chrome: first visit, Guide, tour, Operations, Warden, Probes, deck
 ```
 
@@ -230,11 +270,12 @@ node tests/e2e.mjs                  # drives the whole app in real Chrome: first
 | `foreman/` | The agents, the Guide, Warden, the gateway, playbooks, channels and the model layer |
 | `sentinel/` | Sentinel: the rule engine, the checks, the service protocol checks and the address guard |
 | `server/` | FastAPI: `/api/jig/*` (platform), `/api/probes`, `/api/ws/*` (workspace) |
-| `probe/` | The probe program |
+| `probe/` | The probe program (paths and readings from the machines) |
+| `server/hostops.py`, `server/cloudsql.py`, `server/rbac.py` | Server incidents and approvals, the Cloud SQL watch and Google connection, people and roles |
 | `documents/`, `mcpx/`, `fabric/`, `rca/` | Document engine, MCP servers and hub, policy gateway, incident investigator |
 | `web/` | Next.js app: first-time flow, Floor and floor editor, Operations, Warden, Agents, Probes, Sentinel, Playbooks, deck at `/deck` |
 | `deck/` | Anatomy figures for the pitch deck |
-| `docs/` | End goal, build log, UX review, diagrams, end-to-end screenshots |
+| `docs/` | End goal, build log, UX review, diagrams, figures and screenshots |
 
 More: `docs/END_GOAL.md` (the plan and why), `docs/BUILD_LOG.md` (what is built and measured), `docs/UX_REVIEW.md`.
 

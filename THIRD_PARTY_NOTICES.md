@@ -15,6 +15,7 @@ Tolerance uses the open-source parts and public data below. Each keeps its own l
 | Pascal Editor (`@pascal-app/*`) | 3D factory | MIT |
 | Next.js, React | Screens | MIT |
 | three.js | 3D | MIT |
+| Kenney Factory Kit 3.0 (`web/public/models/factory`) | 3D machine models | CC0 |
 | FastAPI, Uvicorn | Backend | MIT / BSD-3-Clause |
 | DuckDB | Data lake | MIT |
 | dlt | Connectors | Apache-2.0 |
