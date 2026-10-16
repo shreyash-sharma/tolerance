@@ -27,3 +27,8 @@ FT-db/secrets.env
 FT-db/
 docs/e2e/
 bench/results/*.log
+
+# old plain-HTML interface, an archived README and the organiser template
+ui/
+docs/archive/
+submission/Submission Template _ AI Builder Cup.pptx
