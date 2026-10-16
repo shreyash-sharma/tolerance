@@ -118,10 +118,18 @@ def _job(what, fn):
 
     def go():
         try:
-            fn()
-        except Exception as e:
-            JOB["error"] = f"{type(e).__name__}: {str(e)[:160]}"
-            _say("Something went wrong on my side: " + JOB["error"] + " You can press the button again.")
+            for attempt in (1, 2):
+                said = len(PL.get()["chat"])
+                try:
+                    fn()
+                    break
+                except Exception as e:
+                    JOB["error"] = f"{type(e).__name__}: {str(e)[:160]}"
+                    if attempt == 1 and len(PL.get()["chat"]) == said:   # nothing was said yet, so trying again repeats nothing
+                        time.sleep(2.5)
+                        continue
+                    _say("Something went wrong on my side: " + JOB["error"] + " You can press the button again.")
+                    break
         finally:
             JOB["busy"] = False
     ctx = contextvars.copy_context()   # the thread must act for the same user
@@ -260,6 +268,7 @@ def connect(ids, also=None, db_url="", mcp_url="", named=None):
     def work():
         JOB["what"] = "Connecting the machine data"
         mine = None
+        ensure_data()   # a visitor who connected only a database still gets machine states, or no station would exist
         if own:
             JOB["what"] = "Matching your documents to your stations"
             DE._ST.update(t=0)
@@ -310,13 +319,16 @@ def ensure_data():
 
 
 def _goal_options():
-    """Up to four short guesses of what the plant makes, taken only from the documents. An empty list when they do not say."""
-    st = DE.state()
-    facts = [{"doc": d["name"], "claims": [f"{c['subject']} {str(c['predicate']).replace('_', ' ')} {c['value']}" for c in d["claims"][:25]]} for d in st["docs"]][:12]
-    out, _ = _ask(VOICE + " Say what products this plant might make, using only the documents. Give at most 4 short answers of 2 to 5 words each (for example: EV battery packs). If the documents do not show what is made, return an empty list. Reply as JSON: {\"options\": [\"...\"]}.",
-                  {"documents": facts}, {"options": []})
-    got = out.get("options") if isinstance(out, dict) else None
-    return [str(x).strip()[:60] for x in (got or []) if isinstance(x, str) and len(x.strip()) >= 3][:4]
+    """Up to four short guesses of what the plant makes, taken only from the documents. An empty list when they do not say, or when anything goes wrong: this is a nicety and must never stop the flow."""
+    try:
+        st = DE.state()
+        facts = [f"{c['subject']} {str(c['predicate']).replace('_', ' ')} {c['value']}" for c in st["claims"][:60]]
+        out, _ = _ask(VOICE + " Say what products this plant might make, using only the documents. Give at most 4 short answers of 2 to 5 words each (for example: EV battery packs). If the documents do not show what is made, return an empty list. Reply as JSON: {\"options\": [\"...\"]}.",
+                      {"facts": facts}, {"options": []})
+        got = out.get("options") if isinstance(out, dict) else None
+        return [str(x).strip()[:60] for x in (got or []) if isinstance(x, str) and len(x.strip()) >= 3][:4]
+    except Exception:
+        return []
 
 
 def _next():
