@@ -101,19 +101,19 @@ function FilesStep({ data, reload }: { data: PlantData; reload: () => void }) {
         <div className="mut" style={{ marginTop: 6 }}>or click to choose files · text, Markdown, PDF, email</div>
         <input ref={input} type="file" multiple accept=".md,.txt,.pdf,.csv,.eml" hidden onChange={(e) => e.target.files && upload(e.target.files)} />
       </div>
-      {(docs.length > 0 || up.length > 0) && (
-        <div style={{ marginTop: 18, display: 'grid', gap: 8 }}>
-          {docs.map((d) => (
-            <div key={d.name} className="card flat row sb" style={{ padding: '10px 16px' }}>
-              <span><b>{d.name}</b> <span className="dim">· {Math.max(1, Math.round(d.chars / 1000))} KB of text</span></span>
-              <span className={`tag ${d.origin === 'seed' ? 'v' : 'ok'}`}>{d.origin === 'seed' ? 'sample document' : 'added'}</span>
-            </div>
-          ))}
-          {up.filter((u) => u.ok !== true).map((u) => <div key={u.name} className="mut">{u.name}: {u.ok === null ? 'uploading…' : <span className="bad">{u.err}</span>}</div>)}
-        </div>
-      )}
-      <div className="row" style={{ marginTop: 22 }}>
-        <button className="btn" style={{ fontSize: 16, padding: '12px 28px' }} disabled={docs.length === 0 || busy} onClick={go}>{busy ? 'Starting…' : `Let the Guide read ${docs.length || ''} ${docs.length === 1 ? 'document' : 'documents'}`}</button>
+      {/* a fixed-height box: the list scrolls inside it, so the button below never moves */}
+      <div aria-live="polite" style={{ marginTop: 16, height: 188, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 8, alignContent: 'start', padding: 2 }}>
+        {docs.length === 0 && up.length === 0 && <div className="dim" style={{ gridColumn: '1 / -1', alignSelf: 'center', justifySelf: 'center', fontSize: 14, paddingTop: 60 }}>Your documents appear here.</div>}
+        {docs.map((d) => (
+          <div key={d.name} className="card flat doc-in" style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5 }}><b>{d.name}</b> <span className="dim">· {Math.max(1, Math.round(d.chars / 1000))} KB</span></span>
+            <span className={`tag ${d.origin === 'seed' ? 'v' : 'ok'}`} style={{ flexShrink: 0 }}>{d.origin === 'seed' ? 'sample' : 'added'}</span>
+          </div>
+        ))}
+        {up.filter((u) => u.ok !== true).map((u) => <div key={u.name} className="card flat doc-in mut" style={{ padding: '8px 12px', fontSize: 13, minWidth: 0 }}>{u.name}: {u.ok === null ? 'uploading…' : <span className="bad">{u.err}</span>}</div>)}
+      </div>
+      <div className="row" style={{ marginTop: 14 }}>
+        <button className="btn" style={{ fontSize: 16, padding: '12px 28px', minWidth: 250 }} disabled={docs.length === 0 || busy} onClick={go}>{busy ? 'Starting…' : `Let the Guide read ${docs.length || ''} ${docs.length === 1 ? 'document' : 'documents'}`}</button>
         {docs.length === 0 && <button className="btn g" onClick={sample}>I have no documents: use the sample pack</button>}
       </div>
       {docs.length === 0 && <p className="dim" style={{ marginTop: 10 }}>The sample pack is eight made-up documents for a real station layout. Machine data is real, replayed from a lab.</p>}
