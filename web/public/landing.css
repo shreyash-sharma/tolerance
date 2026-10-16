@@ -11,3 +11,13 @@
 .product-grid figcaption{padding:16px 20px;color:var(--muted);font-size:14.5px;line-height:1.55}
 .product-grid figcaption b{color:var(--ivory)}
 @media(max-width:900px){.nav nav a:not(.pill){display:none}.product-grid{grid-template-columns:1fr}}
+
+/* The source cards sit still: four across on a wide screen, a swipeable row on a narrow one. The old drift slid the first card out of view. */
+.source-rail{overflow:visible;mask-image:none;-webkit-mask-image:none}
+.src-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:auto;animation:none}
+.src{width:auto}
+@media(max-width:1000px){
+  .source-rail{overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+  .src-track{display:flex;width:max-content}
+  .src{width:280px;scroll-snap-align:start}
+}

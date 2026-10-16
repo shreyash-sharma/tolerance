@@ -12,7 +12,7 @@ import Backdrop from './Backdrop';
 
 const Logo = () => (
   <div className="logo" style={{ padding: 0 }}>
-    <svg viewBox="-24 -24 48 48"><g fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M-9 -20C13 -12 -13 -4 9 4S-9 18 9 22" stroke="#9fe6bf" strokeWidth="3.4" /><path d="M9 -20L-9 -8L9 4L-9 16L9 22" stroke="#ffd391" strokeWidth="3.4" /><path d="M-6 -12H6M-3 4H3M-6 17H6" stroke="#f0eee4" strokeOpacity=".6" strokeWidth="1.4" /></g></svg>
+    <svg viewBox="-24 -24 48 48" role="img" aria-label="Tolerance"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391" /><g fill="none" strokeLinecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" strokeWidth="5.4" /><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" strokeOpacity=".35" strokeWidth="2" /></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58" /></svg>
     <b>Tolerance<span>.</span></b>
   </div>
 );

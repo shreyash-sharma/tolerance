@@ -24,7 +24,7 @@ export default function SignIn() {
     <div style={{ minHeight: '100vh', background: 'radial-gradient(1200px 600px at 50% -10%, #1d2a26 0%, #0c1715 62%)', color: 'var(--ivory)', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
       <header style={{ padding: '22px 6vw', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <a href="/" className="logo" style={{ padding: 0, textDecoration: 'none' }}>
-          <svg viewBox="-24 -24 48 48"><g fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M-9 -20C13 -12 -13 -4 9 4S-9 18 9 22" stroke="#9fe6bf" strokeWidth="3.4" /><path d="M9 -20L-9 -8L9 4L-9 16L9 22" stroke="#ffd391" strokeWidth="3.4" /><path d="M-6 -12H6M-3 4H3M-6 17H6" stroke="#f0eee4" strokeOpacity=".6" strokeWidth="1.4" /></g></svg>
+          <svg viewBox="-24 -24 48 48" role="img" aria-label="Tolerance"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391" /><g fill="none" strokeLinecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" strokeWidth="5.4" /><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" strokeOpacity=".35" strokeWidth="2" /></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58" /></svg>
           <b>Tolerance<span>.</span></b>
         </a>
         <a href="/" className="mut" style={{ fontSize: 14 }}>← Back to the site</a>
