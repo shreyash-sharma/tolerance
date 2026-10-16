@@ -59,55 +59,26 @@ function prefill(n: Named) {
 }
 
 /** One system the documents name: the sentence that names it, then exactly what to give for it, with a Test button that logs in and reads. A plant has many of each kind, so every one gets its own card. */
-// Postgres on Google Cloud SQL: one click to let Tolerance start the instance again if it stops
-function GoogleControl({ address }: { address: string }) {
-  const [s, setS] = useState<any>(null);
-  const [project, setProject] = useState('');
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-  const host = (() => { try { return new URL(address.trim().replace(/^postgres(ql)?:/i, 'http:')).hostname; } catch { return ''; } })();
-  const load = async () => { try { const d = await (await fetch('/api/cloud', { headers: await authHeader() })).json(); setS(d); return d; } catch { return null; } };
-  useEffect(() => { void load(); }, []);
-  const watch = async () => {
-    setBusy(true); setErr('');
-    try {
-      const r = await fetch('/api/cloud/auto', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ host, project }) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
-      await load();
-    } catch (e: any) { setErr(String(e.message || e)); }
-    setBusy(false);
-  };
-  const connect = async () => {
-    setErr('');
-    try {
-      const r = await fetch('/api/cloud/oauth/start', { method: 'POST', headers: await authHeader() });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
-      const w = window.open(d.url, 'google-connect', 'width=520,height=680');
-      const t = setInterval(async () => { const x = await load(); if (x?.oauth?.connected || !w || w.closed) { clearInterval(t); if (x?.oauth?.connected) void watch(); } }, 1500);
-    } catch (e: any) { setErr(String(e.message || e)); }
-  };
-  if (!s?.oauth?.available) return null;
-  const c = s.config, l = c?.last;
-  return (
-    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'grid', gap: 6 }}>
-      {c ? (
-        <div style={{ fontSize: 13.5 }}><b style={{ color: '#7be0a6' }}>Watching {c.instance}</b> <span className="mut">· {l?.error ? 'cannot check' : l?.up ? 'running' : l?.starting ? 'starting' : 'stopped'}. If it stops, I propose to start it again, and a person approves.</span></div>
-      ) : (
-        <>
-          <div className="mut" style={{ fontSize: 13 }}>Google Cloud database? Connect your Google account and I find this instance, watch it, and start it again after an approval if it stops. I only ever send a start.</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input value={project} onChange={(e) => setProject(e.target.value)} placeholder={s.default_project ? `Project id (default ${s.default_project})` : 'Google Cloud project id'} aria-label="Google Cloud project id" style={{ width: 250 }} />
-            {s.oauth.connected
-              ? <button type="button" className="btn sm" disabled={busy || !host || !(project.trim() || s.default_project)} onClick={watch}>{busy ? 'Looking…' : `Watch it (signed in as ${s.oauth.email || 'you'})`}</button>
-              : <button type="button" className="btn sm" disabled={!host} onClick={connect}>Connect Google Cloud</button>}
-          </div>
-        </>
-      )}
-      {err && <div role="alert" style={{ color: '#ef6b57', fontSize: 13 }}>{err}</div>}
-    </div>
-  );
+// Postgres on Google Cloud SQL: Connect asks for the Google account first, finds the instance by its address, and only then reads the data
+const cloudStatus = async () => { try { return await (await fetch('/api/cloud', { headers: await authHeader() })).json(); } catch { return null; } };
+async function ensureGoogle(host: string, project: string, s: any, popup: Window | null) {
+  if (!s?.oauth?.available || s?.config) return;   // no Google sign-in on this server, or the instance is already watched
+  if (!s.oauth.connected) {
+    const r = await fetch('/api/cloud/oauth/start', { method: 'POST', headers: await authHeader() });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { popup?.close(); throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText); }
+    if (popup) popup.location.href = d.url; else window.open(d.url, 'google-connect', 'width=520,height=680');
+    const t0 = Date.now();
+    for (;;) {
+      await new Promise((res) => setTimeout(res, 1500));
+      const x = await cloudStatus();
+      if (x?.oauth?.connected) break;
+      if ((popup && popup.closed) || Date.now() - t0 > 180000) throw new Error('Google Cloud was not connected, so I did not connect this database. Press Connect again and agree on the Google screen.');
+    }
+  }
+  const r = await fetch('/api/cloud/auto', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ host, project }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : r.statusText);
 }
 
 export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
@@ -115,6 +86,11 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
   const [val, setVal] = useState(prefill(n));
   const [secret, setSecret] = useState('');
   const [topic, setTopic] = useState('');
+  const [gs, setGs] = useState<any>(null);
+  const [project, setProject] = useState('');
+  useEffect(() => { if (n.type === 'postgres') void cloudStatus().then(setGs); }, [n.type]);
+  const host = (() => { try { return new URL(val.trim().replace(/^postgres(ql)?:/i, 'http:')).hostname; } catch { return ''; } })();
+  const gcp = n.type === 'postgres' && !!gs?.oauth?.available;
   const [test, setTest] = useState<Probe | null>(null);
   const [st, setSt] = useState<{ busy: '' | 'test' | 'connect' | 'file'; err: string }>({ busy: '', err: '' });
   const b = BADGE[n.status === 'live' ? 'live' : n.status === 'plug' ? 'plug' : 'bridge'];
@@ -127,8 +103,10 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
     setSt({ busy: '', err: '' });
   };
   const doConnect = async () => {
+    const popup = gcp && !gs?.oauth?.connected && !gs?.config ? window.open('', 'google-connect', 'width=520,height=680') : null;
     setSt({ busy: 'connect', err: '' });
     try {
+      if (gcp) { await ensureGoogle(host, project, gs, popup); setGs(await cloudStatus()); }
       if (n.mode === 'mcp') {
         const r = await acts.onMcp({ url: val.trim(), token: secret, name: n.name, quote: n.quotes[0]?.quote || '' });
         onOutcome({ state: 'connected', note: `${r.server?.tools?.length ?? 0} tools found, ${r.read_only ?? 0} read-only` });
@@ -182,7 +160,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
               {(n.type === 'mqtt' || n.type === 'kafka') && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={n.type === 'mqtt' ? 'Topic to listen to, like plant/#' : 'Topic to read'} aria-label={`Topic for ${n.name}`} />}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button type="button" className="btn g sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doTest}>{st.busy === 'test' ? 'Testing…' : 'Test'}</button>
-                <button type="button" className="btn sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doConnect}>{st.busy === 'connect' ? 'Connecting…' : 'Connect'}</button>
+                <button type="button" className="btn sm" disabled={disabled || !!st.busy || val.trim().length < 6 || (gcp && !gs?.config && !(project.trim() || gs?.default_project))} onClick={doConnect}>{st.busy === 'connect' ? (gcp && !gs?.oauth?.connected ? 'Waiting for Google…' : 'Connecting…') : 'Connect'}</button>
                 {UPLOAD_ALT.has(n.type) && upload}
               </div>
               {n.type === 'mongo' && <div className="dim" style={{ fontSize: 12 }}>Paste the full connection string, like mongodb://user:password@host:27017/database, or mongodb+srv://… for Atlas. Add ?authSource=… if the user lives in another database. I move the password to the encrypted vault and never show it again.</div>}
@@ -197,7 +175,12 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
           </div>
         </>
       )}
-      {n.type === 'postgres' && <GoogleControl address={val} />}
+      {gcp && !done && (
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'grid', gap: 6 }}>
+          <div className="mut" style={{ fontSize: 13 }}>{gs?.config ? <><b style={{ color: '#7be0a6' }}>Google Cloud: watching {gs.config.instance}</b> · if it stops, I propose to start it again and a person approves.</> : 'This database is on Google Cloud SQL, so Connect first asks you to sign in with Google. I then find the instance by its address and watch it. I only ever send a start. The card says Connected only when both worked.'}</div>
+          {!gs?.config && <input value={project} onChange={(e) => setProject(e.target.value)} placeholder={gs?.default_project ? `Google Cloud project id (default ${gs.default_project})` : 'Google Cloud project id'} aria-label="Google Cloud project id" style={{ maxWidth: 330 }} />}
+        </div>
+      )}
       {st.err && <div style={{ color: '#ef6b57', fontSize: 13 }}>{st.err}</div>}
     </div>
   );
