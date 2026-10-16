@@ -225,9 +225,9 @@ def run_verifier(station, diag, live=False, parent=None):
         return run.public()
 
 
-PLAN_SYS = ("You plan fixes for a factory station that failed. Propose one to three actions, best first. kind must be one of: inspect, adjust_speed, clear_jam, restart_station, stop_station, reroute_orders, schedule_maintenance. "
-            "params holds exact settings, for example {\"max_speed_pct\": 70} or {\"type\": \"preventive\"}. Respect the limits given. Reply as JSON: {\"actions\": [{\"kind\": \"...\", \"station\": \"...\", \"params\": {}, \"why\": \"...\"}]}.")
-KINDS = {"inspect", "adjust_speed", "clear_jam", "restart_station", "stop_station", "reroute_orders", "schedule_maintenance"}
+PLAN_SYS = ("You plan fixes for a factory station that failed. Propose one to three actions, best first. kind must be one of: inspect, adjust_speed, adjust_temperature, clear_jam, restart_station, stop_station, reroute_orders, schedule_maintenance. "
+            "params holds exact settings, for example {\"max_speed_pct\": 70}, {\"max_temp_c\": 235} for an oven, or {\"type\": \"preventive\"}. Respect the limits given. Reply as JSON: {\"actions\": [{\"kind\": \"...\", \"station\": \"...\", \"params\": {}, \"why\": \"...\"}]}.")
+KINDS = {"inspect", "adjust_speed", "adjust_temperature", "clear_jam", "restart_station", "stop_station", "reroute_orders", "schedule_maintenance"}
 
 
 def run_planner(station, diag, ver, live=False, parent=None, revise=None):

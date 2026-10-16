@@ -41,11 +41,7 @@ def mongo_resources(params, nm):
     pw = vault.get(params.get("secret_ref")) or ""
     p = P.parse("mongodb", params["url"])
     P._guard(p["host"], p["port"])
-    kw = dict(serverSelectionTimeoutMS=8000)
-    if p["user"]:
-        kw["username"] = p["user"]
-        kw["password"] = pw
-    cl = pymongo.MongoClient(host=p["host"], port=p["port"], **kw)
+    cl = P.mongo_client(p, pw)
     db = cl[params.get("database") or p["database"] or "admin"]
     wanted = params.get("collections") or []
     names = [c for c in db.list_collection_names() if not c.startswith("system.") and (not wanted or c in wanted)]

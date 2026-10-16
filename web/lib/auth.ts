@@ -35,8 +35,11 @@ export function startAuth() {
 
 /** The header every API call carries. Empty when sign-in is off or nobody is signed in. */
 export async function authHeader(): Promise<Record<string, string>> {
-  if (!fb?.auth.currentUser) return {};
-  try { return { Authorization: 'Bearer ' + (await fb.auth.currentUser.getIdToken()) }; } catch { return {}; }
+  // on a laptop the owner can act as another team member to show a role; the server ignores this header in the cloud
+  let acting: Record<string, string> = {};
+  try { const a = typeof window !== 'undefined' ? localStorage.getItem('acting-as') : ''; if (a) acting = { 'X-Acting-As': a }; } catch { /* the owner acts */ }
+  if (!fb?.auth.currentUser) return acting;
+  try { return { ...acting, Authorization: 'Bearer ' + (await fb.auth.currentUser.getIdToken()) }; } catch { return acting; }
 }
 
 // For the end-to-end test: lets it call the API as the person who is signed in.

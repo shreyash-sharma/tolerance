@@ -1,4 +1,5 @@
 'use client';
+import { CloudSqlCard, HostSetup } from './HostIncidents';
 import { useEffect, useState } from 'react';
 import { api, post } from '@/lib/api';
 
@@ -16,6 +17,8 @@ export default function Probes() {
   return (
     <div>
       <p className="sub">A probe is a small program that runs near the machines and tests them on a timer. One probe cannot tell a dead machine from a broken network path. Several probes in different places can: if one fails and the others pass, the fault is on that path. The machines here are replayed data, so the probes test the plant interfaces (OPC UA and the ERP). The probes are real programs.</p>
+      <HostSetup />
+      <CloudSqlCard />
       <div className="row" style={{ marginBottom: 14 }}>
         <button className="btn" disabled={busy} onClick={() => start('line-side', 'Line side')}>Start probe: line side</button>
         <button className="btn g" disabled={busy} onClick={() => start('gateway-pc', 'Gateway PC')}>Start probe: gateway PC</button>

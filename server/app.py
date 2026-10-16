@@ -32,10 +32,30 @@ def ensure_sample_plant():
         S["rep"] = mes.Replayer(rest, rate_per_s=400)
 
 
+@app.on_event("shutdown")
+def _flush_backup():
+    from workspace import persist as _persist
+    _persist.snapshot()   # a restart or a deploy keeps the last minute of work
+
+
 @app.on_event("startup")
 def boot():
+    from workspace import persist as _persist
+    _persist.restore()   # visitors' saved work comes back from the bucket before anyone is served
+    _persist.start()
     S["compile_now"] = lambda: compile_now()
     WSRC.LIVE.start()
+    try:   # a Cloud SQL database that was being watched is watched again after a restart (single-user mode)
+        from server import cloudsql as _csql
+        from workspace import store as _st
+        tok = _st.UID.set('local')
+        try:
+            if _st.load().get('cloud_sql'):
+                _csql.watch('local')
+        finally:
+            _st.UID.reset(tok)
+    except Exception:
+        pass
     from sentinel import schedule as _sch
     _sch.start()   # runs the rules of visitors who switched the schedule on
     threading.Thread(target=lambda: (time.sleep(8), compile_now()), daemon=True).start()  # warm the semantic naming cache
@@ -354,6 +374,12 @@ from server import jig_api
 app.include_router(jig_api.router)
 from server import probe_api
 app.include_router(probe_api.router)
+from server import hostops
+app.include_router(hostops.router)
+from server import rbac
+app.include_router(rbac.router)
+from server import cloudsql
+app.include_router(cloudsql.router)
 from sentinel import heartbeat as _hb
 app.include_router(_hb.router)
 @app.middleware("http")
@@ -384,9 +410,12 @@ async def sign_in_check(request, call_next):
         except quota.Denied as e:
             return JSONResponse({"detail": str(e)}, status_code=e.status)
         tok = store.UID.set(user["uid"])
+        from server import rbac as _rbac
+        etok = _rbac.EMAIL.set(user.get("email") or "")
         try:
             return await call_next(request)
         finally:
+            _rbac.EMAIL.reset(etok)
             store.UID.reset(tok)
     return await call_next(request)
 

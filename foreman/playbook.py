@@ -13,7 +13,7 @@ SOURCES = {
     "forecast": "Chance of failing in the next 4 hours",
     "rule": "A Sentinel rule is passing",
 }
-ACTIONS = {"notify": "Tell my channels", "inspect": "Inspect or measure", "schedule_maintenance": "Schedule maintenance", "adjust_speed": "Lower the speed", "clear_jam": "Clear a jam", "restart_station": "Restart the station", "stop_station": "Stop the station"}
+ACTIONS = {"notify": "Tell my channels", "inspect": "Inspect or measure", "schedule_maintenance": "Schedule maintenance", "adjust_speed": "Lower the speed", "adjust_temperature": "Lower the temperature", "clear_jam": "Clear a jam", "restart_station": "Restart the station", "stop_station": "Stop the station"}
 TYPES = {"trigger", "check", "decision", "action"}
 
 
@@ -119,7 +119,7 @@ def _act(data, station, trace):
         return {"done": f"told {n} channel(s)" if n else "no channel is set up, so nobody was told"}
     from foreman import safety
     from foreman.agents import context_for
-    action = {"kind": kind, "station": station, "params": {"type": "preventive"} if kind == "schedule_maintenance" else ({"max_speed_pct": 70} if kind == "adjust_speed" else {}), "why": text or f"A playbook asked for: {ACTIONS[kind]}"}
+    action = {"kind": kind, "station": station, "params": {"type": "preventive"} if kind == "schedule_maintenance" else ({"max_speed_pct": 70} if kind == "adjust_speed" else ({"max_temp_c": 235} if kind == "adjust_temperature" else {})), "why": text or f"A playbook asked for: {ACTIONS[kind]}"}
     sc = safety.score_action(action, context_for(station, 0.8))
     rec = None
     if sc["decision"] == "auto":

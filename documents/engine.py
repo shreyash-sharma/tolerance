@@ -15,6 +15,7 @@ VOCAB = {
     "alias_of": "subject is another name for the station in value",
     "max_speed_pct": "upper speed limit as percent of rated speed",
     "max_speed_ms": "upper speed limit in metres per second",
+    "max_temp_c": "upper temperature limit in degrees Celsius (an oven, furnace or heater)",
     "belt_speed_ms": "conveyor belt speed limit in metres per second",
     "payload_max_kg": "payload limit in kilograms",
     "rated_payload_kg": "rated payload in kilograms",
@@ -23,10 +24,12 @@ VOCAB = {
     "approval_threshold_eur": "orders above this value (euro) need supervisor approval; subject ORDER",
     "inspection_interval_h": "inspection interval in operating hours",
 }
-RULES = {"max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "approval_threshold_eur", "inspection_interval_h"}
+RULES = {"max_temp_c", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "approval_threshold_eur", "inspection_interval_h"}
 def expect_for(name):
     """Which limits a station of this kind should have in the documents, judged from its name. Anything else is not asked about."""
     n = name.lower()
+    if re.search(r"oven|furnace|kiln|reflow|heater|\bovn\d*\b", n):
+        return ["max_temp_c"]
     if re.search(r"agv|vehicle|forklift|\bamr\b", n):
         return ["max_speed_ms", "payload_max_kg"]
     if re.search(r"conv|belt|\bc\d+\b", n):
@@ -314,7 +317,7 @@ def downstream(station, st=None, fl=None):
     return sorted(seen)
 
 
-STRICT_MIN = {"max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "max_consecutive_faults", "approval_threshold_eur"}
+STRICT_MIN = {"max_temp_c", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "max_consecutive_faults", "approval_threshold_eur"}
 
 
 def limits(st=None):

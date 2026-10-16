@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, post } from '@/lib/api';
 import NameReveal from './NameReveal';
 import IngestCard from './IngestCard';
+import ConnectStep from './ConnectStep';
+import GeminiKey from '../GeminiKey';
 import { authHeader, signOutUser, useAuth } from '@/lib/auth';
 import type { PlantData } from '@/lib/plant';
 import dynamic from 'next/dynamic';
@@ -206,6 +208,8 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
   const [err, setErr] = useState('');
   const busy = data.guide.busy;
   const started = useRef(false);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { if (!busy) { setSlow(false); return; } const t = setTimeout(() => setSlow(true), 30000); return () => clearTimeout(t); }, [busy]);
   useEffect(() => {
     const card = document.getElementById('ingest-card');   // the long ingest card opens at its top, so the owner reads what was understood first
     if (!busy && card && chat[chat.length - 1]?.card?.type === 'ingest') card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -221,6 +225,10 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
     } catch (e: any) { setErr(String(e.message || e)); }
   };
   const p = data.plant;
+  const last = chat[chat.length - 1];
+  if (!busy && last?.card?.type === 'ingest') {   // the systems the documents name get their own full step, one kind at a time
+    return <ConnectStep plant={p.name} understood={last.card.understood} support={last.card.support} disabled={busy} onUpload={uploadLog} onSample={sampleEstate} onTest={testSource} onConnect={connectSource} onMcp={connectMcp} onGo={(a) => send({ type: 'connect', ...a })} />;
+  }
   return (
     <Frame wide>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 28, alignItems: 'start' }}>
@@ -229,7 +237,7 @@ function GuideStep({ data, reload }: { data: PlantData; reload: () => void }) {
           <h1 style={{ ...h1, fontSize: 34 }}>Let us go through it together.</h1>
           <div className="card" style={{ padding: '8px 22px', minHeight: 340, maxHeight: chat[chat.length - 1]?.card?.type === 'ingest' ? 'none' : '70vh', overflow: 'auto' }}>
             {chat.map((m, i) => <Bubble key={i} m={m} last={i === chat.length - 1 && !busy} onAct={send} disabled={busy} conn={data.connectors} />)}
-            {busy && <div className="mut" style={{ margin: '12px 0' }}><span className="pill live"><i /><span>{data.guide.what || 'Working'}…</span></span></div>}
+            {busy && <div className="mut" style={{ margin: '12px 0' }}><span className="pill live"><i /><span>{data.guide.what || 'Working'}…</span></span>{slow && <GeminiKey busy="slow" />}</div>}
             <div ref={end} />
           </div>
           <div className="row" style={{ marginTop: 12, flexWrap: 'nowrap' }}>

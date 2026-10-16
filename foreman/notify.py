@@ -112,6 +112,23 @@ def send_one(ch, title, text, link=None):
         _post(check_url(ch["url"]), {"title": title, "text": text, "link": link, "source": "tolerance", "at": time.time()})
 
 
+def telegram_buttons(ch, text, rows, html=False):
+    """A Telegram message with buttons. rows: [[(label, callback_data), ...], ...]. Returns the sent message."""
+    r = httpx.post(f"https://api.telegram.org/bot{ch['token']}/sendMessage", json={"chat_id": ch["chat_id"], "text": text[:3900], "disable_web_page_preview": True, **({"parse_mode": "HTML"} if html else {}),
+                   "reply_markup": {"inline_keyboard": [[{"text": t, "callback_data": c} for t, c in row] for row in rows]}}, timeout=10)
+    if r.status_code >= 400:
+        raise RuntimeError(f"{r.status_code} {r.text[:120]}")
+    return (r.json() or {}).get("result", {})
+
+
+def telegram_html(ch, text):
+    """A Telegram message in HTML (bold, emojis). Returns the sent message."""
+    r = httpx.post(f"https://api.telegram.org/bot{ch['token']}/sendMessage", json={"chat_id": ch["chat_id"], "text": text[:3900], "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=10)
+    if r.status_code >= 400:
+        raise RuntimeError(f"{r.status_code} {r.text[:120]}")
+    return (r.json() or {}).get("result", {})
+
+
 def test(cid):
     ch = next((c for c in _all() if c["id"] == cid), None)
     if not ch:

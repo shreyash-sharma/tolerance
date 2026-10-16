@@ -1,7 +1,7 @@
 /* End-to-end test of the whole product, driven in real Chrome. Saves a screenshot of every step to docs/e2e/ and writes docs/e2e/REPORT.md.
    Needs the backend (48410) and the web app (3000) running.   Run:  node tests/e2e.mjs                */
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync, mkdtempSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,13 +78,42 @@ await step("2 The plant name is typed", async () => { await setVal("input", "Nor
 await sleep(2000);
 await step("3 The spark takes over the plant name", async () => { const t0 = Date.now(); let seen = false; while (Date.now() - t0 < 12000) { if (await ev("!!document.querySelector('[data-reveal]')")) { seen = true; break; } await sleep(300); } await sleep(1500); const p = await ev("(() => { const e = document.querySelector('[data-reveal]'); return e ? e.getAttribute('data-reveal') : 'gone'; })()"); return { ok: seen, note: `reveal ${p}` }; });
 await step("4 The drop zone asks for files", async () => { const ok = await waitText("Drop your documents here", 30000); const none = !(await text()).includes("sample document"); return { ok: ok && none, note: "no documents shown before the user adds any" }; });
-await step("5 Sample pack chosen, the Guide starts reading", async () => { await clickUntil("use the sample pack", ["Let the Guide read 8"], 20000); await clickUntil("Let the Guide read 8", ["Reading your documents", "WHAT I UNDERSTOOD"], 20000); return await waitText("WHAT I UNDERSTOOD", 180000); });
-await step("5b The Guide shows what it understood and every source it can reach", async () => {
-  const ok = await waitText("WHAT I UNDERSTOOD", 180000); const t = await text();
-  const need = ["ANYTHING ELSE YOUR PLANT USES", "Live in this build", "Connects with your address", "Through a bridge", "MQTT", "OPC UA", "MCP server"].filter((x) => !t.includes(x));
-  return { ok: ok && need.length === 0, note: need.length ? "missing: " + need.join(", ") : "facts, limits, sources and badges shown" };
+await step("5 Sample pack chosen, the Guide starts reading", async () => {
+  if (process.env.DEMO_DOCS) {   // the demo document set instead of the sample pack
+    const { readdirSync } = await import("node:fs");
+    const dd = join(HERE, "..", "FT-db", "demo_docs");
+    for (const f of readdirSync(dd).filter((x) => !x.endsWith(".md") || /^\d/.test(x))) { const fd = new FormData(); fd.append("file", new Blob([readFileSync(join(dd, f))]), f); await fetch(API + "/jig/docs/upload", { method: "POST", headers: await hdr(), body: fd }); }
+    await go("/floor/"); await sleep(2500); await clickUntil("Let the Guide read", ["Reading your documents", "This is what I understood"], 20000); return await waitText("This is what I understood", 420000);
+  }
+  await clickUntil("use the sample pack", ["Let the Guide read 8"], 20000);
+  // add the IT landscape page that names the plant's systems, so the stepper has databases, streams and MCP servers to ask for
+  { const fd = new FormData(); fd.append("file", new Blob([readFileSync(join(HERE, "fixtures", "01_it_landscape.md"))]), "01_it_landscape.md"); await fetch(API + "/jig/docs/upload", { method: "POST", headers: await hdr(), body: fd }); }
+  await go("/floor/"); await sleep(2500);
+  await clickUntil("Let the Guide read", ["Reading your documents", "This is what I understood"], 20000); return await waitText("This is what I understood", 420000); });
+await step("5b The Guide shows what it understood, in a stepper", async () => {
+  const ok = await waitText("This is what I understood", 180000); const t = await text();
+  const need = ["CONNECT YOUR SYSTEMS", "What I understood", "Databases", "Review", "Use the sample data for all", "systems named"].filter((x) => !t.includes(x));
+  return { ok: ok && need.length === 0, note: need.length ? "missing: " + need.join(", ") : "facts, limits and the step list shown" };
 });
-await step("6 The Guide asks for connectors and looks at them", async () => { await clickUntil("Let the Guide look at these", ["Looking at the data sources", "What does this plant make"], 20000); return await waitText("What does this plant make", 180000); });
+await step("5c The stepper goes to the databases the documents name, one kind at a time", async () => {
+  await clickUntil("Next", ["Connect your databases"], 15000);
+  const t = await text();
+  const need = ["MongoDB", "Test", "Connect", "Upload a file instead", "Skip for now"].filter((x) => !t.includes(x));
+  const blocked = await ev("[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Next' && b.disabled)");
+  return { ok: need.length === 0 && blocked, note: need.length ? "missing: " + need.join(", ") : "cards shown, Next waits until each one is dealt with" };
+});
+await step("5d Skipping the rest of a step lets the owner move on", async () => {
+  await clickUntil("Skip the rest of this step", ["Skipped for now"], 8000);
+  const open = await ev("[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Next' && !b.disabled)");
+  return { ok: open, note: "Next opens after the step is settled" };
+});
+await step("6 One button uses the sample data for all, then the Guide looks at it", async () => {
+  await click("Use the sample data for all"); if (!(await waitText("Check it, then I take over", 420000))) return { ok: false, note: "the sample data did not load" };
+  const t = await text();
+  if (!t.includes("covered by the sample data")) return { ok: false, note: "review does not show the sample data" };
+  await clickUntil("Let the Guide look at these", ["Looking at the data sources", "What does this plant make"], 20000);
+  return await waitText("What does this plant make", 480000);
+});
 await step("7 The Guide asks what the plant makes", async () => { await setVal("textarea", "EV battery packs."); await click("Send"); return await waitText("Your documents disagree", 120000) || await waitText("is in your documents", 5000); });
 await step("8 The Guide settles conflicts, ghost station and limits with the owner", async () => {
   for (let i = 0; i < 8; i++) {

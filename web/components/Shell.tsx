@@ -1,4 +1,5 @@
 'use client';
+import GeminiKey from './GeminiKey';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -20,9 +21,10 @@ const NAV: [string, string, string][] = [
   ['/compile', 'Compiled model', 'M4 6h16M4 12h10M4 18h6M17 14l3 3-3 3'],
   ['/sentinel', 'Sentinel', 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5'],
   ['/playbooks', 'Playbooks', 'M5 5h5v5H5zM14 14h5v5h-5zM10 7.5h4a2 2 0 012 2V14'],
+  ['/team', 'Team', 'M16 11a3 3 0 100-6 3 3 0 000 6zM8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5'],
 ];
 
-type Ws = { name: string; sources: any[]; model: any; version: any; incidents_open: number; compiled: number; gemini: boolean; gemini_busy?: string; log_time: string | null };
+type Ws = { name: string; sources: any[]; model: any; version: any; incidents_open: number; compiled: number; gemini: boolean; gemini_busy?: string; gemini_own?: boolean; log_time: string | null };
 
 /** The Guide's tour: sections appear one at a time, and the Guide says what each is for. */
 function Tour({ steps, index, setIndex, onDone }: { steps: { path: string; title: string; text: string }[]; index: number; setIndex: (i: number) => void; onDone: () => void }) {
@@ -135,6 +137,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
           <span className={`pill ${live ? 'live' : ''}`}><i /><span>{ws?.log_time ? `plant clock ${String(ws.log_time).slice(0, 16).replace('T', ' ')}` : live ? 'live' : 'no live data'}</span></span>
           <span className={`pill ${ws?.gemini && !ws?.gemini_busy ? 'live' : 'warn'}`} title={ws?.gemini_busy || undefined}><i /><span>{!ws?.gemini ? 'Gemini not set' : ws?.gemini_busy ? 'Gemini is busy' : 'Gemini connected'}</span></span>
         </header>
+        {ws?.gemini_busy && !ws?.gemini_own && <div role="status" style={{ background: '#3a2a12', borderBottom: '1px solid var(--amber)', padding: '8px 26px', fontSize: 14 }}><b>{ws.gemini_busy}.</b> <GeminiKey busy={ws.gemini_busy} compact /></div>}
         {data.usage && data.usage.gemini_used >= data.usage.gemini_cap && (
           <div role="status" style={{ background: '#3a2a12', borderBottom: '1px solid var(--amber)', padding: '10px 26px', fontSize: 14 }}>You have used all {data.usage.gemini_cap} AI calls for this {data.usage.tier === 'guest' ? 'guest session' : 'account'}. The agents now use their built-in rules. Open Plant settings to enter an access code for more.</div>
         )}

@@ -85,10 +85,10 @@ for c in (MUTE, AMBER, MINT, BLUE, VIOLET, RED):
     add(f'<marker id="ah-{c[1:]}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="{c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>')
 add('<linearGradient id="gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset=".5" stop-color="#9b72f2"/><stop offset="1" stop-color="#ee6a8f"/></linearGradient></defs>')
 add(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
-add(f'<text x="40" y="52" font-size="26" fill="{TEXT}" font-weight="700">Tolerance: the agent team</text><text x="40" y="78" font-size="14" fill="{MUTE}">Nine agents on one gateway. Every agent can use Gemini. In Sentinel it only labels text. Nothing reaches a machine except through the policy gate.</text>')
+add(f'<text x="40" y="52" font-size="26" fill="{TEXT}" font-weight="700">Tolerance: the Symbiotic Compiler (the agent team)</text><text x="40" y="78" font-size="14" fill="{MUTE}">Nine agents on one gateway. Every agent can use Gemini. In Sentinel it only labels text. Nothing reaches a machine except through the policy gate.</text>')
 
 # left: owner above the Guide
-card(40, 130, 250, 168, "Plant owner", "Drops documents, answers questions, sets the two safety lines.", "person", BLUE, "Human", gem=False)
+card(40, 130, 250, 168, "Plant owner", "Drops documents, answers questions, sets the score thresholds.", "person", BLUE, "Human", gem=False)
 card(40, 400, 250, 270, "Guide", "Assistant and router. Reads the documents with the owner, asks what is unclear, draws the plant, hands failures to operations.", "chat", AMBER, "Mixed", nchars=29)
 arrow(100, 298, 100, 400, BLUE, None)
 add(f'<text x="112" y="352" font-size="12" fill="{BLUE}" font-weight="600">Documents, answers</text>')

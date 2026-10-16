@@ -1,4 +1,6 @@
 'use client';
+import GeminiKey from './GeminiKey';
+import HostIncidents from './HostIncidents';
 import { useEffect, useState } from 'react';
 import { api, post } from '@/lib/api';
 import Trace from './Trace';
@@ -42,7 +44,8 @@ export default function Operations() {
   return (
     <div>
       <p className="sub">Pick a station. The agents find the cause, check it, plan a fix, and Warden scores it.</p>
-      {busyMsg && <div role="status" style={{ border: '1px solid #f2b84b88', background: 'rgba(242,184,75,.08)', borderRadius: 12, padding: '10px 14px', margin: '0 0 12px', fontSize: 14 }}><b style={{ color: '#f2b84b' }}>{busyMsg}.</b> Where Gemini could not answer in time, the plain rules did that part and say less. Try again in a minute for the full reasoning.</div>}
+      <HostIncidents />
+      {busyMsg && <div role="status" style={{ border: '1px solid #f2b84b88', background: 'rgba(242,184,75,.08)', borderRadius: 12, padding: '10px 14px', margin: '0 0 12px', fontSize: 14 }}><b style={{ color: '#f2b84b' }}>{busyMsg}.</b> Where Gemini could not answer in time, the plain rules did that part and say less. Try again in a minute for the full reasoning.<GeminiKey busy={busyMsg} /></div>}
       {rows.length > 0 && (
         <div className="card" style={{ padding: '6px 16px' }}>
           <div className="dim" style={{ fontSize: 11, letterSpacing: '.1em', fontWeight: 700, padding: '8px 0 2px' }}>NEEDS ATTENTION FIRST</div>

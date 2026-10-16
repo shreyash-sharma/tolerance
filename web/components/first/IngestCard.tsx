@@ -2,28 +2,28 @@
 import { useState } from 'react';
 import FeedIcon from '@/components/FeedIcon';
 
-type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[]; systems?: Named[] };
-type Named = { id: string; type: string; name: string; title: string; system: string; mode: 'upload' | 'url' | 'rest' | 'mcp' | 'note'; status: string; ask: string; quotes: { quote: string; doc: string }[]; addresses: string[]; names: string[]; hint: string };
-type Item = { id: string; title: string; about: string; status: 'live' | 'plug' | 'bridge' };
-type Group = { group: string; items: Item[] };
+export type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[]; systems?: Named[] };
+export type Named = { id: string; type: string; name: string; title: string; system: string; mode: 'upload' | 'url' | 'rest' | 'mcp' | 'note'; status: string; ask: string; quotes: { quote: string; doc: string }[]; addresses: string[]; names: string[]; hint: string };
+export type Item = { id: string; title: string; about: string; status: 'live' | 'plug' | 'bridge' };
+export type Group = { group: string; items: Item[] };
 
-const BADGE: Record<Item['status'], { label: string; color: string }> = {
+export const BADGE: Record<Item['status'], { label: string; color: string }> = {
   live: { label: 'Live in this build', color: '#7be0a6' },
   plug: { label: 'Connects with your address', color: '#f2b84b' },
   bridge: { label: 'Through a bridge', color: '#8fb4ff' },
 };
-const plain = (s: string) => s.replace(/_/g, ' ');
+export const plain = (s: string) => s.replace(/_/g, ' ');
 
-function Tile({ v, l, warn }: { v: number | string; l: string; warn?: boolean }) {
+export function Tile({ v, l, warn }: { v: number | string; l: string; warn?: boolean }) {
   return <div style={{ border: `1px solid ${warn ? '#f2b84b66' : 'var(--line)'}`, borderRadius: 12, padding: '8px 12px', minWidth: 92 }}><div style={{ fontSize: 24, fontWeight: 700, color: warn ? '#f2b84b' : 'var(--ivory)' }}>{v}</div><div className="mut" style={{ fontSize: 12 }}>{l}</div></div>;
 }
 
 const ACCEPT: Record<string, string> = { mongo: '.json,.jsonl,.ndjson', default: '.csv,.db,.sqlite,.sqlite3,.json,.jsonl,.ndjson' };
 const PROBE: Record<string, string> = { mongo: 'mongodb', postgres: 'postgres', mysql: 'mysql', mssql: 'mssql', oracle: 'oracle', mqtt: 'mqtt', kafka: 'kafka', opcua: 'opcua', sap: 'api', erp: 'api', mes: 'api', mcp: 'mcp' };
 const UPLOAD_ALT = new Set(['mongo', 'sap', 'erp', 'mes', 'mqtt', 'kafka', 'files', 'historian', 'plc', 'cmms', 'warehouse']);
-const PLACEHOLDER: Record<string, string> = { postgres: 'postgresql://reader@host:5432/plantdb', mysql: 'mysql://reader@host:3306/plantdb', mssql: 'mssql://reader@host:1433/plantdb', oracle: 'oracle://reader@host:1521/service', mongo: 'mongodb://reader@host:27017/plantdb', mqtt: 'mqtt://host:1883', kafka: 'kafka://host:9092', opcua: 'opc.tcp://host:4840', mcp: 'https://mcp.myplant.example/mcp', sap: 'https://sap.myplant.example/odata', erp: 'https://erp.myplant.example/api', mes: 'https://mes.myplant.example/api' };
+const PLACEHOLDER: Record<string, string> = { postgres: 'postgresql://reader@host:5432/plantdb', mysql: 'mysql://reader@host:3306/plantdb', mssql: 'mssql://reader@host:1433/plantdb', oracle: 'oracle://reader@host:1521/service', mongo: 'mongodb://user:password@host:27017/database', mqtt: 'mqtt://host:1883', kafka: 'kafka://host:9092', opcua: 'opc.tcp://host:4840', mcp: 'https://mcp.myplant.example/mcp', sap: 'https://sap.myplant.example/odata', erp: 'https://erp.myplant.example/api', mes: 'https://mes.myplant.example/api' };
 // kinds a person can add that their documents did not name
-const KINDS: { type: string; title: string; system: string; mode: Named['mode']; status: string; ask: string }[] = [
+export const KINDS: { type: string; title: string; system: string; mode: Named['mode']; status: string; ask: string }[] = [
   { type: 'postgres', title: 'PostgreSQL', system: 'postgres', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
   { type: 'mysql', title: 'MySQL / MariaDB', system: 'sql', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
   { type: 'mssql', title: 'SQL Server', system: 'sql', mode: 'url', status: 'plug', ask: 'The address and the password. I log in and read only.' },
@@ -37,8 +37,8 @@ const KINDS: { type: string; title: string; system: string; mode: Named['mode'];
   { type: 'opcua', title: 'OPC UA', system: 'opcua', mode: 'url', status: 'plug', ask: 'The controller address, like opc.tcp://host:4840. I only read.' },
 ];
 export type Outcome = { state: 'connected' | 'written' | 'skipped'; note: string };
-type Probe = { ok: boolean; message: string; ms?: number };
-type Acts = {
+export type Probe = { ok: boolean; message: string; ms?: number };
+export type Acts = {
   onUpload: (f: File, system?: string, name?: string) => Promise<any>;
   onTest: (b: { type: string; url: string; secret: string; topic: string }) => Promise<Probe>;
   onConnect: (b: { type: string; url: string; secret: string; topic: string; name: string; system: string }) => Promise<any>;
@@ -58,7 +58,7 @@ function prefill(n: Named) {
 }
 
 /** One system the documents name: the sentence that names it, then exactly what to give for it, with a Test button that logs in and reads. A plant has many of each kind, so every one gets its own card. */
-function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
+export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, acts }: { n: Named; disabled: boolean; outcome?: Outcome; onOutcome: (o: Outcome | null) => void; onRemove?: () => void; onAnother: () => void; acts: Acts }) {
   const probe = PROBE[n.type];
   const [val, setVal] = useState(prefill(n));
   const [secret, setSecret] = useState('');
@@ -123,9 +123,9 @@ function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, act
           {!live && <div className="mut" style={{ fontSize: 13 }}>{n.ask}</div>}
           {live && (
             <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: n.type === 'opcua' ? '1fr' : 'minmax(0,1.7fr) minmax(0,1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: n.type === 'opcua' || n.type === 'mongo' ? '1fr' : 'minmax(0,1.7fr) minmax(0,1fr)', gap: 8 }}>
                 <input value={val} onChange={(e) => { setVal(e.target.value); setTest(null); }} placeholder={PLACEHOLDER[n.type] || 'address'} aria-label={`Address for ${n.name}`} autoComplete="off" />
-                {n.type !== 'opcua' && <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setTest(null); }} placeholder={asToken ? 'Token, if it needs one' : 'Password'} aria-label={`${asToken ? 'Token' : 'Password'} for ${n.name}`} autoComplete="new-password" />}
+                {n.type !== 'opcua' && n.type !== 'mongo' && <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setTest(null); }} placeholder={asToken ? 'Token, if it needs one' : 'Password'} aria-label={`${asToken ? 'Token' : 'Password'} for ${n.name}`} autoComplete="new-password" />}
               </div>
               {(n.type === 'mqtt' || n.type === 'kafka') && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={n.type === 'mqtt' ? 'Topic to listen to, like plant/#' : 'Topic to read'} aria-label={`Topic for ${n.name}`} />}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -133,6 +133,8 @@ function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnother, act
                 <button type="button" className="btn sm" disabled={disabled || !!st.busy || val.trim().length < 6} onClick={doConnect}>{st.busy === 'connect' ? 'Connecting…' : 'Connect'}</button>
                 {UPLOAD_ALT.has(n.type) && upload}
               </div>
+              {n.type === 'mongo' && <div className="dim" style={{ fontSize: 12 }}>Paste the full connection string, like mongodb://user:password@host:27017/database, or mongodb+srv://… for Atlas. Add ?authSource=… if the user lives in another database. I move the password to the encrypted vault and never show it again.</div>}
+              {n.mode === 'url' && n.type !== 'mongo' && n.type !== 'opcua' && n.type !== 'mqtt' && n.type !== 'kafka' && <div className="dim" style={{ fontSize: 12 }}>You can paste a full address with the user and password in it. I move the password to the encrypted vault.</div>}
               {test && <div role="status" style={{ fontSize: 13.5, color: test.ok ? '#7be0a6' : '#ef6b57' }}>{test.ok ? '✓ ' : '✗ '}{test.message}</div>}
             </div>
           )}

@@ -7,7 +7,7 @@ const btnP = 'rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-b
 const card = 'rounded-xl border border-white/10 bg-white/[0.04] p-4';
 const lab = 'mb-2 text-xs uppercase tracking-wider text-white/60';
 
-const PRED: Record<string, string> = { max_speed_pct: 'Max speed (% of rated)', max_speed_ms: 'Max speed (m/s)', belt_speed_ms: 'Belt speed (m/s)', payload_max_kg: 'Payload limit (kg)', rated_payload_kg: 'Rated payload (kg)', maintenance_window: 'Maintenance window', max_consecutive_faults: 'Faults before stop', approval_threshold_eur: 'Approval needed above (EUR)', inspection_interval_h: 'Inspection every (h)', feeds: 'feeds', installed: 'installed', alias_of: 'is another name for' };
+const PRED: Record<string, string> = { max_temp_c: 'Max temperature (°C)', max_speed_pct: 'Max speed (% of rated)', max_speed_ms: 'Max speed (m/s)', belt_speed_ms: 'Belt speed (m/s)', payload_max_kg: 'Payload limit (kg)', rated_payload_kg: 'Rated payload (kg)', maintenance_window: 'Maintenance window', max_consecutive_faults: 'Faults before stop', approval_threshold_eur: 'Approval needed above (EUR)', inspection_interval_h: 'Inspection every (h)', feeds: 'feeds', installed: 'installed', alias_of: 'is another name for' };
 
 export default function Documents({ log }: { log: (agent: string, text: string, ai?: boolean) => void }) {
   const [st, setSt] = useState<any>(null);

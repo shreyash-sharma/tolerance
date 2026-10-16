@@ -19,3 +19,6 @@ data/
 
 # large local test data
 Data Bosch/
+
+FT-db/cloudsql.secret
+FT-db/secrets.env

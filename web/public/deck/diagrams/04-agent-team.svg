@@ -9,15 +9,15 @@
 <marker id="ah-ef6b57" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#ef6b57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset=".5" stop-color="#9b72f2"/><stop offset="1" stop-color="#ee6a8f"/></linearGradient></defs>
 <rect width="1600" height="900" fill="#0f1115"/>
-<text x="40" y="52" font-size="26" fill="#e9ecef" font-weight="700">Tolerance: the agent team</text><text x="40" y="78" font-size="14" fill="#9aa3ad">Nine agents on one gateway. Every agent can use Gemini. In Sentinel it only labels text. Nothing reaches a machine except through the policy gate.</text>
+<text x="40" y="52" font-size="26" fill="#e9ecef" font-weight="700">Tolerance: the Symbiotic Compiler (the agent team)</text><text x="40" y="78" font-size="14" fill="#9aa3ad">Nine agents on one gateway. Every agent can use Gemini. In Sentinel it only labels text. Nothing reaches a machine except through the policy gate.</text>
 <g class="card"><rect x="40" y="130" width="250" height="168" rx="14" fill="#181b22" stroke="#2f3642"/>
 <rect x="40" y="130" width="5" height="168" rx="2.5" fill="#8fb4ff"/>
 <circle cx="74" cy="164" r="20" fill="#8fb4ff" fill-opacity=".14"/>
 <g transform="translate(62,152) scale(1.0)" fill="none" stroke="#8fb4ff" stroke-width="1.53" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-4 4-6 8-6s8 2 8 6"/></g>
 <text x="104" y="160.0" font-size="17" fill="#e9ecef" font-weight="700" text-anchor="start">Plant owner</text>
 <text x="58" y="196.4" font-size="13" fill="#9aa3ad" font-weight="400" text-anchor="start">Drops documents, answers</text>
-<text x="58" y="214.0" font-size="13" fill="#9aa3ad" font-weight="400" text-anchor="start">questions, sets the two safety</text>
-<text x="58" y="231.5" font-size="13" fill="#9aa3ad" font-weight="400" text-anchor="start">lines.</text>
+<text x="58" y="214.0" font-size="13" fill="#9aa3ad" font-weight="400" text-anchor="start">questions, sets the score</text>
+<text x="58" y="231.5" font-size="13" fill="#9aa3ad" font-weight="400" text-anchor="start">thresholds.</text>
 <rect x="56" y="262" width="50" height="22" rx="11" fill="#8fb4ff" fill-opacity="0.16" stroke="#8fb4ff" stroke-opacity=".7"/>
 <text x="66" y="277" font-size="11" fill="#8fb4ff" font-weight="600">Human</text>
 </g>

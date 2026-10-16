@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from foreman import core, safety, agents as AGS, plant as PL, guide as GD
 from workspace import store
 
+from fastapi import Depends
+from server import rbac
 router = APIRouter(prefix="/api/jig")
 JOBS = {}
 
@@ -26,6 +28,13 @@ def attention():
         for p in r.result.get("proposals", []):
             if p.get("decision") == "approve" and not p.get("applied"):
                 items.append({"kind": "approval", "text": f"{p['label']} on {r.result['station']} waits for a person (score {p['score']})", "link": "/operations"})
+    try:
+        from server import hostops
+        for inc in hostops._state(store.load())["incidents"]:
+            if inc["status"] == "waiting":
+                items.append({"kind": "approval", "text": f"{inc['title']}. The fix waits for a person (score {inc['scored']['score']})", "link": "/operations"})
+    except Exception:
+        pass
     from sentinel import service as SV
     _, s = SV._state()
     for rule in s["rules"]:
@@ -355,7 +364,7 @@ def channels_get():
     return j({"channels": notify.public(), "types": notify.TYPES})
 
 
-@router.post("/channels")
+@router.post("/channels", dependencies=[Depends(rbac.need("manage_channels"))])
 def channels_add(type: str = Form(...), name: str = Form(""), url: str = Form(""), token: str = Form(""), chat_id: str = Form("")):
     from foreman import notify
     try:
@@ -365,14 +374,14 @@ def channels_add(type: str = Form(...), name: str = Form(""), url: str = Form(""
     return j({"channels": notify.public()})
 
 
-@router.delete("/channels/{cid}")
+@router.delete("/channels/{cid}", dependencies=[Depends(rbac.need("manage_channels"))])
 def channels_remove(cid: str):
     from foreman import notify
     notify.remove(cid)
     return j({"channels": notify.public()})
 
 
-@router.post("/channels/{cid}/test")
+@router.post("/channels/{cid}/test", dependencies=[Depends(rbac.need("manage_channels"))])
 def channels_test(cid: str):
     from foreman import notify
     try:
@@ -388,7 +397,7 @@ def operations(station: str = Form(...), live: int = Form(0)):
     return j(AGS.run_operations(station, bool(live)))
 
 
-@router.post("/operations/{rid}/approve")
+@router.post("/operations/{rid}/approve", dependencies=[Depends(rbac.need("approve_actions"))])
 def approve(rid: str, index: int = Form(...), by: str = Form("operator")):
     try:
         return j(AGS.approve_proposal(rid, index, by))
@@ -396,7 +405,7 @@ def approve(rid: str, index: int = Form(...), by: str = Form("operator")):
         raise HTTPException(400, str(e))
 
 
-@router.post("/operations/{rid}/reject")
+@router.post("/operations/{rid}/reject", dependencies=[Depends(rbac.need("approve_actions"))])
 def reject(rid: str, index: int = Form(...)):
     try:
         return j(AGS.reject_proposal(rid, index))
@@ -411,7 +420,7 @@ def warden():
               "applied": (store.load().get("jig_actions") or [])[-12:][::-1], "backtest_job": safety.JOB})
 
 
-@router.post("/warden/settings")
+@router.post("/warden/settings", dependencies=[Depends(rbac.need("change_thresholds"))])
 def warden_settings(floor: int = Form(...), limit: int = Form(...)):
     try:
         return j(safety.set_settings(floor, limit))

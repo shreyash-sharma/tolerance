@@ -14,6 +14,8 @@ from physical import service as PH
 from fabric import emit, gateway, agents
 from server.state import S
 
+from fastapi import Depends
+from server import rbac
 router = APIRouter(prefix="/api/ws")
 LOCK = threading.RLock()
 
@@ -42,7 +44,7 @@ def workspace():
     items = M.reviewed_items(oir=_oir()) if M._cache["items"] is not None else []
     return j({"name": d["name"], "sources": [src_public(s) for s in d["sources"]], "model": M.summary(items) if items else None, "version": (d["versions"][-1] if d["versions"] else None),
               "incidents_open": sum(1 for i in d["incidents"] if i["status"] in ("open", "diagnosed", "plan_tested")), "decisions": bandit.get().stats()["n"], "compiled": len(d.get("compiled", [])),
-              "gemini": agents.gemini_available(), "gemini_busy": agents.busy(), "log_time": (PH.live_only()["log_time"] if _has_state() else None)})
+              "gemini": agents.gemini_available(), "gemini_own": bool(agents.user_key()), "gemini_busy": agents.busy(), "log_time": (PH.live_only()["log_time"] if _has_state() else None)})
 
 
 def _has_state():
@@ -123,6 +125,54 @@ class ConnectBody(BaseModel):
     topic: str = ""
 
 
+class KeyBody(BaseModel):
+    key: str
+
+
+@router.get("/gemini-key")
+def gemini_key_status():
+    """Does this visitor use their own Gemini key? Never returns the key."""
+    k = agents.user_key()
+    return j({"own": bool(k), "tail": (k[-4:] if k else "")})
+
+
+@router.post("/gemini-key")
+def gemini_key_set(b: KeyBody):
+    """Test the key with one tiny call, then keep it encrypted in this visitor's vault. It replaces the shared key for this visitor's calls."""
+    from workspace import vault
+    key = b.key.strip()
+    if len(key) < 20 or any(c.isspace() for c in key):
+        raise HTTPException(400, "That does not look like a Gemini key. Copy it again from Google AI Studio.")
+    try:
+        from google import genai
+        client = genai.Client(api_key=key)   # keep a reference: a client that is collected mid-call is closed
+        client.models.generate_content(model="gemini-2.5-flash", contents="Reply with the word OK.")
+    except Exception as e:
+        msg = str(e)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            pass   # the key is real, its own quota is just used up: keep it
+        elif any(x in msg for x in ("API key", "API_KEY", "INVALID_ARGUMENT", "PERMISSION", "403", "400")):
+            raise HTTPException(400, "Google did not accept this key. Check that it is a Gemini API key and that it is switched on.")
+        else:
+            raise HTTPException(400, "I could not test this key just now. Try again in a minute.")
+    old = store.load().get("gemini_key")
+    ref = vault.put(key)
+    store.update(lambda d: d.update(gemini_key=ref))
+    if old:
+        vault.drop(old)
+    return j({"own": True, "tail": key[-4:]})
+
+
+@router.delete("/gemini-key")
+def gemini_key_remove():
+    from workspace import vault
+    old = store.load().get("gemini_key")
+    if old:
+        vault.drop(old)
+    store.update(lambda d: d.pop("gemini_key", None))
+    return j({"own": False, "tail": ""})
+
+
 @router.post("/sources/test")
 def sources_test(b: ConnectBody):
     """The Test button: log in, run one safe read, say how long it took and what is there. Nothing is saved."""
@@ -130,7 +180,7 @@ def sources_test(b: ConnectBody):
     return j(PB.test(b.type, b.url, b.secret, b.query or b.topic))
 
 
-@router.post("/sources/connect")
+@router.post("/sources/connect", dependencies=[Depends(rbac.need("connect_systems"))])
 def sources_connect(b: ConnectBody):
     """Test it, then connect it for good: the password goes to the vault, the source loads once and then keeps up."""
     from connectors import probes as PB
@@ -156,7 +206,7 @@ def sources_connect(b: ConnectBody):
     return j({"source": src_public(SRC.get(s["id"])), "sync": r, "test": t})
 
 
-@router.post("/sources/url")
+@router.post("/sources/url", dependencies=[Depends(rbac.need("connect_systems"))])
 def add_url(kind: str = Form(...), url: str = Form(...), name: str = Form(""), system: str = Form("")):
     if kind not in ("api", "db_url"):
         raise HTTPException(400, "kind must be api or db_url")
@@ -430,7 +480,7 @@ class McpBody(BaseModel):
     quote: str = ""
 
 
-@router.post("/mcp/connect")
+@router.post("/mcp/connect", dependencies=[Depends(rbac.need("connect_systems"))])
 def mcp_connect(b: McpBody):
     """Connect an MCP server of the owner's: list its tools and keep it. Its tools join the hub; every call still passes the policy gateway."""
     from mcpx import remote

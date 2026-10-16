@@ -105,16 +105,30 @@ def _sql(kind, p, password, query, timeout):
         c.close()
 
 
-def _mongo(p, password, query, timeout):
+def mongo_client(p, password, timeout_ms=8000):
+    """A MongoDB client from a parsed address. A full URI works: user and password in it, mongodb+srv, and the usual options
+    (authSource, tls, replicaSet). The user is checked in the database named in the address, else in authSource, else in admin."""
     import pymongo
-    uri = p["raw"]
-    kw = dict(serverSelectionTimeoutMS=timeout * 1000, connectTimeoutMS=timeout * 1000)
-    if password:
-        kw["password"] = password
+    uri, q = p["raw"], p.get("query") or {}
+    kw = dict(serverSelectionTimeoutMS=timeout_ms, connectTimeoutMS=timeout_ms)
     if p["user"]:
         kw["username"] = p["user"]
-    host = p["host"]
-    c = pymongo.MongoClient(host=host, port=p["port"], **kw) if "mongodb+srv" not in uri else pymongo.MongoClient(uri, **kw)
+        kw["password"] = password or p["password"]
+        if "mongodb+srv" not in uri:   # for srv the driver reads the address and applies its own rule
+            kw["authSource"] = q.get("authSource") or p["database"] or "admin"
+    if str(q.get("tls") or q.get("ssl") or "").lower() == "true":
+        kw["tls"] = True
+    if q.get("replicaSet"):
+        kw["replicaSet"] = q["replicaSet"]
+    if q.get("directConnection"):
+        kw["directConnection"] = str(q["directConnection"]).lower() == "true"
+    if "mongodb+srv" in uri:
+        return pymongo.MongoClient(uri, **kw)
+    return pymongo.MongoClient(host=p["host"], port=p["port"], **kw)
+
+
+def _mongo(p, password, query, timeout):
+    c = mongo_client(p, password, timeout * 1000)
     try:
         cmd = json.loads(query) if (query or "").strip().startswith("{") else {"ping": 1}   # Kanshi's default is {"ping": 1}
         out = c[p["database"] or "admin"].command(cmd)

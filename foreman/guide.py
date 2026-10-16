@@ -93,7 +93,7 @@ def understood(st):
         if len(picks) == 6:
             break
     stations = sorted({c["subject_resolved"] for c in claims if c.get("known") and c["subject_resolved"] != "ORDER"})
-    named = sorted({c["subject_resolved"] for c in claims if c["subject_resolved"] != "ORDER" and c["predicate"] in ("installed", "feeds", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "inspection_interval_h")})
+    named = sorted({c["subject_resolved"] for c in claims if c["subject_resolved"] != "ORDER" and c["predicate"] in ("installed", "feeds", "max_temp_c", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg", "maintenance_window", "max_consecutive_faults", "inspection_interval_h")})
     from connectors import registry as CR
     have_data = CR.own_lake() or bool(PL.get().get("use_sample"))   # without machine data, "known" and "only in the text" mean nothing yet
     return {"documents": [{"name": d["name"], "kind": d["kind"], "claims": d["claims"]} for d in st["docs"]][:10], "facts": len(claims), "stations": stations, "named": named, "have_data": have_data,

@@ -15,6 +15,7 @@ DEFAULTS = {"floor": 40, "limit": 80}
 ACTIONS = {
     "inspect": {"label": "Inspect or measure", "rev": 1.0, "reach": 0.0, "corrective": False},
     "adjust_speed": {"label": "Change a speed setting", "rev": 0.9, "reach": 0.3, "corrective": True},
+    "adjust_temperature": {"label": "Change a temperature setting", "rev": 0.9, "reach": 0.3, "corrective": True},
     "clear_jam": {"label": "Clear a jam", "rev": 0.85, "reach": 0.5, "corrective": True},
     "restart_station": {"label": "Restart a station", "rev": 0.7, "reach": 1.0, "corrective": True},
     "stop_station": {"label": "Stop a station", "rev": 0.6, "reach": 1.0, "corrective": True},
@@ -27,7 +28,7 @@ ACTIONS = {
 }
 WEIGHTS = {"reversibility": 0.25, "reach": 0.20, "margin": 0.15, "evidence": 0.25, "precedent": 0.10, "plant_state": 0.05}
 LABELS = {"reversibility": "Can it be undone", "reach": "How much it touches", "margin": "Distance from the limits", "evidence": "Strength of the evidence", "precedent": "People approved this before", "plant_state": "State of the plant"}
-MAX_TYPE = {"max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg"}
+MAX_TYPE = {"max_temp_c", "max_speed_pct", "max_speed_ms", "belt_speed_ms", "payload_max_kg"}
 LOCK = threading.RLock()
 
 

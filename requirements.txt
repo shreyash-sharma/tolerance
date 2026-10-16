@@ -30,3 +30,4 @@ pymysql
 pymssql
 oracledb
 cryptography
+google-cloud-storage

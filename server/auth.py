@@ -11,7 +11,7 @@ try:
 except Exception:
     CONFIG = None
 REQUIRED = bool(CONFIG and CONFIG.get("projectId") and CONFIG.get("apiKey"))
-PUBLIC = ("/api/jig/auth", "/api/jig/proof")
+PUBLIC = ("/api/jig/auth", "/api/jig/proof", "/api/host/report")   # a host probe proves itself with its own token
 _cache, _lock, _req = {}, threading.Lock(), greq.Request()
 
 

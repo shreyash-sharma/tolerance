@@ -106,14 +106,27 @@ class RuleAgent:
 
 
 # ------------------------------------------------------------------ Gemini
+def user_key():
+    """The visitor's own Gemini key, when they gave one (kept encrypted in their vault). None otherwise."""
+    try:
+        from workspace import store, vault
+        ref = store.load().get("gemini_key")
+        return vault.get(ref) if ref else None
+    except Exception:
+        return None
+
+
 def gemini_available():
-    return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("1", "true"))
+    return bool(user_key() or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("1", "true"))
 
 
 def make_client():
     """Gemini client. On Cloud Run set GOOGLE_GENAI_USE_VERTEXAI=true (plus GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION) to use Vertex AI with the service account;
     anywhere else a GEMINI_API_KEY is used."""
     from google import genai
+    k = user_key()
+    if k:   # the visitor's own key: their calls, their quota
+        return genai.Client(api_key=k)
     if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("1", "true"):
         return genai.Client(vertexai=True, project=os.environ.get("GOOGLE_CLOUD_PROJECT"), location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"))
     return genai.Client(api_key=os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
@@ -150,6 +163,8 @@ def mark_busy(why="Gemini is under heavy load", seconds=120):
 
 
 def busy():
+    if user_key():   # a visitor with their own key is not waiting on our shared quota
+        return ""
     return LOAD["why"] if time.time() < LOAD["until"] else ""
 
 
@@ -167,6 +182,8 @@ _DAY = {"day": None, "n": 0}
 
 def count_call():
     """A daily cap on Gemini calls (GEMINI_DAILY_CAP, default 1500) so a demo can never run up a bill. Past the cap, callers fall back to their rules or recordings."""
+    if user_key():   # their own key: our daily cap and their visitor quota do not apply
+        return _DAY["n"]
     today = time.strftime("%Y-%m-%d", time.gmtime())
     if _DAY["day"] != today:
         _DAY.update(day=today, n=0)
@@ -189,30 +206,58 @@ def calls_today():
     return dict(_DAY, cap=int(os.environ.get("GEMINI_DAILY_CAP", "1500")))
 
 
+_fails = {}   # model -> how many overloaded (503) answers in a row
+SKIP_AFTER, SKIP_SECONDS = 2, 300
+
+
+def _alive():
+    now = time.time()
+    return [m for m in MODEL_POOL if _dead.get(m, 0) < now]
+
+
 def gen_with_retry(client, tries=6, max_wait=65, **kw):
-    """generate_content with backoff, and rotation across models when one runs out of quota (each model has its own quota on a free key)."""
+    """generate_content with backoff. When a model is out of quota (429) or overloaded (503), the next healthy model answers at once. A model that is overloaded
+    twice in a row is skipped for five minutes, so one busy model does not slow every call. Only when every model is unhealthy does it wait and retry."""
     count_call()
+    own = bool(user_key())
     kw["model"] = pick_model(kw.get("model") if kw.get("model") in MODEL_POOL else None) if kw.get("model") in (None, "auto") else kw["model"]
+    if not own and _dead.get(kw["model"], 0) > time.time():   # a caller's fixed model is skipped too while it is unhealthy
+        alive = _alive()
+        if alive:
+            kw["model"] = alive[0]
     for i in range(tries):
         try:
-            return client.models.generate_content(**kw)
+            r = client.models.generate_content(**kw)
+            _fails[kw["model"]] = 0
+            return r
         except Exception as e:
             msg = str(e)
             quota = "429" in msg or "RESOURCE_EXHAUSTED" in msg or ("404" in msg and "NOT_FOUND" in msg)   # a model this service does not have is skipped too
-            if quota or "503" in msg or "UNAVAILABLE" in msg:
-                mark_busy("Gemini is under heavy load" if "503" in msg or "UNAVAILABLE" in msg else "Gemini's quota is used up for now")
-                m = re.search(r"retry in ([0-9.]+)s", msg)
-                wait = float(m.group(1)) + 1 if m else 8 * (i + 1)
+            busy_ = "503" in msg or "UNAVAILABLE" in msg
+            if not (quota or busy_):
+                raise
+            m = re.search(r"retry in ([0-9.]+)s", msg)
+            wait = float(m.group(1)) + 1 if m else 8 * (i + 1)
+            cur = kw["model"]
+            if not own:
                 if quota:
-                    _dead[kw["model"]] = time.time() + (wait if wait < 120 else 3600)
-                    alive = [m for m in MODEL_POOL if _dead.get(m, 0) < time.time()]
-                    if alive:
-                        kw["model"] = alive[0]
-                        continue
-                    raise  # every model is out of quota: fail fast so callers can fall back instead of stalling the demo
-                if i < tries - 1:
-                    time.sleep(min(max_wait, wait))
-                    continue
+                    _dead[cur] = time.time() + (wait if wait < 120 else 3600)
+                else:
+                    _fails[cur] = _fails.get(cur, 0) + 1
+                    if _fails[cur] >= SKIP_AFTER:
+                        _dead[cur] = time.time() + SKIP_SECONDS
+                        _fails[cur] = 0
+            others = [m2 for m2 in (_alive() if not own else MODEL_POOL) if m2 != cur and (own or _dead.get(m2, 0) < time.time())]
+            if others and i < tries - 1:
+                kw["model"] = others[0]   # another healthy model answers now, without waiting
+                continue
+            if not own:
+                mark_busy("Gemini is under heavy load" if busy_ else "Gemini's quota is used up for now")
+            if quota and not busy_ and not others:
+                raise   # every model is out of quota: fail fast so callers can fall back instead of stalling the demo
+            if i < tries - 1:
+                time.sleep(min(max_wait, wait))
+                continue
             raise
 
 

@@ -6,7 +6,7 @@ import { api, post } from '@/lib/api';
 
 const ZONE: Record<string, string> = { refuse: '#ef6b57', approve: '#f2b84b', auto: '#8fd0a4', blocked: '#ef6b57' };
 const KINDS: [string, string, string][] = [
-  ['restart_station', 'Restart a station', '{}'], ['adjust_speed', 'Change a speed setting', '{"max_speed_pct": 70}'], ['clear_jam', 'Clear a jam', '{}'],
+  ['restart_station', 'Restart a station', '{}'], ['adjust_speed', 'Change a speed setting', '{"max_speed_pct": 70}'], ['adjust_temperature', 'Change a temperature setting', '{"max_temp_c": 235}'], ['clear_jam', 'Clear a jam', '{}'],
   ['stop_station', 'Stop a station', '{}'], ['schedule_maintenance', 'Schedule preventive maintenance', '{"type":"preventive"}'], ['inspect', 'Inspect or measure', '{}'],
 ];
 
