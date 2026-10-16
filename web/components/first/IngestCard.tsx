@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { authHeader } from '@/lib/auth';
 import FeedIcon from '@/components/FeedIcon';
 
 export type Understood = { named?: string[]; have_data?: boolean; documents: { name: string; kind: string; claims: number }[]; facts: number; stations: string[]; limits: number; conflicts: number; ghosts: string[]; gaps: number; injections: number; samples: { subject: string; predicate: string; value: any; quote: string; doc: string }[]; systems?: Named[] };
@@ -36,7 +37,7 @@ export const KINDS: { type: string; title: string; system: string; mode: Named['
   { type: 'kafka', title: 'Kafka', system: 'other', mode: 'url', status: 'plug', ask: 'The broker address and the topic to read.' },
   { type: 'opcua', title: 'OPC UA', system: 'opcua', mode: 'url', status: 'plug', ask: 'The controller address, like opc.tcp://host:4840. I only read.' },
 ];
-export type Outcome = { state: 'connected' | 'written' | 'skipped'; note: string };
+export type Outcome = { state: 'connected' | 'written' | 'skipped'; note: string; sid?: string };
 export type Probe = { ok: boolean; message: string; ms?: number };
 export type Acts = {
   onUpload: (f: File, system?: string, name?: string) => Promise<any>;
@@ -84,7 +85,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
         const r = await acts.onConnect({ ...body, name: n.name, system: n.system });
         const src = r?.source;
         if (src?.error) { setSt({ busy: '', err: src.error }); return; }
-        onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read` });
+        onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read`, sid: src?.id });
       }
       setSecret('');
       setSt({ busy: '', err: '' });
@@ -96,7 +97,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
       const r = await acts.onUpload(f, n.system, n.name);
       const src = r?.source;
       if (src?.error) { setSt({ busy: '', err: src.error }); return; }
-      onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read` });
+      onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read`, sid: src?.id });
       setSt({ busy: '', err: '' });
     } catch (e: any) { setSt({ busy: '', err: String(e.message || e) }); }
   };
@@ -110,7 +111,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
         <FeedIcon system={n.system} size={34} dot={outcome?.state === 'connected' ? 'live' : undefined} />
         <b style={{ fontSize: 15 }}>{n.name}</b>
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.04em', color: b.color, border: `1px solid ${b.color}66`, borderRadius: 99, padding: '1px 7px' }}>{b.label}</span>
-        {onRemove && <button type="button" className="btn g sm" style={{ marginLeft: 'auto' }} onClick={onRemove}>Remove</button>}
+        {onRemove && <button type="button" className="btn g sm" style={{ marginLeft: 'auto' }} onClick={onRemove} title={outcome?.state === 'connected' ? 'Disconnect and take this system off the list' : 'Take this system off the list'}>{outcome?.state === 'connected' ? 'Disconnect' : 'Remove'}</button>}
       </div>
       {n.quotes.map((q, i) => <div key={i} className="mut" style={{ fontSize: 13, fontStyle: 'italic', borderLeft: '2px solid #f2b84b88', paddingLeft: 10 }}>“{q.quote}” <span style={{ fontStyle: 'normal' }}>· {q.doc}</span></div>)}
       {n.names.length > 0 && <div style={{ fontSize: 13 }}><span className="dim">Your documents also name: </span>{n.names.map((x) => `“${x}”`).join(', ')}</div>}
@@ -161,7 +162,13 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
   const [added, setAdded] = useState<Named[]>([]);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome | null>>({});
   const [menu, setMenu] = useState(false);
-  const cards: Named[] = [...(u.systems || []), ...added];
+  const [gone, setGone] = useState<string[]>([]);
+  const drop = async (n: Named) => {
+    const sid = outcomes[n.id]?.sid;
+    if (sid) { try { await fetch(`/api/ws/sources/${sid}`, { method: 'DELETE', headers: await authHeader() }); } catch { /* the card still goes */ } }
+    setAdded((a) => a.filter((x) => x.id !== n.id)); setGone((g) => [...g, n.id]); setOutcomes((m) => ({ ...m, [n.id]: null }));
+  };
+  const cards: Named[] = [...(u.systems || []), ...added].filter((c) => !gone.includes(c.id));
   const acts: Acts = { onUpload, onTest, onConnect, onMcp };
   const another = (n: Named) => setAdded((a) => [...a, { ...n, id: `${n.type}:new${a.length + 1}:${Date.now()}`, name: `${n.title} (another)`, quotes: [], names: [], addresses: [], hint: '', label: '' } as Named]);
   const addKind = (k: (typeof KINDS)[number]) => { setMenu(false); setAdded((a) => [...a, { id: `${k.type}:new${a.length + 1}:${Date.now()}`, type: k.type, name: `${k.title} (you added)`, title: k.title, system: k.system, mode: k.mode, status: k.status, ask: k.ask, quotes: [], addresses: [], names: [], hint: '' }]); };
@@ -232,7 +239,7 @@ export default function IngestCard({ understood: u, support, disabled, onGo, onU
           <div style={{ display: 'grid', gap: 10 }}>
             {cards.map((n) => (
               <NamedSystem key={n.id} n={n} disabled={disabled} outcome={outcomes[n.id] || undefined} acts={acts}
-                onOutcome={(o) => setOutcomes((m) => ({ ...m, [n.id]: o }))} onAnother={() => another(n)} onRemove={added.some((x) => x.id === n.id) ? () => setAdded((a) => a.filter((x) => x.id !== n.id)) : undefined} />
+                onOutcome={(o) => setOutcomes((m) => ({ ...m, [n.id]: o }))} onAnother={() => another(n)} onRemove={() => void drop(n)} />
             ))}
           </div>
           <div style={{ marginTop: 10, position: 'relative' }}>

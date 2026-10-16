@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { authHeader } from '@/lib/auth';
 import FeedIcon from '@/components/FeedIcon';
 import Backdrop from './Backdrop';
 import AlertsStep from './AlertsStep';
@@ -32,7 +33,13 @@ export default function ConnectStep({ plant, understood: u, support, disabled, o
   const [menu, setMenu] = useState('');
   const [sampled, setSampled] = useState(false);
   const [up, setUp] = useState<Up>({ busy: false, err: '', machine: null, read: [] });
-  const cards: Named[] = [...(u.systems || []), ...added];
+  const [gone, setGone] = useState<string[]>([]);
+  const drop = async (n: Named) => {
+    const sid = outcomes[n.id]?.sid;
+    if (sid) { try { await fetch(`/api/ws/sources/${sid}`, { method: 'DELETE', headers: await authHeader() }); } catch { /* the card still goes */ } }
+    setAdded((a) => a.filter((x) => x.id !== n.id)); setGone((g) => [...g, n.id]); setOutcomes((m) => ({ ...m, [n.id]: null }));
+  };
+  const cards: Named[] = [...(u.systems || []), ...added].filter((c) => !gone.includes(c.id));
   const acts: Acts = { onUpload, onTest, onConnect, onMcp };
 
   const steps = useMemo(() => {
@@ -139,7 +146,7 @@ export default function ConnectStep({ plant, understood: u, support, disabled, o
       <p className="mut" style={{ margin: 0, fontSize: 15 }}>{CATS[c].ask}</p>
       {inCat(c).map((n) => (
         <NamedSystem key={n.id} n={n} disabled={disabled} outcome={outcomes[n.id] || undefined} acts={acts} onOutcome={(o) => setOutcome(n.id, o)} onAnother={() => another(n)}
-          onRemove={added.some((x) => x.id === n.id) ? () => setAdded((a) => a.filter((x) => x.id !== n.id)) : undefined} />
+          onRemove={() => void drop(n)} />
       ))}
       {c !== 'files' && (
         <div style={{ position: 'relative' }}>
