@@ -11,10 +11,20 @@ async function call(path: string, method = 'GET', body?: any, form?: Record<stri
   return d;
 }
 
+const PROVIDERS: { id: string; title: string; sub: string; hint?: string; how?: string }[] = [
+  { id: 'telegram', title: 'Telegram', sub: 'Approve and Reject buttons in the chat' },
+  { id: 'slack', title: 'Slack', sub: 'A channel message', hint: 'https://hooks.slack.com/services/…', how: 'In Slack open Apps, add Incoming Webhooks, pick a channel, and copy the webhook address.' },
+  { id: 'teams', title: 'Microsoft Teams', sub: 'A channel message', hint: 'Workflow or webhook address', how: 'In Teams open the channel, choose Workflows, use "Post to a channel when a webhook request is received", and copy the address.' },
+  { id: 'discord', title: 'Discord', sub: 'A channel message', hint: 'https://discord.com/api/webhooks/…', how: 'In Discord open the channel settings, Integrations, Webhooks, create one, and copy the address.' },
+  { id: 'webhook', title: 'Any webhook', sub: 'Sends the message as JSON', hint: 'https://your-system.example/hook', how: 'Any address that accepts a JSON message.' },
+];
+
 /** Where Tolerance tells a person. Telegram, step by step: the bot, the chat, a test message. Others are in Warden. */
 export default function AlertsStep({ onChange }: { onChange: (n: number) => void }) {
   const [chans, setChans] = useState<any[]>([]);
   const [token, setToken] = useState('');
+  const [kind, setKind] = useState('');
+  const [url, setUrl] = useState('');
   const [pair, setPair] = useState<{ bot: string; code: string } | null>(null);
   const [work, setWork] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -37,7 +47,12 @@ export default function AlertsStep({ onChange }: { onChange: (n: number) => void
     }, 2000);
     return () => clearInterval(t);
   }, [pair]);  // eslint-disable-line react-hooks/exhaustive-deps
-  const test = async (id: string) => { try { const t = await call(`/api/jig/channels/${id}/test`, 'POST'); setMsg(t.ok ? { ok: true, text: 'Test message sent. Look in Telegram.' } : { ok: false, text: t.error || 'Telegram did not take the message.' }); await load(); } catch (e: any) { setMsg({ ok: false, text: String(e.message || e) }); } };
+  const addUrl = async () => {
+    setWork('add'); setMsg(null);
+    try { await call('/api/jig/channels', 'POST', undefined, { type: kind, name: '', url }); setUrl(''); setKind(''); await load(); setMsg({ ok: true, text: 'Added. Press Send a test message to check it.' }); } catch (e: any) { setMsg({ ok: false, text: String(e.message || e) }); }
+    setWork('');
+  };
+  const test = async (id: string) => { try { const t = await call(`/api/jig/channels/${id}/test`, 'POST'); setMsg(t.ok ? { ok: true, text: 'Test message sent. Look in the app you chose.' } : { ok: false, text: t.error || 'Telegram did not take the message.' }); await load(); } catch (e: any) { setMsg({ ok: false, text: String(e.message || e) }); } };
   const remove = async (id: string) => { await call(`/api/jig/channels/${id}`, 'DELETE'); await load(); };
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -48,8 +63,17 @@ export default function AlertsStep({ onChange }: { onChange: (n: number) => void
           <span className="row" style={{ gap: 8 }}><button className="btn g sm" onClick={() => test(c.id)}>Send a test message</button><button className="btn g sm" onClick={() => remove(c.id)}>Remove</button></span>
         </div>
       ))}
-      <div className="card flat" style={{ padding: '14px 16px', display: 'grid', gap: 10 }}>
-        <b style={{ fontSize: 15 }}>Telegram</b>
+      <div className="card flat" style={{ padding: '14px 16px', display: 'grid', gap: 12 }}>
+        <b style={{ fontSize: 15 }}>Where should I tell you?</b>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))', gap: 8 }} role="radiogroup" aria-label="Alert channel">
+          {PROVIDERS.map((p) => (
+            <button key={p.id} type="button" role="radio" aria-checked={kind === p.id} onClick={() => { setKind(kind === p.id ? '' : p.id); setMsg(null); setPair(null); }}
+              className="card flat" style={{ textAlign: 'left', padding: '10px 12px', cursor: 'pointer', borderColor: kind === p.id ? 'var(--amber)' : undefined, boxShadow: kind === p.id ? '0 0 0 1px var(--amber)' : undefined }}>
+              <b style={{ fontSize: 14 }}>{p.title}</b><br /><span className="mut" style={{ fontSize: 12.5 }}>{p.sub}</span>
+            </button>
+          ))}
+        </div>
+        {kind === 'telegram' && (<>
         {!pair ? (
           <>
             <ol className="mut" style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6 }}>
@@ -68,9 +92,20 @@ export default function AlertsStep({ onChange }: { onChange: (n: number) => void
             <div className="mut" style={{ fontSize: 13 }}>Waiting for your message… <button type="button" className="btn g sm" onClick={() => setPair(null)}>Cancel</button></div>
           </div>
         )}
+        </>)}
+        {kind && kind !== 'telegram' && (() => {
+          const p = PROVIDERS.find((x) => x.id === kind)!;
+          return (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div className="mut" style={{ fontSize: 14 }}>{p.how}</div>
+              <input value={url} onChange={(e) => { setUrl(e.target.value); setMsg(null); }} placeholder={p.hint} aria-label={`${p.title} webhook address`} autoComplete="off" />
+              <div className="row" style={{ gap: 10 }}><button className="btn sm" disabled={!!work || url.trim().length < 12} onClick={addUrl}>{work === 'add' ? 'Checking…' : `Add ${p.title}`}</button></div>
+            </div>
+          );
+        })()}
         {msg && <div role="status" style={{ fontSize: 13.5, color: msg.ok ? '#7be0a6' : '#ef6b57' }}>{msg.ok ? '✓ ' : '✗ '}{msg.text}</div>}
       </div>
-      <div className="dim" style={{ fontSize: 13 }}>Slack, Teams, Discord and webhooks can be added later on the Warden page.</div>
+      <div className="dim" style={{ fontSize: 13 }}>You can add more channels later on the Warden page. Up to five.</div>
     </div>
   );
 }
