@@ -183,6 +183,13 @@ function Bubble({ m, last, onAct, disabled, conn }: { m: any; last: boolean; onA
         )}
         {last && !mine && card?.type === 'question' && card.q.kind === 'text' && (
           <div style={{ marginTop: 10 }}>
+            {(card.q.options || []).length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                {card.q.options.map((o: any) => (
+                  <button key={o.id} type="button" className="btn g sm" disabled={disabled} onClick={() => onAct({ type: 'answer', qid: card.q.id, value: o.label, label: o.label })}>{o.label}</button>
+                ))}
+              </div>
+            )}
             <textarea rows={2} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={card.q.hint} style={{ width: '100%' }} />
             <div className="row" style={{ marginTop: 8 }}>
               <button className="btn sm" disabled={disabled || !txt.trim()} onClick={() => onAct({ type: 'answer', qid: card.q.id, value: txt.trim(), label: txt.trim() })}>Send</button>

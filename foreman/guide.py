@@ -148,7 +148,8 @@ def questions():
     st = DE.state()
     out = []
     if not p.get("goal") and not p.get("goal_skipped"):
-        out.append({"id": "goal", "kind": "text", "text": "What does this plant make?", "hint": "For example: EV battery packs, or circuit boards. You can skip this."})
+        out.append({"id": "goal", "kind": "text", "text": "What does this plant make?", "hint": "Or write it in your own words. You can skip this.",
+                    "options": [{"id": o, "label": o} for o in (p.get("goal_options") or [])]})
     for c in st["conflicts"]:
         if not c.get("resolved"):
             what = f"{c['subject']} {c['predicate'].replace('_', ' ')}"
@@ -293,9 +294,23 @@ def ensure_data():
         return False
 
 
+def _goal_options():
+    """Up to four short guesses of what the plant makes, taken only from the documents. An empty list when they do not say."""
+    st = DE.state()
+    facts = [{"doc": d["name"], "claims": [f"{c['subject']} {str(c['predicate']).replace('_', ' ')} {c['value']}" for c in d["claims"][:25]]} for d in st["docs"]][:12]
+    out, _ = _ask(VOICE + " Say what products this plant might make, using only the documents. Give at most 4 short answers of 2 to 5 words each (for example: EV battery packs). If the documents do not show what is made, return an empty list. Reply as JSON: {\"options\": [\"...\"]}.",
+                  {"documents": facts}, {"options": []})
+    got = out.get("options") if isinstance(out, dict) else None
+    return [str(x).strip()[:60] for x in (got or []) if isinstance(x, str) and len(x.strip()) >= 3][:4]
+
+
 def _next():
     """Ask the next open question, or move on to the summary."""
     qs = questions()
+    if qs and qs[0]["id"] == "goal" and "goal_options" not in PL.get():
+        opts = _goal_options()
+        PL.update(lambda p: p.update(goal_options=opts))
+        qs = questions()
     if qs:
         q = qs[0]
         _say(q["text"], {"type": "question", "q": q, "left": len(qs)})
