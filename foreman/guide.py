@@ -155,8 +155,15 @@ def questions():
             what = f"{c['subject']} {c['predicate'].replace('_', ' ')}"
             out.append({"id": c["key"], "kind": "choice", "text": f"Your documents disagree about {what}. Which is right?",
                         "options": [{"id": o["claim_id"], "label": f"{o['value']}", "sub": f"{o['doc']}: “{o['quote']}”"} for o in c["options"]]})
-    for g in st["ghosts"]:
-        if g["status"] == "proposed":
+    ghosts = [g for g in st["ghosts"] if g["status"] == "proposed"]
+    if len(ghosts) > 1 and not p.get("ghosts_single"):   # one question for all of them, not one per station
+        names = ", ".join(g["name"] for g in ghosts)
+        out.append({"id": "ghosts", "kind": "choice", "text": f"{len(ghosts)} stations are in your documents but I see no data from them: {names}. Are they real stations?",
+                    "options": [{"id": "add_all", "label": "Yes, all are real", "sub": "I add them to the plant as stations without data."},
+                                {"id": "ignore_all", "label": "No, ignore them all", "sub": ""},
+                                {"id": "one_by_one", "label": "Let me decide one by one", "sub": ""}]})
+    else:
+        for g in ghosts:
             q = g["claims"][0]["quote"] if g["claims"] else ""
             out.append({"id": f"ghost:{g['name']}", "kind": "choice", "text": f"{g['name']} is in your documents but I see no data from it. Is it a real station?",
                         "options": [{"id": "added", "label": "Yes, it is real", "sub": f"“{q}”" if q else ""}, {"id": "ignored", "label": "No, ignore it", "sub": ""}]})
@@ -182,6 +189,14 @@ def _apply(qid, value):
     ids = {o["id"] for o in q["options"]}
     if value not in ids:
         return None
+    if qid == "ghosts":
+        if value == "one_by_one":
+            PL.update(lambda p: p.update(ghosts_single=True))
+        else:
+            for g in DE.state()["ghosts"]:
+                if g["status"] == "proposed":
+                    DE.resolve_action(f"ghost:{g['name']}", "added" if value == "add_all" else "ignored")
+        return "ghosts"
     if qid == "limits":
         if value == "approve_all":
             for g in DE.state()["guardrails"]:
