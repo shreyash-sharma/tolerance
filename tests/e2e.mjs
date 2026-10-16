@@ -121,7 +121,7 @@ await step("8 The Guide settles conflicts, ghost station and limits with the own
     if (t.includes("Yes, draw my plant")) break;
     await sleep(2500);
     const before = (await text()).length;
-    if (!(await click("Approve all")) && !(await click("Yes, it is real"))) await ev(`(() => { const b = [...document.querySelectorAll('button')].find(x => /sop|manual|\.md/i.test(x.textContent) && !x.disabled); if (b) b.click(); })()`);
+    if (!(await click("Approve all")) && !(await click("Yes, all are real")) && !(await click("Yes, it is real"))) await ev(`(() => { const b = [...document.querySelectorAll('button')].find(x => /sop|manual|\.md/i.test(x.textContent) && !x.disabled); if (b) b.click(); })()`);
     await sleep(3500);
     void before;
   }
