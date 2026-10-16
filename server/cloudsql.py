@@ -82,6 +82,27 @@ def _token():
         return ""
 
 
+def _refused(r, tok, what):
+    """A plain sentence for a 401 or 403: which account was used, whether the Cloud SQL permission was granted, and what Google said."""
+    who = (_oauth_cfg() or {}).get("email") or ""
+    reason = ""
+    try:
+        reason = (r.json().get("error") or {}).get("message", "")[:140]
+    except Exception:
+        pass
+    scopes = ""
+    if who and tok:
+        try:
+            scopes = httpx.get("https://oauth2.googleapis.com/tokeninfo", params={"access_token": tok}, timeout=10).json().get("scope", "")
+        except Exception:
+            pass
+    if who and scopes and "sqlservice.admin" not in scopes:
+        return f"{who} is connected, but the Cloud SQL permission was not ticked on Google's screen. Press Use a different account, connect again, and leave every box ticked."
+    if who:
+        return f"Google refused {who}: that account has no right to {what} in this project." + (f" Google says: {reason}" if reason else "") + " Use the project owner's account, or add this account to the project with a Cloud SQL role."
+    return f"Google refused the service account to {what} in this project." + (f" Google says: {reason}" if reason else "")
+
+
 def api_get(project, instance):
     """The instance: {state, policy, ip, version}. Raises ValueError with a plain sentence on failure."""
     tok = _token()
@@ -91,7 +112,7 @@ def api_get(project, instance):
     if r.status_code == 404:
         raise ValueError("I cannot find that instance in that project.")
     if r.status_code in (401, 403):
-        raise ValueError("Google refused: this account may not look at Cloud SQL instances in that project (role cloudsql.viewer or more).")
+        raise ValueError(_refused(r, tok, "look at this Cloud SQL instance"))
     if r.status_code >= 400:
         raise ValueError(f"Google answered {r.status_code}.")
     d = r.json()
@@ -106,7 +127,7 @@ def api_find(project, host):
         raise ValueError("I have no Google Cloud credentials here. Press Connect Google Cloud.")
     r = httpx.get(f"https://sqladmin.googleapis.com/v1/projects/{project}/instances", headers={"Authorization": f"Bearer {tok}"}, timeout=20)
     if r.status_code in (401, 403):
-        raise ValueError("Google refused: this account may not list Cloud SQL instances in that project.")
+        raise ValueError(_refused(r, tok, "list Cloud SQL instances"))
     if r.status_code >= 400:
         raise ValueError(f"Google answered {r.status_code}.")
     for d in r.json().get("items", []):

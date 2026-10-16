@@ -178,6 +178,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
       {gcp && !done && (
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'grid', gap: 6 }}>
           <div className="mut" style={{ fontSize: 13 }}>{gs?.config ? <><b style={{ color: '#7be0a6' }}>Google Cloud: watching {gs.config.instance}</b> · if it stops, I propose to start it again and a person approves.</> : 'This database is on Google Cloud SQL, so Connect first asks you to sign in with Google. I then find the instance by its address and watch it. I only ever send a start. The card says Connected only when both worked.'}</div>
+          {gs?.oauth?.connected && !gs?.config && <div className="mut" style={{ fontSize: 13 }}>Signed in with Google as <b>{gs.oauth.email || 'an account'}</b>. <button type="button" onClick={async () => { try { await fetch('/api/cloud/oauth', { method: 'DELETE', headers: await authHeader() }); } catch { /* shown again below */ } setGs(await cloudStatus()); }} style={{ background: 'none', border: 0, color: 'var(--amber)', cursor: 'pointer', padding: 0 }}>Use a different account</button></div>}
           {!gs?.config && <input value={project} onChange={(e) => setProject(e.target.value)} placeholder={gs?.default_project ? `Google Cloud project id (default ${gs.default_project})` : 'Google Cloud project id'} aria-label="Google Cloud project id" style={{ maxWidth: 330 }} />}
         </div>
       )}
