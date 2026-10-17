@@ -175,32 +175,37 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const N=4,M=110,base=k>=COOLK?9:13,apU=P_.ap/Math.max(tip,1);
-    for(let j=0;j<N;j++){const pts=[],jj=j-(N-1)/2;
-      for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
-        const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u);
-        const grip=ss(apU-.02,apU+.04,u);                                          // tight where it holds on
-        const braid=ss(.1,.55,u)*(jj*3.2+6*Math.sin(u*13+j*1.57+t*1.6+k))*(1-.65*grip);   // strands fused at the root, twisting apart further out
-        const fan=jj*26*ss(.86,1,u)*(.4+.6*bond);                                 // and fan out into claws at the tip
-        const o=whip+braid+fan;let x=x0-dy*o,y=y0+dx*o;
-        const w=(1.1+base*Math.pow(1-u,.9)*(1-.35*ss(.1,.5,u)))*(1+.1*Math.sin(t*4-u*12+j));   // a heavy trunk tapering to barbs
-        x+=(LX-x)*pull;y+=(LY-y)*pull;pts.push([x,y,w*(1-pull*.9)]);}
-      strands.push({pts,bond,cool,seed:k*7+j});}
+    const M=120,base=k>=COOLK?24:34,apU=P_.ap/Math.max(tip,1);
+    const point=(u,off)=>{const [x0,y0,dx,dy]=at(P_,tip*u);
+      const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u),o=whip+off;
+      let x=x0-dy*o,y=y0+dx*o;x+=(LX-x)*pull;y+=(LY-y)*pull;return [x,y]};
+    // one muscular trunk: heavy at the root, bulges rolling along it, thinning where the claws split off
+    const trunk=[];
+    for(let i=0;i<M;i++){const u=i/(M-1)*.9,[x,y]=point(u,0);
+      const grip=ss(apU-.02,apU+.05,u),muscle=1+.2*Math.sin(t*3.2-u*20+k)*(1-.5*grip);
+      const w=(2+base*Math.pow(1-u/.9,.42)*(1-.3*grip))*muscle;trunk.push([x,y,w*(1-pull*.9)])}
+    strands.push({pts:trunk,bond,cool,seed:k*7});
+    // three hooked claws out of the end
+    for(let c=0;c<3;c++){const pts=[],cc=c-1;
+      for(let i=0;i<34;i++){const v=i/33,u=.84+.16*v,curl=cc*34*ss(0,1,v)*(.45+.55*bond)+Math.sin(v*3.1)*8*(c==1?1:-cc);
+        const [x,y]=point(u,curl);pts.push([x,y,(1.2+6.5*Math.pow(1-v,.8))*(1-pull*.9)])}
+      strands.push({pts,bond,cool,seed:k*7+c+1});}
   });
   // a soft cast shadow first, then the bodies
   AC.save();AC.shadowColor='rgba(0,0,0,.55)';AC.shadowBlur=18;AC.shadowOffsetX=10;AC.shadowOffsetY=14;AC.fillStyle='rgba(0,0,0,.35)';
   strands.forEach(st=>{const {Lf,Rt}=strandShape(st.pts);fillShape(Lf,Rt)});AC.restore();
   strands.forEach(st=>{
     const {pts,bond,cool}=st,{Lf,Rt}=strandShape(pts);
-    const edge=cool>0?`rgb(${mix([110,52,14],[30,110,80],cool)})`:'#6e340e',mid=cool>0?`rgb(${mix([226,150,48],[110,210,160],cool)})`:'#e2962f',hi=cool>0?`rgb(${mix([250,200,110],[190,245,215],cool)})`:'#f8c86c';
+    const edge=`rgb(${mix([92,40,10],[22,92,66],cool)})`,mid=`rgb(${mix([214,128,34],[96,200,150],cool)})`,hi=`rgb(${mix([248,196,104],[186,244,212],cool)})`;
     AC.fillStyle=edge;fillShape(Lf,Rt);
     // the warm core, set towards the lit (upper) side
-    const core=pts.map((q,i)=>[q[0]+(Lf[i][1]<Rt[i][1]?Lf[i][0]-q[0]:Rt[i][0]-q[0])*.25,q[1]+(Lf[i][1]<Rt[i][1]?Lf[i][1]-q[1]:Rt[i][1]-q[1])*.25,q[2]*.62]);
+    const mid_=pts.length>>1,UP=Lf[mid_][1]<Rt[mid_][1]?Lf:Rt;      // one lit side for the whole limb
+    const core=pts.map((q,i)=>[q[0]+(UP[i][0]-q[0])*.25,q[1]+(UP[i][1]-q[1])*.25,q[2]*.62]);
     const c1=strandShape(core);AC.fillStyle=mid;fillShape(c1.Lf,c1.Rt);
     const c2=strandShape(core.map(q=>[q[0],q[1],q[2]*.45]));AC.fillStyle=hi;fillShape(c2.Lf,c2.Rt);
     // a crisp highlight along the top edge
-    AC.save();AC.strokeStyle='rgba(255,250,235,.85)';AC.lineWidth=1.4;AC.lineCap='round';AC.beginPath();
-    for(let i=Math.floor(pts.length*.12);i<pts.length*.8;i++){const up=Lf[i][1]<Rt[i][1]?Lf[i]:Rt[i],q=pts[i],x=q[0]+(up[0]-q[0])*.7,y=q[1]+(up[1]-q[1])*.7;i==Math.floor(pts.length*.12)?AC.moveTo(x,y):AC.lineTo(x,y)}
+    AC.save();AC.strokeStyle='rgba(255,250,235,.9)';AC.lineWidth=Math.max(1.4,pts[0][2]*.14);AC.lineCap='round';AC.beginPath();
+    for(let i=Math.floor(pts.length*.12);i<pts.length*.8;i++){const up=UP[i],q=pts[i],x=q[0]+(up[0]-q[0])*.7,y=q[1]+(up[1]-q[1])*.7;i==Math.floor(pts.length*.12)?AC.moveTo(x,y):AC.lineTo(x,y)}
     AC.stroke();AC.restore();
     // green veins once it has bonded
     const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+st.seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
