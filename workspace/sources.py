@@ -295,16 +295,50 @@ class Live:
     def stop(self):
         self.run = False
 
-    def _loop(self):
-        while self.run:
-            for s in list(store.load()["sources"]):
-                if not self.run:
-                    break
-                if s["live"] and s["syncs"] > 0:
+    def _visitors(self):
+        """Every signed-in visitor that has a saved plant (the laptop's own store is handled on its own)."""
+        from plant import core
+        try:
+            return [f[:-5] for f in os.listdir(os.path.join(core.DATA, "users")) if f.endswith(".json")]
+        except OSError:
+            return []
+
+    def _pass(self, last):
+        """The laptop's own live sources, as before, then each signed-in visitor's: their streams (MQTT, Kafka, OPC UA) every few seconds, their databases every half minute."""
+        for s in list(store.load()["sources"]):
+            if not self.run:
+                return
+            if s["live"] and s["syncs"] > 0:
+                try:
+                    sync(s["id"])
+                except Exception as e:
+                    self.errors[s["id"]] = str(e)[:160]
+        stream = ("mqtt_live", "kafka_live", "opcua_live")
+        for uid in self._visitors():
+            tok = store.UID.set(uid)
+            try:
+                for s in list(store.load()["sources"]):
+                    if not self.run:
+                        return
+                    if not (s["live"] and s["syncs"] > 0) or s["kind"] not in stream + ("sql_live", "mongo_live"):
+                        continue
+                    key = (uid, s["id"])
+                    if key not in last:   # just seen: it was loaded a moment ago, so the first re-read waits one interval
+                        last[key] = time.time()
+                    if time.time() - last[key] < (3 if s["kind"] in stream else 30):
+                        continue
+                    last[key] = time.time()
                     try:
                         sync(s["id"])
                     except Exception as e:
                         self.errors[s["id"]] = str(e)[:160]
+            finally:
+                store.UID.reset(tok)
+
+    def _loop(self):
+        last = {}
+        while self.run:
+            self._pass(last)
             time.sleep(self.every)
 
 
