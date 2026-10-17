@@ -4,11 +4,11 @@ This opens a 4-minute demo that already walks through the documents, the compile
 
 **Angle.** Tolerance is a symbiote and the factory is its host (the landing page's own line). It takes the factory over, and when the oven catches fire it cools it and tells you.
 
-**Look.** Dark deco, after the 90s *Batman: The Animated Series*: everything painted on black and shaped by light, solid silhouettes with one thin rim of light, blood-red and deep-amber skies, searchlights, condensed letterspaced titles, a little paper grain. The symbiote is a shadow body with an amber rim; its veins turn green where it has bonded. Motion is on twos (12 drawings a second). An original creature, not any film or comic character.
+**Look.** Dark deco, after the 90s *Batman: The Animated Series*: everything painted on black and shaped by light, solid silhouettes with one thin rim of light, blood-red and deep-amber skies, searchlights, condensed letterspaced titles, a little paper grain. The symbiote is a shadow body with an amber rim; its veins turn green where it has bonded. Motion is smooth and continuous, rendered at 60 fps. An original creature, not any film or comic character.
 
 **Ties to the demo.** The 250°C oven limit is the playbook threshold shown at 2:15, and the warning card stands in for the Telegram message that follows.
 
-## Storyboard (15.0 s, 1920x1080, 30 fps)
+## Storyboard (15.0 s, 1920x1080, 60 fps)
 
 | Time | On screen | Sound |
 |---|---|---|
@@ -19,4 +19,4 @@ This opens a 4-minute demo that already walks through the documents, the compile
 | 10.0-12.0 | Its warning slides in: "OVN1 overheated · 268°C. I cooled it to 240°C and held the line. Review the cause when you are ready." "AND IT TELLS YOU." | Two-note chime, a calm chord |
 | 12.0-15.0 | Red title card: the logo, "TOLERANCE", "A SYMBIOTIC COMPILER FOR FACTORIES", "GOOGLE CLOUD AI BUILDER CUP 2026 · MANUFACTURING" | Landing hit, D major chord, fade |
 
-Re-render from `brag-output/scripts`: `node capture.js && python3 audio.py music.wav && ffmpeg -framerate 30 -i frames/f_%04d.png -i music.wav -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -shortest ../brag.mp4`
+Re-render from `brag-output/scripts`: `node capture.js && python3 audio.py music.wav && ffmpeg -framerate 60 -i frames/f_%04d.png -i music.wav -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -shortest ../brag.mp4`
