@@ -94,11 +94,12 @@ def need(permission):
 
 
 def _audit(text):
-    d = store.load()
-    h = d.setdefault("host", {})
-    h.setdefault("audit", []).append({"at": time.time(), "text": text})
-    del h["audit"][:-80]
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        h = d.setdefault("host", {})
+        h.setdefault("audit", []).append({"at": time.time(), "text": text})
+        del h["audit"][:-80]
+        store.save(d)
 
 
 # ------------------------------------------------------------------ the Team page API
@@ -130,98 +131,105 @@ def team(x_acting_as: str = Header("")):
 
 @router.post("/people", dependencies=[Depends(need("manage_team"))])
 def add_person(b: Person):
-    d = store.load()
-    r = _state(d)
-    if b.role not in r["roles"] or b.role == "Owner":
-        raise HTTPException(400, "Pick a role from the list. There is one Owner.")
-    if not b.name.strip():
-        raise HTTPException(400, "Write the person's name.")
-    r["members"].append({"id": store.new_id("m"), "name": b.name.strip()[:60], "email": b.email.strip()[:120], "role": b.role, "owner": False, "telegram_id": "", "link_code": secrets.token_hex(3).upper()})
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        if b.role not in r["roles"] or b.role == "Owner":
+            raise HTTPException(400, "Pick a role from the list. There is one Owner.")
+        if not b.name.strip():
+            raise HTTPException(400, "Write the person's name.")
+        r["members"].append({"id": store.new_id("m"), "name": b.name.strip()[:60], "email": b.email.strip()[:120], "role": b.role, "owner": False, "telegram_id": "", "link_code": secrets.token_hex(3).upper()})
+        store.save(d)
     _audit(f"{label(current())} added {b.name.strip()} as {b.role}")
     return JSONResponse(_public(_state()))
 
 
 @router.post("/people/{mid}/role", dependencies=[Depends(need("manage_team"))])
 def set_role(mid: str, role: str):
-    d = store.load()
-    r = _state(d)
-    m = next((x for x in r["members"] if x["id"] == mid), None)
-    if not m or m.get("owner"):
-        raise HTTPException(400, "The owner's role cannot be changed.")
-    if role not in r["roles"] or role == "Owner":
-        raise HTTPException(400, "Pick a role from the list.")
-    old, m["role"] = m["role"], role
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        m = next((x for x in r["members"] if x["id"] == mid), None)
+        if not m or m.get("owner"):
+            raise HTTPException(400, "The owner's role cannot be changed.")
+        if role not in r["roles"] or role == "Owner":
+            raise HTTPException(400, "Pick a role from the list.")
+        old, m["role"] = m["role"], role
+        store.save(d)
     _audit(f"{label(current())} changed {m['name']} from {old} to {role}")
     return JSONResponse(_public(_state()))
 
 
 @router.delete("/people/{mid}", dependencies=[Depends(need("manage_team"))])
 def remove_person(mid: str):
-    d = store.load()
-    r = _state(d)
-    m = next((x for x in r["members"] if x["id"] == mid), None)
-    if not m or m.get("owner"):
-        raise HTTPException(400, "The owner cannot be removed.")
-    r["members"].remove(m)
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        m = next((x for x in r["members"] if x["id"] == mid), None)
+        if not m or m.get("owner"):
+            raise HTTPException(400, "The owner cannot be removed.")
+        r["members"].remove(m)
+        store.save(d)
     _audit(f"{label(current())} removed {m['name']}")
     return JSONResponse(_public(_state()))
 
 
 @router.post("/roles", dependencies=[Depends(need("manage_team"))])
 def save_role(b: RoleBody):
-    d = store.load()
-    r = _state(d)
-    name = b.name.strip()[:30]
-    if not name or name in BUILTIN:
-        raise HTTPException(400, "Choose a new name. The four built-in roles cannot be changed.")
-    perms = [p for p in b.permissions if p in PERMS]
-    if "view" not in perms:
-        perms.insert(0, "view")
-    r["roles"][name] = {"permissions": perms, "builtin": False, "note": "Custom role."}
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        name = b.name.strip()[:30]
+        if not name or name in BUILTIN:
+            raise HTTPException(400, "Choose a new name. The four built-in roles cannot be changed.")
+        perms = [p for p in b.permissions if p in PERMS]
+        if "view" not in perms:
+            perms.insert(0, "view")
+        r["roles"][name] = {"permissions": perms, "builtin": False, "note": "Custom role."}
+        store.save(d)
     _audit(f"{label(current())} saved the role {name}: {', '.join(perms)}")
     return JSONResponse(_public(_state()))
 
 
 @router.delete("/roles/{name}", dependencies=[Depends(need("manage_team"))])
 def delete_role(name: str):
-    d = store.load()
-    r = _state(d)
-    if name in BUILTIN or name not in r["roles"]:
-        raise HTTPException(400, "Only custom roles can be deleted.")
-    if any(m["role"] == name for m in r["members"]):
-        raise HTTPException(400, "Move the people who hold this role to another role first.")
-    del r["roles"][name]
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        if name in BUILTIN or name not in r["roles"]:
+            raise HTTPException(400, "Only custom roles can be deleted.")
+        if any(m["role"] == name for m in r["members"]):
+            raise HTTPException(400, "Move the people who hold this role to another role first.")
+        del r["roles"][name]
+        store.save(d)
     _audit(f"{label(current())} deleted the role {name}")
     return JSONResponse(_public(_state()))
 
 
 def link_telegram(code, telegram_id):
     """A person sends /link <code> to the bot: their Telegram account is tied to their place on the team."""
-    d = store.load()
-    r = _state(d)
-    m = next((x for x in r["members"] if x.get("link_code") and hmac.compare_digest(x["link_code"], code.strip().upper())), None)
-    if not m:
-        return None
-    m["telegram_id"] = str(telegram_id)
-    m["link_code"] = ""
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        m = next((x for x in r["members"] if x.get("link_code") and hmac.compare_digest(x["link_code"], code.strip().upper())), None)
+        if not m:
+            return None
+        m["telegram_id"] = str(telegram_id)
+        m["link_code"] = ""
+        store.save(d)
     _audit(f"{m['name']} linked Telegram")
     return m
 
 
 def link_owner(telegram_id, first_name=""):
     """The first tap from the paired chat, before anyone is linked: tie that Telegram account to the owner."""
-    d = store.load()
-    r = _state(d)
-    o = next(x for x in r["members"] if x.get("owner"))
-    o["telegram_id"] = str(telegram_id)
-    if o["name"] in ("", "You", "Owner") and first_name:
-        o["name"] = first_name
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        r = _state(d)
+        o = next(x for x in r["members"] if x.get("owner"))
+        o["telegram_id"] = str(telegram_id)
+        if o["name"] in ("", "You", "Owner") and first_name:
+            o["name"] = first_name
+        store.save(d)
     _audit(f"{o['name']} (Owner) linked Telegram by the first tap from the paired chat")
     return o

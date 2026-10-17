@@ -32,9 +32,10 @@ def own_lake():
 
 def set_own_lake():
     uid = store.UID.get()
-    d = store.load()
-    d["own_lake"] = True
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        d["own_lake"] = True
+        store.save(d)
     _OWN[uid] = (True, time.time())
 
 

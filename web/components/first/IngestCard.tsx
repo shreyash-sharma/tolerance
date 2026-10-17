@@ -73,7 +73,7 @@ async function ensureGoogle(host: string, project: string, s: any, popup: Window
       await new Promise((res) => setTimeout(res, 1500));
       const x = await cloudStatus();
       if (x?.oauth?.connected) break;
-      if ((popup && popup.closed) || Date.now() - t0 > 180000) throw new Error('Google Cloud was not connected, so I did not connect this database. Press Connect again and agree on the Google screen.');
+      if (Date.now() - t0 > 180000) throw new Error('Google Cloud was not connected, so I did not connect this database. Press Connect again and agree on the Google screen.');
     }
   }
   const r = await fetch('/api/cloud/auto', { method: 'POST', headers: { 'content-type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ host, project }) });

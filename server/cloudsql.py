@@ -304,9 +304,10 @@ def save(b: Body):
         info = api_get(p, i)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    d = store.load()
-    d["cloud_sql"] = {"project": p, "instance": i, "affects": [x for x in b.affects if isinstance(x, str)][:8], "last": dict(info, up=is_up(info), starting=classify(info) is None, at=time.time(), error="")}
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        d["cloud_sql"] = {"project": p, "instance": i, "affects": [x for x in b.affects if isinstance(x, str)][:8], "last": dict(info, up=is_up(info), starting=classify(info) is None, at=time.time(), error="")}
+        store.save(d)
     watch(store.UID.get())
     return JSONResponse({"config": d["cloud_sql"]})
 
@@ -331,7 +332,8 @@ def auto(b: Auto):
 
 @router.delete("", dependencies=[Depends(rbac.need("connect_systems"))])
 def remove():
-    d = store.load()
-    d.pop("cloud_sql", None)
-    store.save(d)
+    with store.LOCK:
+        d = store.load()
+        d.pop("cloud_sql", None)
+        store.save(d)
     return JSONResponse({"config": None})

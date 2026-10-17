@@ -12,7 +12,7 @@ from server import rbac
 from workspace import store
 
 router = APIRouter(prefix="/api/host")
-LOCK = threading.RLock()
+LOCK = store.LOCK   # the workspace file's own lock: a read-change-write here can never be overwritten by a stale copy from another thread
 
 # the services the probe may restart, and the stations whose data each one carries (from the plant's documents)
 UNITS = {
@@ -166,13 +166,14 @@ def _tell(inc, extra="", buttons=False):
 
 def process(rep):
     """One report from a probe. Returns the commands it should run."""
-    d = store.load()
-    h = _state(d)
     name = rep["name"]
-    pr = h["probes"].setdefault(name, {"first": time.time()})
-    prev = dict(pr.get("services") or {})
-    pr.update(services=rep.get("services") or {}, readings=rep.get("readings") or {}, seen=time.time(), where=rep.get("where", ""))
-    store.save(d)
+    with LOCK:
+        d = store.load()
+        h = _state(d)
+        pr = h["probes"].setdefault(name, {"first": time.time()})
+        prev = dict(pr.get("services") or {})
+        pr.update(services=rep.get("services") or {}, readings=rep.get("readings") or {}, seen=time.time(), where=rep.get("where", ""))
+        store.save(d)
     notices = []
     with LOCK:
         d = store.load()
@@ -279,9 +280,10 @@ _POLL = {}
 
 
 def _audit_note(text):
-    d = store.load()
-    _audit(_state(d), text)
-    store.save(d)
+    with LOCK:
+        d = store.load()
+        _audit(_state(d), text)
+        store.save(d)
 
 
 def _watch(ch):
@@ -468,10 +470,11 @@ def _pair_loop(code):
                         store.UID.reset(tok)
                     tok = store.UID.set(p["uid"])
                     try:
-                        d_ = store.load()
-                        own = next(x for x in rbac._state(d_)["members"] if x.get("owner"))
-                        own["telegram_id"] = str((m.get("from") or {}).get("id") or "")
-                        store.save(d_)
+                        with LOCK:
+                            d_ = store.load()
+                            own = next(x for x in rbac._state(d_)["members"] if x.get("owner"))
+                            own["telegram_id"] = str((m.get("from") or {}).get("id") or "")
+                            store.save(d_)
                     finally:
                         store.UID.reset(tok)
                     p.update(done=True, chat=str(chat["id"]), name=name)
