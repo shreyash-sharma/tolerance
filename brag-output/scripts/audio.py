@@ -44,6 +44,11 @@ for b in beats: add(thump(), b, .85); add(thump(40), b + .13, .45)
 for i, s0 in enumerate([1.60, 1.95, 2.25, 2.55, 2.85, 3.15]):
     add(whip(.22), s0 + .45, .4, .5 - i*.2)
     xb = x_(.18); add(np.sin(2*np.pi*hz(81 + (i % 3)*2)*xb) * np.exp(-xb*20), s0 + .85, .16, i*.3 - .7)
+# goo: a wet stretch as each tentacle grows, a squeeze as it wraps its machine
+for i, s0 in enumerate([1.60, 1.95, 2.25, 2.55, 2.85, 3.15]):
+    d = .5; xg = x_(d); wob = np.sin(2*np.pi*(90 + 60*xg/d)*xg + 3*np.sin(2*np.pi*7*xg))
+    add(lowpass(rng.standard_normal(len(xg)), .04) * 5 * wob * env(len(xg), .15, .25), s0 + .1, .22, .5 - i*.2)
+    xq = x_(.18); add(np.sin(2*np.pi*(140 - 300*xq)*xq) * np.exp(-xq*14), s0 + 1.3, .3, .5 - i*.2)
 # the fire: crackles that thicken, a roar and a rumble that swell, an alarm that speeds up
 d = 3.0; xo = x_(d); k = (xo/d)**1.4
 add((noise(d, .5) - noise(d, .08)) * k * env(len(xo), .3, .02), 5.0, .6)                    # roar
