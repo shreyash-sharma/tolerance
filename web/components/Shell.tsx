@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
-import { api, post } from '@/lib/api';
+import { api, post, warm } from '@/lib/api';
 import { usePlant } from '@/lib/plant';
 import { useAuth, signOutUser } from '@/lib/auth';
 import FirstRun from '@/components/first/FirstRun';
@@ -52,6 +52,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
   const ready = auth.status === 'off' || auth.status === 'in';
   const { data, reload } = usePlant(ready);
   const stage = data?.plant.stage;
+  useEffect(() => { if (stage === 'done' || stage === 'tour') warm(); }, [stage]);   // every page's data is read in the background, so no page opens on 'Loading…'
   const [ws, setWs] = useState<Ws | null>(null);
   const [menu, setMenu] = useState(false);
   const [code, setCode] = useState('');
