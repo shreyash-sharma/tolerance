@@ -21,6 +21,11 @@ UNITS = {
     "cloud_sql": {"label": "Cloud SQL database", "affects": ["WH1", "C1", "C2"], "what": "the ERP orders and materials"},
 }
 OVEN = "OVN1"
+# the readings a probe reports, and the station each one belongs to. The playbook page uses this to say what is watched from a station.
+READINGS = {
+    "oven_temp_c": {"label": "Oven temperature", "unit": "\u00B0C", "station": OVEN, "limit": "max_temp_c"},
+    "oven_target_c": {"label": "Oven setpoint", "unit": "\u00B0C", "station": OVEN},
+}
 OVEN_SAFE = 235.0   # the setpoint a fix asks for
 
 

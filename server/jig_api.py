@@ -160,6 +160,22 @@ def mcp_servers_list():
     return j({"servers": ((PL.get().get("wishes") or {}).get("mcp_servers") or [])})
 
 
+# ----- what the owner says they use that this build cannot read yet (an MCP server, for example)
+@router.post("/wishes")
+def wishes_add(mcp_url: str = Form("")):
+    import re
+    url = re.sub(r"//[^/@\s]*@", "//", mcp_url.strip())[:300]   # a password must never be stored
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "An MCP server address starts with http:// or https://")
+
+    def put(p):
+        w = p.get("wishes") or {"also": [], "db_url": "", "mcp_url": ""}
+        w["mcp_extra"] = (w.get("mcp_extra") or [])[-4:] + [url]
+        p["wishes"] = w
+    PL.update(put)
+    return j({"ok": True})
+
+
 # ----- the owner's edited floor (a Pascal scene graph kept per visitor)
 @router.get("/feeds")
 def feeds_get():
@@ -214,6 +230,12 @@ class PlaybookBody(BaseModel):
 def playbooks_get():
     from foreman import playbook as PB
     return j({**PB.list_public(), "starter": PB.starter()})
+
+
+@router.get("/playbooks/signals")
+def playbooks_signals(station: str):
+    from foreman import playbook as PB
+    return j(PB.signals(station))
 
 
 @router.post("/playbooks")

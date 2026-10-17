@@ -12,7 +12,8 @@ SOURCES = {
     "failures": "Failures in the last N hours",
     "forecast": "Chance of failing in the next 4 hours",
     "rule": "A Sentinel rule is passing",
-    "reading": "A reading from a probe (like the oven temperature)",
+    "reading": "A reading from a probe",
+    "service": "A service on your server is running",
 }
 ACTIONS = {"notify": "Tell my channels", "inspect": "Inspect or measure", "schedule_maintenance": "Schedule maintenance", "adjust_speed": "Lower the speed", "adjust_temperature": "Lower the temperature", "clear_jam": "Clear a jam", "restart_station": "Restart the station", "stop_station": "Stop the station"}
 TYPES = {"trigger", "check", "decision", "action"}
@@ -24,7 +25,65 @@ def _all():
 
 
 def list_public():
-    return {"playbooks": _all()[1], "sources": SOURCES, "actions": ACTIONS, "ops": engine.OPS, "no_value": list(engine.NO_VALUE)}
+    from server import hostops as HO
+    return {"playbooks": _all()[1], "sources": SOURCES, "actions": ACTIONS, "ops": engine.OPS, "no_value": list(engine.NO_VALUE),
+            "stations": stations_list(), "units": {k: v["label"] for k, v in HO.UNITS.items()}}
+
+
+def _probes():
+    return (store.load().get("host") or {}).get("probes") or {}
+
+
+def stations_list():
+    """Every station a playbook can be about: the plant's stations, plus those a probe reading or a service it reports belongs to."""
+    from server import hostops as HO, ws_api
+    names = {s["name"] for s in (ws_api.twin_cached().get("stations") or []) if not str(s.get("id", "")).startswith("ghost:")}
+    for p in _probes().values():
+        for k in (p.get("readings") or {}):
+            if k in HO.READINGS:
+                names.add(HO.READINGS[k]["station"])
+        for u in (p.get("services") or {}):
+            if u in HO.UNITS:
+                names.update(HO._affects(u, HO.UNITS[u]))
+    return sorted(names)
+
+
+def signals(station):
+    """Everything that is watched from one station, with the live value, so the owner can pick what a playbook should be about."""
+    from documents import engine as DE
+    from server import hostops as HO, ws_api
+    from sentinel import service as SV
+    low = str(station).lower()
+    out, limits = [], []
+    st = next((s for s in (ws_api.twin_cached().get("stations") or []) if str(s["name"]).lower() == low and not str(s.get("id", "")).startswith("ghost:")), None)
+    if st and st.get("state") != "unknown":
+        out.append({"id": "state", "kind": "state", "label": "Machine state", "now": st.get("state"), "source": "the machine data", "trigger": "fails"})
+        if st.get("failures") is not None:
+            out.append({"id": "failures", "kind": "failures", "label": "Failures in the last 24 hours", "now": st.get("failures"), "source": "the machine data", "op": "gte", "value": "3"})
+        if st.get("p_fail") is not None:
+            out.append({"id": "forecast", "kind": "forecast", "label": "Chance of failing in the next 4 hours", "now": round(float(st["p_fail"]), 2), "source": "the forecast", "op": "gte", "value": "0.3"})
+    try:
+        for g in DE.state().get("guardrails", []):
+            if str(g.get("subject", "")).lower() == low and g.get("value") is not None:
+                limits.append({"what": str(g["predicate"]).replace("_", " "), "predicate": g["predicate"], "value": g["value"], "doc": g.get("doc")})
+    except Exception:
+        pass
+    lim = {x["predicate"]: x["value"] for x in limits}
+    for pname, p in _probes().items():
+        for k, v in (p.get("readings") or {}).items():
+            meta = HO.READINGS.get(k)
+            if meta and str(meta["station"]).lower() == low and v is not None:
+                lv = lim.get(meta.get("limit")) if meta.get("limit") else None
+                out.append({"id": "reading:" + k, "kind": "reading", "key": k, "label": meta["label"], "unit": meta["unit"], "now": round(float(v), 1), "source": f"probe {pname}", "limit": lv, "op": "gt"})
+        for u, up in (p.get("services") or {}).items():
+            meta = HO.UNITS.get(u)
+            if meta and low in [x.lower() for x in HO._affects(u, meta)]:
+                out.append({"id": "service:" + u, "kind": "service", "unit": u, "label": meta["label"], "now": "running" if up else "down", "source": f"probe {pname}", "carries": meta["what"]})
+    try:
+        rules = [r["name"] for r in SV.public()["rules"] if station in (r.get("stations") or [])]
+    except Exception:
+        rules = []
+    return {"station": station, "signals": out, "limits": limits, "rules": rules}
 
 
 def validate(pb):
@@ -116,6 +175,11 @@ def _observe(data, station):
         return next((x for x in (r.get("result") or {}).get("stations", []) if str(x.get("name", "")).lower() == station.lower()), {})
     if src == "reading":
         return _readings()
+    if src == "service":
+        up = [bool((p.get("services") or {}).get(data.get("unit"))) for p in ((store.load().get("host") or {}).get("probes") or {}).values() if data.get("unit") in (p.get("services") or {})]
+        if not up:
+            raise RuntimeError("no probe has reported that service yet")
+        return {"running": 1 if all(up) else 0}
     if src == "rule":
         from sentinel import service as SV
         res = SV.run_rule(data.get("rule_id"))
