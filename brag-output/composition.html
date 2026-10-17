@@ -1,17 +1,22 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Libre+Baskerville:ital@0;1&family=JetBrains+Mono:wght@500;700&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Barlow:wght@500;700&family=JetBrains+Mono:wght@500;700&display=block" rel="stylesheet">
 <style>*{margin:0;padding:0}html,body{width:1920px;height:1080px;overflow:hidden;background:#000}canvas{display:block}</style>
 </head><body>
 <canvas id="c" width="1920" height="1080"></canvas>
 <script>
-// Dark-deco intro: the scene is painted on black and shaped by light.
-// The symbiote takes the plant over, stops a dangerous command, then waits for a person.
+// Dark-deco intro, painted on black and shaped by light. One continuous factory shot:
+// the symbiote takes the factory over, the camera closes in on the oven as it catches fire,
+// the symbiote cools it, then sends a warning.
 const cv=document.getElementById('c'),X=cv.getContext('2d'),W=1920,H=1080;
 const BLK='#030304',BODY='#0d0805',RIM='#ffb53d',RIM2='#ffd391',GRN='#3dff9a',RED='#d4141a',WIN='#ffc560',IVORY='#f3ead8';
 const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),P=(t,s,e)=>cl((t-s)/(e-s));
-const eo=x=>1-Math.pow(1-x,3),lerp=(a,b,k)=>a+(b-a)*k;
+const eo=x=>1-Math.pow(1-x,3),eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,lerp=(a,b,k)=>a+(b-a)*k;
 const rnd=i=>{const s=Math.sin(i*127.1+311.7)*43758.5453;return s-Math.floor(s)};
+const mix=(a,b,k)=>{const h=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16));const A=h(a),B=h(b);return `rgb(${A.map((v,i)=>Math.round(lerp(v,B[i],cl(k)))).join(',')})`};
+
+// the beats
+const TAKE=1.6, PUSH=4.6, FIRE=5.0, COOL=8.0, MSG=10.0, LOGO=12.0;
 
 // paper grain, like paint on black board
 const grain=document.createElement('canvas');grain.width=W;grain.height=H;
@@ -22,34 +27,32 @@ function catmull(pts,n){const o=[];for(let i=0;i<pts.length-1;i++){const p0=pts[
   o.push(pts[pts.length-1]);return o}
 function trim(pts,g){if(g>=1)return pts;let L=0;const d=[0];for(let i=1;i<pts.length;i++){L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);d.push(L)}
   const tg=L*g,o=[];for(let i=0;i<pts.length;i++){if(d[i]<=tg)o.push(pts[i]);else{const k=(tg-d[i-1])/(d[i]-d[i-1]);o.push([lerp(pts[i-1][0],pts[i][0],k),lerp(pts[i-1][1],pts[i][1],k)]);break}}return o}
-// the symbiote: a shadow body, one hard rim of light, faint veins
-function tendril(pts,w0,{wob=0,tq=0,seed=0,bond=0,rim=RIM}={}){
+// the symbiote: a shadow body, one hard rim of light, veins that turn green once it has bonded
+function tendril(pts,w0,{wob=0,tq=0,seed=0,bond=0,rim=RIM,lw=3.5}={}){
   if(pts.length<2)return;const n=pts.length,L=[],R=[],C=[];
   for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)];let dx=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
     const u=i/(n-1),w=w0*Math.pow(1-u,.6),off=wob*Math.sin(u*8-tq*6+seed);
     const cx=pts[i][0]-dy*off,cy=pts[i][1]+dx*off;C.push([cx,cy]);L.push([cx-dy*w,cy+dx*w]);R.push([cx+dy*w,cy-dx*w]);}
-  const up=(L[n>>1][1]<R[n>>1][1])?L:R;   // the lit edge is whichever side faces up
+  const up=(L[n>>1][1]<R[n>>1][1])?L:R;
   X.beginPath();X.moveTo(L[0][0],L[0][1]);for(const p of L)X.lineTo(p[0],p[1]);for(let i=n-1;i>=0;i--)X.lineTo(R[i][0],R[i][1]);X.closePath();
   X.fillStyle=BODY;X.fill();
   X.save();X.clip();
-  X.strokeStyle=bond>.5?'rgba(61,255,154,.5)':'rgba(255,181,61,.22)';X.lineWidth=2;X.beginPath();
+  X.strokeStyle=bond>.5?`rgba(61,255,154,${.5*bond})`:'rgba(255,181,61,.22)';X.lineWidth=lw*.6;X.beginPath();
   for(let i=2;i<n-2;i+=3){const k=.3*Math.sin(i*1.7+seed+tq*2);const x=lerp(C[i][0],up[i][0],k),y=lerp(C[i][1],up[i][1],k);i==2?X.moveTo(x,y):X.lineTo(x,y)}X.stroke();
   X.restore();
   X.lineCap='round';X.lineJoin='round';
-  const col=rim;
-  X.save();X.shadowColor=col;X.shadowBlur=14;X.strokeStyle=col;X.lineWidth=3.5;X.beginPath();
+  X.save();X.shadowColor=rim;X.shadowBlur=14;X.strokeStyle=rim;X.lineWidth=lw;X.beginPath();
   for(let i=0;i<n*.92;i++)i?X.lineTo(up[i][0],up[i][1]):X.moveTo(up[i][0],up[i][1]);X.stroke();X.restore();
 }
-function grip(x,y,r,seed,tq,bond){ // claws spread over what it holds
+function grip(x,y,r,seed,tq,bond){ // hooked claws over what it holds
   for(let i=0;i<3;i++){const a=-2.4+i*1.1+.05*Math.sin(tq*3+i),l=r*(1+.3*rnd(seed+i)),s=Math.cos(a)>0?1:-1;
     const p1=[x+Math.cos(a)*l*.7,y+Math.sin(a)*l*.7],p2=[x+Math.cos(a)*l,y+Math.sin(a)*l+l*.35],p3=[p2[0]-s*l*.25,p2[1]+l*.45];
     tendril(catmull([[x,y],p1,p2,p3],8),r*.32,{tq,seed:i,bond});}
 }
-// ---------- the host: monumental, painted on black ----------
+// ---------- the factory ----------
 function sky(top,bot){const g=X.createLinearGradient(0,-300,0,900);g.addColorStop(0,top);g.addColorStop(1,bot);X.fillStyle=g;X.fillRect(-600,-600,3200,2200)}
-function towers(seed,base,col='#050608',hmax=800){ // stepped deco skyline with lit windows
-  X.fillStyle=col;
-  for(let i=0;i<9;i++){const x=-300+i*290+rnd(seed+i)*60,w=170+rnd(seed+i*3)*120,h=Math.min(hmax,380+rnd(seed+i*5)*420);
+function towers(seed,base,col='#050608'){
+  for(let i=0;i<9;i++){const x=-300+i*290+rnd(seed+i)*60,w=170+rnd(seed+i*3)*120,h=380+rnd(seed+i*5)*420;
     X.fillStyle=col;X.fillRect(x,base-h,w,h+400);X.fillRect(x+w*.18,base-h-60,w*.64,80);X.fillRect(x+w*.38,base-h-150,w*.24,100);
     X.save();X.fillStyle=WIN;for(let r=0;r<10;r++)for(let c=0;c<4;c++)if(rnd(seed+i*91+r*7+c)>.72){X.globalAlpha=.55+.4*rnd(r+c);X.fillRect(x+16+c*(w-30)/4,base-h+40+r*36,8,18)}X.restore();}
 }
@@ -57,153 +60,144 @@ function searchlights(t,cx,cy){X.save();X.globalCompositeOperation='lighter';
   for(let i=0;i<3;i++){const a=-1.9+i*.35+.12*Math.sin(t*.5+i*2);X.fillStyle='rgba(255,214,150,.07)';X.beginPath();X.moveTo(cx+i*200,cy);
     X.lineTo(cx+i*200+Math.cos(a-.05)*2400,cy+Math.sin(a-.05)*2400);X.lineTo(cx+i*200+Math.cos(a+.05)*2400,cy+Math.sin(a+.05)*2400);X.fill()}X.restore();}
 function rimRect(x,y,w,h,col){X.fillStyle=BLK;X.fillRect(x,y,w,h);X.fillStyle=col;X.fillRect(x,y,w,3)}
-function armPose(t){const tt=Math.min(t,7.0),k=P(tt,4.9,7.0);
-  const ph=2*Math.PI*((tt-4.9)*1.1+3.5*Math.pow(Math.max(0,tt-4.9),3)/3);
-  const s=tt>4.9?Math.sin(ph):Math.sin(tt*.8)*.25,amp=.08+.6*k;return {a1:-1.0+amp*s,a2:.9-amp*1.2*s}}
-function plant(t,tq,bonds,rimCol){
-  // the floor and machines as black silhouettes with a single rim of light
+// heat: 0 normal, 1 on fire. cool: how far the symbiote has cooled it
+function heatAt(t){return Math.pow(P(t,FIRE,COOL),1.25)*(1-eo(P(t,COOL+.2,COOL+1.6)))}
+function tempAt(t){return t<COOL?lerp(238,268,Math.pow(P(t,FIRE,COOL),1.3)):lerp(268,240,eo(P(t,COOL+.2,COOL+1.8)))}
+function flames(x,y,w,hgt,tq,seed){ // tongues of fire, red outside to white inside
+  if(hgt<4)return;X.save();X.globalCompositeOperation='lighter';
+  const f=Math.floor(tq*12);
+  for(const [col,ks,kw] of [['rgba(214,40,10,.75)',1,1],['rgba(255,140,30,.8)',.72,.7],['rgba(255,230,150,.9)',.42,.4]]){
+    X.fillStyle=col;
+    for(let i=0;i<9;i++){const fx=x+w*(i+.5)/9+(rnd(seed+i*7+f)-.5)*14,fh=hgt*ks*(.55+.45*rnd(seed+i*3+f)),bw=w/9*kw*1.3;
+      X.beginPath();X.moveTo(fx-bw,y);X.quadraticCurveTo(fx-bw*.6,y-fh*.6,fx+(rnd(f+i)-.5)*bw*1.5,y-fh);X.quadraticCurveTo(fx+bw*.6,y-fh*.6,fx+bw,y);X.fill()}}
+  X.restore();
+}
+function plant(t,tq,bonds,rimCol){ // the floor and machines as black silhouettes with a single rim of light
+  const heat=heatAt(t),T=tempAt(t);
   X.fillStyle=BLK;X.fillRect(-600,860,3200,900);X.fillStyle=rimCol;X.globalAlpha=.5;X.fillRect(-600,860,3200,2);X.globalAlpha=1;
+  // fire light on the floor
+  if(heat>0){const g=X.createRadialGradient(770,780,20,770,780,900);g.addColorStop(0,`rgba(255,120,30,${.55*heat})`);g.addColorStop(1,'rgba(255,60,0,0)');X.fillStyle=g;X.fillRect(-600,200,3200,1400)}
   rimRect(-600,405,3200,26,rimCol);for(const x of [360,1100,1600])rimRect(x-8,431,16,x==360?260:x==1100?330:160,rimCol);
-  const {a1,a2}=armPose(t);const sx=360,sy=780,ex=sx+Math.cos(a1)*230,ey=sy+Math.sin(a1)*230,wx=ex+Math.cos(a1+a2)*190,wy=ey+Math.sin(a1+a2)*190;
+  const a1=-1.0+.08*Math.sin(t*.8),a2=.9;const sx=360,sy=780,ex=sx+Math.cos(a1)*230,ey=sy+Math.sin(a1)*230,wx=ex+Math.cos(a1+a2)*190,wy=ey+Math.sin(a1+a2)*190;
   rimRect(300,820,120,40,rimCol);
   X.lineCap='round';for(const [x0,y0,x1,y1,th] of [[sx,sy,ex,ey,44],[ex,ey,wx,wy,34]]){X.strokeStyle=BLK;X.lineWidth=th;X.beginPath();X.moveTo(x0,y0);X.lineTo(x1,y1);X.stroke();
     X.strokeStyle=rimCol;X.lineWidth=2.5;X.beginPath();X.moveTo(x0,y0-th/2);X.lineTo(x1,y1-th/2);X.stroke()}
   X.save();X.translate(wx,wy);X.rotate(a1+a2);X.fillStyle=BLK;X.fillRect(0,-24,46,14);X.fillRect(0,10,46,14);X.restore();
+  // OVN1: its window and its chimney show the heat
   rimRect(820,470,50,160,rimCol);rimRect(640,620,260,240,rimCol);
-  X.save();X.shadowColor='#ff7a2a';X.shadowBlur=40;X.fillStyle='#ff8a3a';X.fillRect(680,670,180,110);X.restore();
+  const cool=P(t,COOL+.2,COOL+1.6),winCol=t<COOL?mix('#ff8a3a','#fff3c0',heat*1.3):mix('#fff3c0','#a8401a',cool);
+  X.save();X.shadowColor=winCol;X.shadowBlur=40+80*heat;X.fillStyle=winCol;X.fillRect(680,670,180,110);X.restore();
   X.fillStyle='rgba(0,0,0,.55)';for(let i=0;i<5;i++)X.fillRect(690+i*36,670,6,110);
+  flames(670,782,200,420*heat,tq,1);flames(640,622,260,320*Math.max(0,heat-.25)/.75,tq,5);flames(818,470,54,300*heat,tq,9);
   rimRect(960,770,400,40,rimCol);for(const x of [1000,1320])rimRect(x-8,810,16,50,rimCol);rimRect(1060,715,90,55,rimCol);
   for(const x of [1440,1740])rimRect(x-8,560,16,300,rimCol);for(const y of [650,750,850])rimRect(1432,y,316,12,rimCol);
-  [[360,690],[760,590],[1160,690],[1590,520]].forEach(([x,y],i)=>{const c=bonds[i]>.5?GRN:RED;X.save();X.shadowColor=c;X.shadowBlur=30;X.fillStyle=c;X.beginPath();X.arc(x,y,9,0,7);X.fill();X.restore()});
-  return {wx,wy,ex,ey};
+  // status lights; the oven's goes red when it is over 250 and back to green when it is cooled
+  [[360,690],[760,590],[1160,690],[1590,520]].forEach(([x,y],i)=>{let c=bonds[i]>.5?GRN:RED;
+    if(i==1&&T>250)c=Math.floor(t*(6+10*heat))%2?RED:'#5a0606';X.save();X.shadowColor=c;X.shadowBlur=30;X.fillStyle=c;X.beginPath();X.arc(x,y,9,0,7);X.fill();X.restore()});
 }
-const PATHS=[
- [1.20,0,[[-120,420],[120,416],[300,422],[352,470],[355,600],[340,700],[300,760],[330,800],[400,800]]],
- [1.55,1,[[845,-120],[840,150],[845,330],[848,470],[830,560],[800,610],[730,640]]],
- [1.85,1,[[-120,900],[200,890],[480,880],[620,860],[640,760],[660,700],[700,640]]],
- [2.20,2,[[2040,420],[1700,418],[1300,420],[1110,440],[1100,600],[1100,700],[1060,760],[990,775]]],
- [2.50,2,[[960,-120],[990,200],[1010,400],[1200,560],[1260,700],[1320,765]]],
- [2.80,3,[[2040,900],[1850,890],[1760,860],[1745,760],[1740,640],[1700,570],[1600,560]]],
+const PATHS=[ // [start, machine, path]
+ [1.60,0,[[-120,420],[120,416],[300,422],[352,470],[355,600],[340,700],[300,760],[330,800],[400,800]]],
+ [1.95,1,[[845,-120],[840,150],[845,330],[848,440],[930,470],[920,560],[880,610]]],
+ [2.25,1,[[-120,900],[200,890],[480,880],[620,860],[620,760],[625,700],[640,640]]],
+ [2.55,2,[[2040,420],[1700,418],[1300,420],[1110,440],[1100,600],[1100,700],[1060,760],[990,775]]],
+ [2.85,2,[[960,-120],[990,200],[1010,400],[1200,560],[1260,700],[1320,765]]],
+ [3.15,3,[[2040,900],[1850,890],[1760,860],[1745,760],[1740,640],[1700,570],[1600,560]]],
 ];
 const PP=PATHS.map(p=>catmull(p[2],10)),DUR=.85;
 function growth(t,ts){const k=P(t,ts,ts+DUR);return k<.6?.2*eo(k/.6):.2+.8*eo((k-.6)/.4)}   // creeps, then strikes
 function bondsAt(t){const b=[0,0,0,0];PATHS.forEach(([ts,m])=>b[m]=Math.max(b[m],P(t,ts+DUR,ts+DUR+.08)));return b}
-function symbiote(t,tq){PATHS.forEach(([ts,m],i)=>{const g=growth(t,ts);if(g<=0)return;const b=P(t,ts+DUR,ts+DUR+.08);
-  tendril(trim(PP[i],g),38,{wob:lerp(10,3,b),tq,seed:i*1.7,bond:b});if(g>=1){const e=PP[i][PP[i].length-1];grip(e[0],e[1],70,i*9,tq,b)}})}
-function cam(cx,cy,s,r=0,shake=0,tq=0){X.setTransform(1,0,0,1,0,0);X.translate(W/2+Math.sin(tq*53)*shake,H/2+Math.cos(tq*41)*shake);X.rotate(r);X.scale(s,s);X.translate(-cx,-cy)}
+function symbiote(t,tq){
+  const pulse=t>COOL?.5+.5*Math.sin(t*9):0;
+  PATHS.forEach(([ts,m],i)=>{const g=growth(t,ts);if(g<=0)return;const b=P(t,ts+DUR,ts+DUR+.08);
+    const isOven=m==1,bond=isOven&&t>COOL?1:b;
+    tendril(trim(PP[i],g),38,{wob:lerp(10,3,b),tq,seed:i*1.7,bond,rim:isOven&&t>COOL?mix('#ffb53d','#3dff9a',pulse):RIM});
+    if(g>=1){const e=PP[i][PP[i].length-1];grip(e[0],e[1],70,i*9,tq,bond)}});
+}
+// the symbiote cools the oven: more of it wraps the box, steam bursts out
+function coolOven(t,tq){
+  if(t<COOL)return;const g=eo(P(t,COOL,COOL+.4)),pulse=.5+.5*Math.sin(t*9),rc=mix('#ffb53d','#3dff9a',pulse);
+  [[[560,560],[620,640],[660,740],[640,860]],[[980,560],[920,640],[890,760],[910,860]],[[560,600],[700,612],[820,605],[960,618]],[[600,860],[720,840],[820,850],[940,840]]]
+    .forEach((p,i)=>tendril(trim(catmull(p,10),g),26,{tq,seed:30+i,wob:2,bond:1,rim:rc}));
+  const steam=P(t,COOL+.1,COOL+.4)*(1-P(t,COOL+1.4,COOL+2.2));
+  if(steam>0){X.save();X.globalCompositeOperation='lighter';X.filter='blur(10px)';
+    for(let j=0;j<10;j++){const k=((tq*.9+j/10)%1),x=650+rnd(j)*240+(rnd(j+5)-.5)*120*k,y=640-k*360;
+      X.fillStyle=`rgba(220,245,240,${.4*(1-k)*steam})`;X.beginPath();X.arc(x,y,20+70*k,0,7);X.fill()}X.filter='none';X.restore();}
+}
+function cam(cx,cy,s,shake=0,tq=0){X.setTransform(1,0,0,1,0,0);X.translate(W/2+Math.sin(tq*53)*shake,H/2+Math.cos(tq*41)*shake);X.scale(s,s);X.translate(-cx,-cy)}
 function screen(){X.setTransform(1,0,0,1,0,0)}
 function vignette(a=.75){screen();const g=X.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*1.05);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${a})`);X.fillStyle=g;X.fillRect(0,0,W,H)}
-// restrained deco titles
-function title(text,y,t,s,{size=96,col=IVORY,sp=.28}={}){if(t<s)return;screen();const k=eo(P(t,s,s+.5));
+function title(text,y,t,s,e,{size=96,col=IVORY,sp=.28}={}){if(t<s||t>e)return;screen();const k=eo(P(t,s,s+.5))*(1-P(t,e-.3,e));   // restrained deco titles
   X.save();X.globalAlpha=k;X.font=`700 ${size}px "Big Shoulders Display"`;X.textAlign='center';X.textBaseline='middle';X.fillStyle=col;
   X.letterSpacing=`${size*sp}px`;X.fillText(text,W/2+size*sp/2,y+(1-k)*14);X.restore();}
-
-// ---------- shots ----------
-function shotOpen(t,tq){ // a control panel in the dark; a shadow pours over it and the lights die one by one
-  screen();X.fillStyle=BLK;X.fillRect(0,0,W,H);
-  const g=X.createRadialGradient(960,620,40,960,620,900);g.addColorStop(0,'rgba(255,170,80,.20)');g.addColorStop(1,'rgba(0,0,0,0)');X.fillStyle=g;X.fillRect(0,0,W,H);
-  X.fillStyle='#07080a';X.fillRect(180,460,1560,620);X.fillStyle='rgba(255,181,61,.6)';X.fillRect(180,460,1560,3);
-  const lamps=[[420,600],[560,600],[700,600],[840,600],[1080,600],[1220,600],[1360,600],[1500,600]];
-  const front=lerp(-200,2100,eo(P(tq,.0,1.1)));               // the shadow's leading edge
-  lamps.forEach(([x,y],i)=>{const on=x>front;const c=i%3==0?RED:i%3==1?WIN:'#7fe3ff';
-    if(on){X.save();X.shadowColor=c;X.shadowBlur=36;X.fillStyle=c;X.beginPath();X.arc(x,y,16,0,7);X.fill();X.restore()}else{X.fillStyle='#120c06';X.beginPath();X.arc(x,y,16,0,7);X.fill()}});
-  X.font='700 54px "JetBrains Mono"';X.fillStyle='rgba(127,227,255,.75)';if(front<420)X.fillText('OVN1  248°C     TR  78%',430,800);
-  // the shadow itself: a mass with reaching fingers, lit only at its edge
-  X.fillStyle=BODY;X.fillRect(-10,440,Math.max(0,front-380),700);
-  for(let i=0;i<7;i++){const y=520+i*70,x0=front-300;tendril(catmull([[x0-500,y+30],[x0-100,y+10*Math.sin(i)],[front+40*rnd(i),y-20+30*rnd(i+3)]],8),50,{tq,seed:i,wob:5})}
-  title('SOMETHING GOT IN.',230,t,.25,{size:92});
-}
-function shotWorld(t,tq,c,{top,bot,rim,city=true}){
-  cam(...c,0,tq);sky(top,bot);if(city){searchlights(t,600,860);towers(7,860)}
-  const arm=plant(t,tq,bondsAt(t),rim);symbiote(t,tq);return arm;
-}
-function shotDanger(t,tq){ // the arm whips in silhouette against a white disc on a red sky
-  const k=P(t,4.9,7.0);
-  cam(430,640,1.5,0,2+8*k*k,tq);sky('#2a0000',RED);
-  X.save();X.shadowColor='#fff';X.shadowBlur=60;X.fillStyle='#fff6e6';X.beginPath();X.arc(560,590,290,0,7);X.fill();X.restore();
-  towers(3,860,'#0a0000',200);const arm=plant(t,tq,bondsAt(t),'#ff6a4a');symbiote(t,tq);
-  vignette(.6);
-  if(t>4.75){screen();const a=eo(P(t,4.75,5.0));X.save();X.globalAlpha=a;X.fillStyle='rgba(0,0,0,.82)';X.fillRect(1160,120,640,190);X.fillStyle=RED;X.fillRect(1160,120,4,190);
-    X.font='500 26px "JetBrains Mono"';X.fillStyle='#ff8a80';X.fillText('PLANNER AGENT',1196,170);
-    const cmd='SET TR SPEED → 90%';X.font='700 48px "JetBrains Mono"';X.fillStyle=IVORY;X.fillText(cmd.slice(0,Math.round(cmd.length*P(t,5.0,5.6))),1196,250);
-    if(t>5.7&&Math.floor(t*4)%2==0){X.font='500 24px "JetBrains Mono"';X.fillStyle=RED;X.fillText('EXECUTING',1640,170)}X.restore();}
-  return arm;
-}
-function shotSeize(t){ // it strikes: one tendril seizes the arm, everything freezes
-  const arm=shotDanger(7.0,7.0);
-  const g=eo(P(t,7.0,7.12));
-  cam(430,640,1.5,0,0,0);
-  tendril(trim(catmull([[760,600],[700,470],[600,460],[arm.ex+20,arm.ey-40],[arm.wx-10,arm.wy-40],[arm.wx+24,arm.wy+6],[arm.wx-26,arm.wy+28],[arm.wx+14,arm.wy-8]],10),g),30,{tq:7,seed:2,wob:1,bond:1});
-  if(t<7.06){screen();X.fillStyle='rgba(255,246,230,.9)';X.fillRect(0,0,W,H)}
-}
-function shotRule(t){ // a stark card: the rule it read, and the verdict
-  screen();X.fillStyle=BLK;X.fillRect(0,0,W,H);
-  const a=eo(P(t,7.6,8.0));X.globalAlpha=a;
-  X.font='500 26px "JetBrains Mono"';X.fillStyle='rgba(255,181,61,.8)';X.textAlign='center';X.letterSpacing='4px';X.fillText('SOP-TR-001 · 02_sop_transfer_robot.md',W/2,360);
-  X.letterSpacing='0px';X.font='italic 58px "Libre Baskerville"';X.fillStyle=IVORY;
-  X.fillText('“The arm must not run above',W/2,480);X.fillText('80 percent of its maximum speed.”',W/2,560);
-  X.globalAlpha=1;
-  if(t>=8.05){X.fillStyle=RED;X.fillRect(0,680,W,120);X.font='900 92px "Big Shoulders Display"';X.fillStyle=BLK;X.letterSpacing='34px';X.fillText('BLOCKED',W/2+17,772);X.letterSpacing='0px'}
-  X.textAlign='left';
-}
-function shotWait(t,tq){ // it rises in the dark, holds the decision up, and waits
-  cam(960,600,1.0,0,0,tq);sky('#020617','#0b2a6e');towers(11,860,'#020309');searchlights(t,300,860);
-  plant(t,tq,[1,1,1,1],'#4a7bd8');symbiote(t,tq);
-  screen();X.fillStyle='rgba(0,0,0,.45)';X.fillRect(0,0,W,H);
-  // the looming mass, rim-lit, two amber slits for eyes
-  const r=eo(P(t,8.5,9.3));cam(960,600,1.0,0,0,tq);
-  X.save();X.translate(560,1080+(1-r)*500);
-  X.fillStyle=BODY;X.beginPath();X.moveTo(-520,0);X.bezierCurveTo(-560,-380,-420,-560,-230,-600);X.bezierCurveTo(-150,-760,120,-800,210,-640);
-  X.bezierCurveTo(420,-600,560,-380,520,0);X.fill();
-  X.shadowColor=RIM;X.shadowBlur=18;X.strokeStyle=RIM;X.lineWidth=4;X.beginPath();X.moveTo(-160,-700);X.bezierCurveTo(60,-800,180,-700,230,-630);X.bezierCurveTo(430,-590,540,-400,520,-150);X.stroke();
-  if(t>9.1){X.fillStyle=RIM2;X.shadowColor=RIM;X.shadowBlur=30;
-    for(const s of [-1,1]){X.beginPath();X.moveTo(s*30,-560);X.quadraticCurveTo(s*110,-575,s*190,-615);X.quadraticCurveTo(s*120,-560,s*30,-548);X.fill()}}
+function readout(t){ // the oven's temperature, once it starts to climb
+  if(t<FIRE+.2)return;screen();const T=tempAt(t),over=T>250,cooled=t>COOL+1.8,a=eo(P(t,FIRE+.2,FIRE+.6))*(1-P(t,MSG-.2,MSG+.2));
+  X.save();X.globalAlpha=a;X.font='500 26px "JetBrains Mono"';X.letterSpacing='4px';X.fillStyle='rgba(255,181,61,.85)';X.fillText('OVN1 · LIMIT 250°C',90,110);
+  X.font='700 120px "Big Shoulders Display"';X.letterSpacing='6px';X.fillStyle=cooled?GRN:over?(Math.floor(t*6)%2?RED:'#ff6a5a'):IVORY;X.fillText(`${T.toFixed(0)}°C`,84,240);
+  if(t>COOL){X.font='500 26px "JetBrains Mono"';X.letterSpacing='4px';X.fillStyle=GRN;X.fillText(cooled?'COOLED':'COOLING',90,290)}X.restore();}
+function message(t){ // the warning it sends
+  if(t<MSG)return;screen();const k=eo(P(t,MSG,MSG+.45));
+  X.save();X.translate(1920-560+(1-k)*640,560);
+  X.shadowColor='rgba(0,0,0,.6)';X.shadowBlur=50;X.fillStyle='rgba(10,12,16,.96)';X.beginPath();X.roundRect(-480,-200,960,400,28);X.fill();X.shadowBlur=0;
+  X.strokeStyle='rgba(243,234,216,.18)';X.lineWidth=2;X.stroke();
+  X.fillStyle='#ffd391';X.beginPath();X.roundRect(-430,-160,72,72,18);X.fill();X.lineCap='round';X.strokeStyle='#0c1715';X.lineWidth=9;X.beginPath();X.moveTo(-412,-137);X.lineTo(-376,-137);X.moveTo(-394,-137);X.lineTo(-394,-110);X.stroke();
+  X.fillStyle=GRN;X.beginPath();X.arc(-394,-100,5,0,7);X.fill();
+  X.font='700 34px Barlow';X.fillStyle=IVORY;X.fillText('Tolerance',-336,-128);X.font='500 26px Barlow';X.fillStyle='rgba(243,234,216,.55)';X.fillText('now',-336,-94);
+  X.font='700 46px Barlow';X.fillStyle='#ff8a6a';X.fillText('⚠  OVN1 overheated · 268°C',-430,-10);
+  X.font='500 36px Barlow';X.fillStyle=IVORY;X.fillText('I cooled it to 240°C and held the line.',-430,56);
+  X.fillStyle='rgba(243,234,216,.7)';X.fillText('Review the cause when you are ready.',-430,110);
   X.restore();
-  // the decision, glowing like a monitor in its grip
-  const k=eo(P(t,9.2,9.6));if(t>=9.2){X.save();X.translate(1250,520);X.globalAlpha=k;
-    X.shadowColor='rgba(61,255,154,.35)';X.shadowBlur=60;X.fillStyle='rgba(6,10,14,.94)';X.fillRect(-380,-170,760,340);X.shadowBlur=0;
-    X.strokeStyle='rgba(243,234,216,.25)';X.lineWidth=2;X.strokeRect(-380,-170,760,340);
-    X.font='500 24px "JetBrains Mono"';X.fillStyle='rgba(255,181,61,.85)';X.letterSpacing='3px';X.fillText('WARDEN · HARD LIMIT 80%',-330,-105);X.letterSpacing='0px';
-    X.font='700 56px "Big Shoulders Display"';X.fillStyle=IVORY;X.fillText('Set TR speed to 80%?',-330,-30);
-    const pu=.5+.5*Math.sin(t*5);X.shadowColor=GRN;X.shadowBlur=20+30*pu;X.fillStyle=GRN;X.fillRect(-330,30,300,86);X.shadowBlur=0;
-    X.font='700 44px "Big Shoulders Display"';X.textAlign='center';X.letterSpacing='8px';X.fillStyle=BLK;X.fillText('APPROVE',-176,88);
-    X.strokeStyle='rgba(243,234,216,.5)';X.strokeRect(20,30,280,86);X.fillStyle='rgba(243,234,216,.7)';X.fillText('REJECT',164,88);X.letterSpacing='0px';X.textAlign='left';
-    X.restore();
-    // its grip on the card, and one feeler hovering under APPROVE, not touching
-    tendril(catmull([[700,760],[780,700],[860,690],[880,640]],10),26,{tq,seed:3,wob:2});
-    const bob=Math.sin(t*3)*10,f=eo(P(t,9.6,10.1));
-    tendril(trim(catmull([[760,760],[860,760],[960,740],[1040,700+bob*.4],[1070,676+bob]],10),f),14,{tq,seed:5,wob:2});
-  }
-  title('IT WAITS FOR YOU.',150,t,10.0,{size:84,col:RIM2});
+}
+function shotHost(t,tq){ // the opening frame: the factory from outside, and something already climbing it
+  cam(960,560,lerp(1.0,1.07,P(t,0,TAKE)),0,tq);sky('#1a0000',RED);
+  X.save();X.shadowColor='#fff';X.shadowBlur=70;X.fillStyle='#fff6e6';X.beginPath();X.arc(1280,400,250,0,7);X.fill();X.restore();
+  searchlights(t,640,900);
+  X.fillStyle='#050203';
+  X.fillRect(260,620,1420,600);
+  for(let x=260;x<1680;x+=142){X.beginPath();X.moveTo(x,620);X.lineTo(x,540);X.lineTo(x+142,620);X.fill()}
+  X.fillRect(780,300,300,400);X.fillRect(820,240,220,80);X.fillRect(880,170,100,90);X.fillRect(915,90,30,90);
+  for(const x of [1300,1430,1560])X.fillRect(x,170,64,460);
+  X.fillStyle='rgba(30,4,4,.85)';for(let i=0;i<14;i++){const k=(t*.25+i/14)%1,x=1332+((i%3)*130)+k*260,y=170-k*260;X.beginPath();X.arc(x,y,24+k*70,0,7);X.fill()}
+  X.save();X.fillStyle=WIN;for(let r=0;r<6;r++)for(let c=0;c<20;c++)if(rnd(r*31+c)>.55){X.globalAlpha=.5+.45*rnd(r+c*3);X.fillRect(300+c*68,700+r*56,12,26)}
+  for(let r=0;r<8;r++)for(let c=0;c<4;c++)if(rnd(r*13+c+99)>.4){X.globalAlpha=.6;X.fillRect(810+c*68,330+r*44,10,22)}X.restore();
+  X.fillStyle=BLK;X.fillRect(-400,880,2800,400);
+  const g=eo(P(t,0,TAKE-.1));tendril(trim(catmull([[1470,900],[1466,760],[1470,600],[1458,420],[1468,300],[1462,180]],10),.15+.85*g),26,{tq,seed:1,wob:8});
+  vignette(.65);title('THE FACTORY IS THE HOST.',110,t,.1,99,{size:78});
 }
 function shotLogo(t){
   screen();X.fillStyle=RED;X.fillRect(0,0,W,H);
   const g=X.createRadialGradient(960,420,60,960,420,1100);g.addColorStop(0,'rgba(255,90,60,.5)');g.addColorStop(1,'rgba(40,0,0,.8)');X.fillStyle=g;X.fillRect(0,0,W,H);
-  const k=eo(P(t,12.0,12.6));X.save();X.translate(960,410);X.scale(.94+.06*k,.94+.06*k);X.globalAlpha=k;
+  const k=eo(P(t,LOGO,LOGO+.6));X.save();X.translate(960,410);X.scale(.94+.06*k,.94+.06*k);X.globalAlpha=k;
   X.fillStyle=BLK;X.beginPath();X.roundRect(-110,-110,220,220,52);X.fill();
   X.lineCap='round';X.strokeStyle='#ffd391';X.lineWidth=26;X.beginPath();X.moveTo(-52,-42);X.lineTo(52,-42);X.moveTo(0,-42);X.lineTo(0,34);X.stroke();
   X.globalAlpha=.4*k;X.lineWidth=10;X.beginPath();X.moveTo(-72,-4);X.lineTo(-30,-4);X.moveTo(30,-4);X.lineTo(72,-4);X.stroke();X.globalAlpha=k;
   X.fillStyle=GRN;X.beginPath();X.arc(0,70,16,0,7);X.fill();X.restore();
-  title('TOLERANCE',660,t,12.4,{size:120,col:BLK,sp:.32});
-  title('A SYMBIOTIC COMPILER FOR FACTORIES',760,t,12.9,{size:36,col:'#ffe6c8',sp:.3});
-  title('GOOGLE CLOUD AI BUILDER CUP 2026 · MANUFACTURING',1000,t,13.4,{size:22,col:'rgba(0,0,0,.65)',sp:.3});
+  title('TOLERANCE',660,t,LOGO+.4,99,{size:120,col:BLK,sp:.32});
+  title('A SYMBIOTIC COMPILER FOR FACTORIES',760,t,LOGO+.9,99,{size:36,col:'#ffe6c8',sp:.3});
+  title('GOOGLE CLOUD AI BUILDER CUP 2026 · MANUFACTURING',1000,t,LOGO+1.4,99,{size:22,col:'rgba(0,0,0,.65)',sp:.3});
 }
 
 window.render=function(t){
-  const tq=Math.floor(t*12)/12;
-  X.setTransform(1,0,0,1,0,0);X.globalAlpha=1;X.shadowBlur=0;X.letterSpacing='0px';X.textAlign='left';X.textBaseline='alphabetic';
-  if(t<1.2)shotOpen(t,tq);
-  else if(t<2.2){shotWorld(t,tq,[lerp(300,420,P(t,1.2,2.2)),lerp(520,600,P(t,1.2,2.2)),1.8],{top:'#010412',bot:'#0b2a6e',rim:'#5b8cff'});vignette()}
-  else if(t<3.2){shotWorld(t,tq,[760,700,1.6],{top:'#100600',bot:'#3a1a05',rim:RIM,city:false});vignette()}
-  else if(t<4.6){shotWorld(t,tq,[960,560,lerp(.92,.98,P(t,3.2,4.6))],{top:'#2a0000',bot:RED,rim:'#ff6a4a'});vignette(.6);title('IT KNOWS EVERY MACHINE.',140,t,3.5,{size:72})}
-  else if(t<7.0)shotDanger(t,tq);
-  else if(t<7.55)shotSeize(t);
-  else if(t<8.5)shotRule(t);
-  else if(t<12.0)shotWait(t,tq);
-  else shotLogo(t);
+  const tq=Math.floor(t*12)/12;      // character motion on twos
+  X.setTransform(1,0,0,1,0,0);X.globalAlpha=1;X.shadowBlur=0;X.filter='none';X.letterSpacing='0px';X.textAlign='left';X.textBaseline='alphabetic';
+  if(t>=LOGO){shotLogo(t);}
+  else if(t<TAKE){shotHost(t,tq);}
+  else{
+    // one camera: wide on the factory, then a slow push in on the oven
+    const k=eio(P(t,PUSH,COOL)),s=lerp(.92,2.5,k),cx=lerp(960,770,k),cy=lerp(560,690,k);
+    const shake=t<COOL?6*Math.pow(P(t,FIRE,COOL),2):0;
+    cam(cx,cy,s,shake,tq);
+    const fire=heatAt(t);
+    sky(mix('#120000','#2a0800',fire),mix('#7a0a0a','#c0400a',fire));
+    searchlights(t,600,860);towers(7,860,'#1a0606');
+    plant(t,tq,bondsAt(t),'#ff6a4a');symbiote(t,tq);coolOven(t,tq);
+    vignette(.65);
+    title('SOMETHING GOT IN.',130,t,TAKE+.3,PUSH,{size:78});
+    readout(t);message(t);
+    title('AND IT TELLS YOU.',150,t,MSG+.5,LOGO,{size:84,col:RIM2});
+  }
   screen();X.globalAlpha=1;X.drawImage(grain,0,0);
   if(t>14.3){X.fillStyle=`rgba(0,0,0,${P(t,14.3,15)})`;X.fillRect(0,0,W,H)}
 };
-window.ready=Promise.all(['700 96px "Big Shoulders Display"','900 92px "Big Shoulders Display"','italic 58px "Libre Baskerville"','700 48px "JetBrains Mono"','500 26px "JetBrains Mono"'].map(f=>document.fonts.load(f))).then(()=>document.fonts.ready);
+window.ready=Promise.all(['700 96px "Big Shoulders Display"','700 46px Barlow','500 36px Barlow','700 48px "JetBrains Mono"','500 26px "JetBrains Mono"'].map(f=>document.fonts.load(f))).then(()=>document.fonts.ready);
 window.ready.then(()=>render(0));
 </script></body></html>
