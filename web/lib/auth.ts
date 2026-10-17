@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
    No settings on the server (a laptop, the tests) means no sign-in at all: status "off". Guests use Firebase anonymous sign-in, so each visitor gets a private plant.
    Lessons kept from an earlier project: use the popup flow (the redirect flow looped), and authorise the live domain in Firebase. */
 
-export type AuthUser = { uid: string; email: string | null; guest: boolean };
+export type AuthUser = { uid: string; email: string | null; guest: boolean; name?: string | null };
 export type AuthState = { status: 'loading' | 'off' | 'out' | 'in'; user?: AuthUser };
 
 let state: AuthState = { status: 'loading' };
@@ -25,7 +25,7 @@ export function startAuth() {
       const a = app.getApps().length ? app.getApp() : app.initializeApp(cfg.config);
       const auth = mod.getAuth(a);
       fb = { auth, mod };
-      mod.onAuthStateChanged(auth, (u: any) => set(u ? { status: 'in', user: { uid: u.uid, email: u.email, guest: u.isAnonymous } } : { status: 'out' }));
+      mod.onAuthStateChanged(auth, (u: any) => set(u ? { status: 'in', user: { uid: u.uid, email: u.email, guest: u.isAnonymous, name: u.displayName || null } } : { status: 'out' }));
     } catch {
       set({ status: 'off' });   // if sign-in cannot start, do not lock the person out of a local copy
     }

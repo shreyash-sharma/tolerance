@@ -110,6 +110,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
         <nav className="nav">{visible.map(row)}</nav>
         <div className="grow" />
         <div style={{ position: 'relative' }}>
+          {auth.status === 'in' && (() => { const nm = auth.user?.guest ? 'Guest' : auth.user?.name || (auth.user?.email || '').split('@')[0] || 'You'; return <div className="who" title={auth.user?.email || nm}><i aria-hidden>{nm.slice(0, 1).toUpperCase()}</i><span className="who-name">{nm}</span></div>; })()}
           <button className="btn g sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenu((v) => !v)} aria-expanded={menu} aria-label="Plant settings" title="Plant settings"><Settings size={18} strokeWidth={1.8} /></button>
           {menu && (
             <div className="card plant-menu" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>

@@ -645,3 +645,6 @@ input[type=email]:focus,input[type=password]:focus{border-color:var(--amber)}
 @media(max-width:1100px){.nav-badge{position:absolute;top:2px;right:6px;min-width:15px;height:15px;font-size:10px;padding:0 3px}}
 
 .doc-in{animation:docIn .28s ease both}@keyframes docIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.doc-in{animation:none}}
+
+.who{display:flex;align-items:center;gap:9px;padding:4px 6px 8px;min-width:0}.who i{flex:none;width:26px;height:26px;border-radius:13px;background:#ffd391;color:#0c1715;display:grid;place-items:center;font:700 13px/1 var(--font,inherit);font-style:normal}.who-name{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:1100px){.who{justify-content:center;padding:4px 0 8px}.who-name{display:none}}
