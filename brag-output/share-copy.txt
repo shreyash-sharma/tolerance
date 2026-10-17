@@ -1,0 +1,1 @@
+Tolerance is a symbiotic compiler for factories. Drop in your plant's documents, get one checked model of the plant, and watch a limit from your own SOP stop an agent that scored 82/100.
