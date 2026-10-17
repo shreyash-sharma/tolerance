@@ -258,6 +258,22 @@ def _limits_ctx():
         return []
 
 
+def mark_starting(unit):
+    """The service is being started again (by an approval here or somewhere else): a waiting incident for it becomes 'applying', so no one approves twice."""
+    with LOCK:
+        d = store.load()
+        h = _state(d)
+        hit = False
+        for i in h["incidents"]:
+            if i.get("kind") == "service_down" and i.get("target") == unit and i["status"] == "waiting":
+                i.update(status="applying", by="someone outside this app", via="Google Cloud", decided=time.time())
+                _audit(h, f"{i['title']}: it is starting again (started outside this app)")
+                hit = True
+        if hit:
+            store.save(d)
+    return hit
+
+
 def decide(iid, ok, by, via):
     """A person says yes or no, in the app or on Telegram."""
     with LOCK:

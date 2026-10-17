@@ -138,13 +138,14 @@ function LabelLayer({ items, els, host, onPick }: { items: Label[]; els: React.M
     <div ref={host} className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
       {items.map((it) => {
         const failed = it.state === 'failed';
-        const warn = !!it.warn && it.warn.length > 0;   // a Sentinel rule that feeds this station is failing
+        const warn = !!it.warn && it.warn.length > 0;   // a Sentinel rule that feeds this station is failing, or a server or database it depends on is down
+        const down = warn && it.warn!.some((w) => /down/i.test(w));   // an outage reads red, a failing check reads amber
         return (
           <button key={it.id} title={warn ? 'Sentinel: ' + it.warn!.join('; ') : undefined} ref={(el) => { if (el) els.current.set(it.id, el); else els.current.delete(it.id); }} onClick={() => onPick(it.id)}
             style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', display: 'none' }}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold shadow-lg backdrop-blur ${warn && !failed ? 'ring-2 ring-amber-300' : ''} ${failed ? 'animate-pulse border-red-300 bg-red-600 px-3.5 py-1.5 text-sm text-white' : it.ghost ? 'border-dashed border-violet-300/70 bg-violet-950/80 text-violet-100' : 'border-white/20 bg-neutral-950/80 text-white'}`}>
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold shadow-lg backdrop-blur ${warn && !failed && !down ? 'ring-2 ring-amber-300' : ''} ${down && !failed ? 'border-red-300 bg-red-700/90 text-white ring-2 ring-red-400' : ''} ${failed ? 'animate-pulse border-red-300 bg-red-600 px-3.5 py-1.5 text-sm text-white' : it.ghost ? 'border-dashed border-violet-300/70 bg-violet-950/80 text-violet-100' : down ? '' : 'border-white/20 bg-neutral-950/80 text-white'}`}>
             <i className="inline-block h-2 w-2 rounded-full" style={{ background: failed ? '#fff' : it.ghost ? '#b9a7ff' : STATE_COL[it.state] || STATE_COL.unknown }} />
-            {it.name}{failed ? ' · FAILED' : it.ghost ? ' · ghost' : warn ? ' · ⚠ data check failing' : ''}
+            {it.name}{failed ? ' · FAILED' : it.ghost ? ' · ghost' : down ? ' · ⚠ data source down' : warn ? ' · ⚠ data check failing' : ''}
           </button>
         );
       })}

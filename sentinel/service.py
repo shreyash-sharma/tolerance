@@ -139,6 +139,16 @@ def impact_map(s=None, fresh=False):
         if last and not last["ok"] and not last.get("maintenance"):
             for st in rules[r["id"]]:
                 failing.setdefault(st, []).append(r["name"])
+    try:   # a server or database that is down (an open incident from a probe or the Cloud SQL watch) takes the data of its stations with it
+        from server import hostops as HO
+        from workspace import store as _store
+        for inc in (_store.load().get("host") or {}).get("incidents", []):
+            meta = HO.UNITS.get(inc.get("target"))
+            if inc.get("kind") == "service_down" and inc.get("status") in ("waiting", "applying") and meta:
+                for st in HO._affects(inc["target"], meta):
+                    failing.setdefault(st, []).append(inc["title"])
+    except Exception:
+        pass
     return {"rules": rules, "stations": failing}
 
 

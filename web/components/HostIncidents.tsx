@@ -7,7 +7,9 @@ type Over = { probes: { name: string; alive: boolean; where?: string; services?:
 
 const TONE: Record<string, string> = { waiting: '#f2b84b', applying: '#8fb4ff', resolved: '#7be0a6', rejected: '#ef6b57', refused: '#ef6b57', blocked: '#ef6b57' };
 const WORD: Record<string, string> = { waiting: 'waits for a person', applying: 'fix is running', resolved: 'closed', rejected: 'rejected', refused: 'not applied', blocked: 'blocked by a hard limit' };
-const fix = (a: any) => (a.kind === 'adjust_temperature' ? `set the oven to ${a.params?.max_temp_c} °C` : `restart ${a.station}`);
+const UNIT_NAME: Record<string, string> = { mongod: 'MongoDB', mosquitto: 'the MQTT broker', cloud_sql: 'the Cloud SQL database' };
+const unitName = (u: string) => UNIT_NAME[u] || u;
+const fix = (a: any) => (a.kind === 'adjust_temperature' ? `set the oven to ${a.params?.max_temp_c} °C` : a.station === 'cloud_sql' ? 'start the Cloud SQL database again' : `restart ${unitName(a.station)}`);
 const at = (t: number) => new Date(t * 1000).toLocaleTimeString();
 
 /** What a probe on a real server sees, the incidents it opened, and the fix Warden proposes. A person approves here or on Telegram. */
@@ -29,7 +31,7 @@ export default function HostIncidents() {
       {err && <div role="alert" style={{ color: '#ef6b57', fontSize: 13.5, marginBottom: 8 }}>{err}</div>}
       {d.probes.map((p) => (
         <div key={p.name} style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13.5, marginBottom: 8 }}>
-          {Object.entries(p.services || {}).map(([u, up]) => <span key={u}><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 5, marginRight: 6, background: up ? '#7be0a6' : '#ef6b57' }} />{u} {up ? 'running' : 'stopped'}</span>)}
+          {Object.entries(p.services || {}).map(([u, up]) => <span key={u}><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 5, marginRight: 6, background: up ? '#7be0a6' : '#ef6b57' }} />{unitName(u).replace(/^the /, '').replace(/^./, (c) => c.toUpperCase())} {up ? 'running' : 'stopped'}</span>)}
           {p.readings?.oven_temp_c != null && <span><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 5, marginRight: 6, background: p.readings.oven_temp_c > 260 ? '#ef6b57' : p.readings.oven_temp_c > 245 ? '#f2b84b' : '#7be0a6' }} />oven {p.readings.oven_temp_c.toFixed(1)} °C</span>}
         </div>
       ))}

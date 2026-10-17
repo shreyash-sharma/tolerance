@@ -193,6 +193,8 @@ def sources_connect(b: ConnectBody):
     nm = (b.name.strip() or PB.LABEL.get(b.type, b.type))[:120]
     sysid = b.system if b.system in SRC.SYSTEMS else ""
     extra = {"system": sysid} if sysid else {}
+    for old in [x for x in store.load()["sources"] if x.get("name") == nm]:   # connecting the same system again replaces it, so the floor never shows it twice
+        SRC.remove(old["id"])
     if b.type == "api":
         s = SRC.add("api", nm, url=clean, secret_ref=ref, **extra)
     else:

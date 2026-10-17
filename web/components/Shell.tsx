@@ -3,6 +3,7 @@ import GeminiKey from './GeminiKey';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Settings } from 'lucide-react';
 import { api, post } from '@/lib/api';
 import { usePlant } from '@/lib/plant';
 import { useAuth, signOutUser } from '@/lib/auth';
@@ -109,7 +110,7 @@ export default function Shell({ children, full = false }: { children: React.Reac
         <nav className="nav">{visible.map(row)}</nav>
         <div className="grow" />
         <div style={{ position: 'relative' }}>
-          <button className="btn g sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenu((v) => !v)} aria-expanded={menu}>Plant settings</button>
+          <button className="btn g sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenu((v) => !v)} aria-expanded={menu} aria-label="Plant settings" title="Plant settings"><Settings size={18} strokeWidth={1.8} /></button>
           {menu && (
             <div className="card plant-menu" style={{ position: 'absolute', bottom: 44, left: 0, right: 0, padding: 8, display: 'grid', gap: 4, zIndex: 20 }}>
               {auth.status === 'in' && <div className="dim" style={{ fontSize: 12, padding: '2px 6px' }}>{auth.user?.guest ? 'Guest session' : auth.user?.email}</div>}

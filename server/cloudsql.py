@@ -189,6 +189,8 @@ def _loop(uid):
             except Exception as e:
                 up = None
                 store.update(lambda d: d["cloud_sql"].update(last=dict(d["cloud_sql"].get("last") or {}, error=str(e)[:160], at=time.time())))
+            if up is None:
+                hostops.mark_starting(UNIT)
             if up is not None:
                 rep = {"name": "cloud-sql", "where": f"Cloud SQL {c['instance']}", "services": {UNIT: up}, "readings": {}, "results": results}
                 results = []

@@ -39,6 +39,7 @@ export function SceneCameraControls({
   const walkthroughMode = useViewer((s) => s.walkthroughMode)
   const opened = useRef(false)
   const camera = useThree((state) => state.camera)
+  const dom = useThree((state) => state.gl.domElement)
   const nodeCount = useScene((state) => Object.keys(state.nodes).length)
   const publishNavigationPose = useViewerCameraNavigationSync(controls)
 
@@ -75,6 +76,15 @@ export function SceneCameraControls({
     control.addEventListener('controlstart', moved)
     return () => control.removeEventListener('controlstart', moved)
   }, [])
+
+  // Any press or wheel on the canvas means the person is steering. This does not rely on the controls' own event, which did not always arrive, so the view never snaps back after a drag.
+  useEffect(() => {
+    const mark = () => { opened.current = true }
+    dom.addEventListener('pointerdown', mark)
+    dom.addEventListener('wheel', mark, { passive: true })
+    dom.addEventListener('touchstart', mark, { passive: true })
+    return () => { dom.removeEventListener('pointerdown', mark); dom.removeEventListener('wheel', mark); dom.removeEventListener('touchstart', mark) }
+  }, [dom])
 
   useEffect(() => {
     if (!sceneReady) return
