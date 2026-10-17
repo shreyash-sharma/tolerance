@@ -238,6 +238,11 @@ def process(rep):
         store.save(d)
     for inc, extra, buttons in notices:
         _tell(inc, extra, buttons)
+    try:   # playbooks that start from a probe reading (the oven above a value, say)
+        from foreman import playbook as _pb
+        _pb.on_report(rep)
+    except Exception:
+        pass
     return out
 
 

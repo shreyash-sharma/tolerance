@@ -157,9 +157,9 @@ def _allowed(uid):
     return True
 
 
-def dispatch(title, text, link=None):
-    """Send to every channel of this visitor, in the background. Never raises: a broken channel must not stop the flow."""
-    chans = list(_all())
+def dispatch(title, text, link=None, only=None):
+    """Send to every channel of this visitor (or only the one named), in the background. Never raises: a broken channel must not stop the flow."""
+    chans = [c for c in _all() if not only or c["id"] == only]
     if not chans or not _allowed(store.UID.get()):
         return 0
     ctx = contextvars.copy_context()

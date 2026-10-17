@@ -12,6 +12,7 @@ SOURCES = {
     "failures": "Failures in the last N hours",
     "forecast": "Chance of failing in the next 4 hours",
     "rule": "A Sentinel rule is passing",
+    "reading": "A reading from a probe (like the oven temperature)",
 }
 ACTIONS = {"notify": "Tell my channels", "inspect": "Inspect or measure", "schedule_maintenance": "Schedule maintenance", "adjust_speed": "Lower the speed", "adjust_temperature": "Lower the temperature", "clear_jam": "Clear a jam", "restart_station": "Restart the station", "stop_station": "Stop the station"}
 TYPES = {"trigger", "check", "decision", "action"}
@@ -55,6 +56,7 @@ def save(pb):
     rec = {"id": pid, "name": str(pb.get("name") or "My playbook")[:60], "enabled": bool(pb.get("enabled", True)), "nodes": pb["nodes"], "edges": pb["edges"], "saved": time.time()}
     for i, x in enumerate(pbs):
         if x["id"] == pid:
+            rec.update({k: x[k] for k in ("armed", "last_run") if k in x})
             pbs[i] = rec
             break
     else:
@@ -92,6 +94,14 @@ def starter():
 
 
 # ---------------------------------------------------------------- running
+def _readings():
+    """The latest readings every probe of this plant reported, in one place: oven_temp_c and the like."""
+    out = {}
+    for p in ((store.load().get("host") or {}).get("probes") or {}).values():
+        out.update({k: v for k, v in (p.get("readings") or {}).items() if v is not None})
+    return out
+
+
 def _observe(data, station):
     src = data.get("source")
     if src == "failures":
@@ -104,6 +114,8 @@ def _observe(data, station):
         if not r.get("ok"):
             raise RuntimeError("the gateway refused the read")
         return next((x for x in (r.get("result") or {}).get("stations", []) if str(x.get("name", "")).lower() == station.lower()), {})
+    if src == "reading":
+        return _readings()
     if src == "rule":
         from sentinel import service as SV
         res = SV.run_rule(data.get("rule_id"))
@@ -111,11 +123,16 @@ def _observe(data, station):
     raise ValueError("unknown check source")
 
 
-def _act(data, station, trace):
+def _act(data, station, trace, vars=None, dry=False):
     kind, text = data.get("kind"), str(data.get("text") or "").replace("{station}", station)
+    for k, v in (vars or {}).items():   # {value} and {oven_temp_c} become what the check saw
+        text = text.replace("{" + str(k) + "}", f"{v:g}" if isinstance(v, float) else str(v))
+    if dry:
+        return {"done": "would run", "dry": True}
     if kind == "notify":
         from foreman import notify
-        n = notify.dispatch(f"Playbook: {station}", text or f"A playbook ran for {station}.")
+        dot = {"info": "\U0001F535", "warning": "\U0001F7E0", "critical": "\U0001F534"}.get(data.get("severity") or "", "")
+        n = notify.dispatch(f"{dot + ' ' if dot else ''}Playbook: {station}", text or f"A playbook ran for {station}.", only=data.get("channel") or None)
         return {"done": f"told {n} channel(s)" if n else "no channel is set up, so nobody was told"}
     from foreman import safety
     from foreman.agents import context_for
@@ -130,8 +147,9 @@ def _act(data, station, trace):
     return {"done": f"Warden scored it {sc['score']}: {sc['decision']}" + (" and it ran" if rec else ""), "score": sc["score"], "decision": sc["decision"], "violations": sc.get("violations", [])}
 
 
-def run(pb, station):
-    """Walk one playbook for one station. Returns the trace: every block visited and what it saw."""
+def run(pb, station, dry=False):
+    """Walk one playbook for one station. Returns the trace: every block visited and what it saw. With dry=True nothing is sent or changed."""
+    vars = {}
     nodes = {n["id"]: n for n in pb["nodes"]}
     out_edges = {}
     for e in pb["edges"]:
@@ -144,7 +162,10 @@ def run(pb, station):
         d = n.get("data") or {}
         label = None
         try:
-            if n["type"] == "trigger":
+            if n["type"] == "trigger" and d.get("event") == "reading":
+                station = d.get("station") or station or "OVN1"
+                trace.append({"id": cur, "type": "trigger", "text": f"A probe reported a reading ({station})", "ok": True})
+            elif n["type"] == "trigger":
                 want = d.get("station") or "*"
                 if want not in ("*", station):
                     trace.append({"id": cur, "type": "trigger", "text": f"This playbook is for {want}, not {station}", "ok": False})
@@ -154,6 +175,8 @@ def run(pb, station):
                 obs = _observe(d, station)
                 r = engine.evaluate(obs, {"path": d.get("path") or "ok", "op": d.get("op") or "eq", "value": d.get("value")})
                 results.append(r["ok"])
+                if r["actual"] is not None:
+                    vars["value"] = vars[d.get("path") or "ok"] = r["actual"]
                 label = "pass" if r["ok"] else "fail"
                 trace.append({"id": cur, "type": "check", "text": f"{engine.describe(d | {'path': d.get('path') or 'ok'})}: saw {r['error'] or r['actual']}", "ok": r["ok"], "branch": label})
             elif n["type"] == "decision":
@@ -163,13 +186,39 @@ def run(pb, station):
                 label = "yes" if ok else "no"
                 trace.append({"id": cur, "type": "decision", "text": f"{hits} of {len(results)} checks {'passed' if d.get('mode') != 'fail' else 'failed'}; need {need}", "ok": ok, "branch": label})
             elif n["type"] == "action":
-                trace.append({"id": cur, "type": "action", "text": ACTIONS.get(d.get("kind"), "action"), **_act(d, station, trace), "ok": True})
+                trace.append({"id": cur, "type": "action", "text": ACTIONS.get(d.get("kind"), "action"), **_act(d, station, trace, vars, dry), "ok": True})
         except Exception as e:
             trace.append({"id": cur, "type": n["type"], "text": f"{type(e).__name__}: {str(e)[:140]}", "ok": False, "error": True})
             break
         nxt = [e for e in out_edges.get(cur, []) if (label is None or e.get("sourceHandle") in (label, None))]
         cur = nxt[0]["target"] if nxt else None
     return {"station": station, "trace": trace, "at": time.time()}
+
+
+def on_report(rep):
+    """A probe has reported. Every active playbook that starts from a probe reading is checked. It fires once when its checks first pass,
+    and fires again only after they have stopped passing, so a reading that stays high does not send a message every few seconds."""
+    import contextvars, threading
+    ctx = contextvars.copy_context()
+
+    def go():
+        for pb in list(_all()[1]):
+            try:
+                trig = next((n for n in pb["nodes"] if n["type"] == "trigger"), None)
+                if not pb.get("enabled") or not trig or (trig.get("data") or {}).get("event") != "reading":
+                    continue
+                probe = run(pb, "", dry=True)
+                fired = any(s["type"] == "action" and s.get("ok") for s in probe["trace"]) and not any(s.get("error") for s in probe["trace"])
+                armed = pb.get("armed", True)
+                pid = pb["id"]
+                if fired and armed:
+                    res = run(pb, "")
+                    store.update(lambda d, res=res, pid=pid: [p.update(armed=False, last_run={"at": time.time(), "trace": res["trace"]}) for p in d.get("playbooks", []) if p["id"] == pid])
+                elif not fired and not armed:
+                    store.update(lambda d, pid=pid: [p.update(armed=True) for p in d.get("playbooks", []) if p["id"] == pid])
+            except Exception:
+                continue
+    threading.Thread(target=lambda: ctx.run(go), daemon=True, name="playbook-report").start()
 
 
 def run_by_id(pid, station):
