@@ -1,1 +1,1 @@
-Tolerance is a symbiotic compiler for factories. Drop in your plant's documents, get one checked model of the plant, and watch a limit from your own SOP stop an agent that scored 82/100.
+The factory is the host. Tolerance is the symbiote: it reads every document, wires into every machine, and acts only when you say so. A symbiotic compiler for factories.

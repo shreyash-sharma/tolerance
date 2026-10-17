@@ -1,28 +1,26 @@
-# /brag plan: Tolerance, 15-second intro
+# /brag plan: Tolerance, 15-second hook for the hackathon demo
 
-**Angle.** Tolerance is a symbiotic compiler for factories: your plant's own paperwork becomes the model and the guardrail. Documents go in, a checked 3D plant comes out, and a limit written in an SOP stops an agent cold.
+This opens a 4-minute demo that already walks through the documents, the compiler, playbooks and Warden, so the intro shows none of the UI. Its only job is to hook people.
 
-**Hook.** The product's real first question, typed live: "Now, show me how your plant works." The plant's documents fly into the drop zone.
+**Angle.** Tolerance is a symbiote and the factory is its host (the landing page's own line). A living liquid in the brand colours crawls in, bonds to every machine, takes over the screen, then pulls itself into the logo.
 
-**Highlights.**
-1. Compiled from documents: the real 3D floor of the Northfield Assembly Plant.
-2. Warden scores an action 82/100 and still blocks it, quoting the SOP line it breaks.
+**Hook.** Black screen, a heartbeat, "THE FACTORY IS THE HOST." slams in.
 
-**Punchline.** Logo, "SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0", "Tolerance.", "A symbiotic compiler for factories." (the landing page's own line)
+**The twist.** It reads everything, wires into everything, and acts only when you say so. This sets up the demo's close: "The model can propose. It cannot approve itself."
 
-**Tone.** `polished`: dark, restrained, amber accents, soft dips through the background.
+**Tone.** Cinematic and a bit menacing, then heroic. Hard cuts and slammed type.
 
-**Identity.** Background `#111316`, panel `#1a1b1e`, amber `#ffd391` / `#f5b544`, green `#1c7a58`, red `#ef6b57`, Barlow (the app's font). Real logo SVG and real screenshots from `docs/images/screens`.
-
-**Data.** The plant, file names and SOP quote are the repo's own made-up sample pack. No personal data.
+**Identity.** Liquid in sand `#ffd391` and amber `#f5b544`, turning green `#28966a` where it bonds. Background `#0f1214`, Barlow, the real logo SVG. An original creature, not any film character.
 
 ## Storyboard (15.0 s, 1920x1080, 30 fps)
 
-| Time | Scene | On screen |
+| Time | On screen | Sound |
 |---|---|---|
-| 0.0-3.0 | Hook | Eyebrow "NORTHFIELD ASSEMBLY PLANT", headline types in, 8 sample documents drop into the dashed zone |
-| 3.0-7.0 | Compile | 3D floor screenshot slowly settles; "The Symbiotic Compiler turns them into one checked model." |
-| 7.0-11.0 | Warden | Action card "Change a speed setting · TR · 90%", score counts to 82, "BLOCKED BY A HARD LIMIT" stamps, SOP quote types in red |
-| 11.0-15.0 | Outro | Logo pops, wordmark, tagline |
+| 0.0-1.55 | "THE FACTORY IS THE HOST." | Two heartbeats |
+| 1.0-5.0 | Line drawing of the plant (TR, OVN1, C1, WH1). Amber tendrils crawl in from the edges, latch on, turn green; each machine reads "bonded" | Faster heartbeat, wet tendrils, drips, rising drone |
+| 5.0-5.9 | The liquid floods the screen | Flood hit |
+| 5.9-8.9 | "IT READS EVERYTHING." / "WIRES INTO EVERYTHING." / "ACTS ONLY WHEN YOU SAY SO." on sand | Hit on each line, A minor pulse |
+| 8.9-9.8 | The liquid pulls back into one rounded tile | Reverse whoosh |
+| 9.8-15.0 | The tile becomes the logo; "SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0", "Tolerance.", "A symbiotic compiler for factories.", "Google Cloud AI Builder Cup 2026 · Manufacturing" | Landing hit, chime, warm chord, fade |
 
-Sound: 120 BPM soft synth bed in A minor, a muted whoosh at each cut, a low thud under the stamp, resolving chord on the logo.
+Re-render from `brag-output/scripts`: `node capture.js && python3 audio.py music.wav && ffmpeg -framerate 30 -i frames/f_%04d.png -i music.wav -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -shortest ../brag.mp4`

@@ -1,123 +1,139 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700;800;900&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
 <style>
-:root{--bg:#111316;--panel:#1a1b1e;--line:#2c2f34;--ivory:#eef0f2;--mut:#9aa3ad;--amber:#f5b544;--sand:#ffd391;--green:#1c7a58;--red:#ef6b57}
+:root{--bg:#0f1214;--ivory:#eef0f2;--mut:#9aa3ad;--amber:#f5b544;--sand:#ffd391;--mint:#9fe6bf;--green:#1c7a58}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);font-family:Barlow,sans-serif;color:var(--ivory)}
-.scene{position:absolute;inset:0;opacity:0}
-.glow{position:absolute;inset:0;background:radial-gradient(900px 600px at 50% 40%,rgba(245,181,68,.07),transparent 70%)}
-/* hook */
-#a .wrap{position:absolute;left:300px;top:190px;width:1320px}
-.eyebrow{font-weight:700;letter-spacing:.22em;font-size:24px;color:var(--amber)}
-#a h1{font-weight:700;font-size:92px;letter-spacing:-.025em;margin-top:22px;white-space:nowrap}
-.caret{display:inline-block;width:6px;height:80px;background:var(--amber);vertical-align:-8px;margin-left:6px}
-#zone{position:absolute;left:300px;top:470px;width:1320px;height:400px;border:3px dashed #4a4e55;border-radius:28px}
-#zone .hint{position:absolute;left:0;right:0;top:300px;text-align:center;color:var(--mut);font-size:26px}
-.doc{position:absolute;height:64px;padding:0 24px 0 18px;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--ivory);white-space:nowrap}
-.doc i{width:26px;height:32px;border-radius:4px;background:var(--sand);display:block;opacity:.9}
-/* compile */
-#b .shot{position:absolute;left:250px;top:250px;width:1420px;height:790px;border-radius:22px;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.6);border:1px solid var(--line)}
-#b .shot img{width:100%;height:100%;object-fit:cover;transform-origin:60% 40%}
-#b .cap{position:absolute;left:250px;top:92px;font-size:64px;font-weight:700;letter-spacing:-.02em}
-#b .cap span{color:var(--sand)}
-#b .tag{position:absolute;left:250px;top:180px;font-size:26px;color:var(--mut);font-weight:500}
-/* warden */
-#c .cap{position:absolute;left:300px;top:110px;font-size:64px;font-weight:700;letter-spacing:-.02em}
-#c .card{position:absolute;left:300px;top:250px;width:1320px;height:660px;background:var(--panel);border:1px solid var(--line);border-radius:28px;padding:56px 64px}
-.row{display:flex;gap:18px;align-items:center;font-size:30px;color:var(--mut)}
-.pill{padding:10px 22px;border:1px solid var(--line);border-radius:12px;color:var(--ivory);background:#141518}
-.mono{font-family:'JetBrains Mono',monospace;font-size:26px}
-.scoreline{display:flex;align-items:center;gap:40px;margin-top:70px}
-#score{font-size:200px;font-weight:800;line-height:1;letter-spacing:-.04em;width:250px}
-.outof{font-size:34px;color:var(--mut);margin-top:90px;margin-left:-20px}
-#stamp{border:4px solid var(--red);color:var(--red);font-weight:800;font-size:44px;letter-spacing:.08em;padding:14px 30px;border-radius:16px;transform-origin:center}
-.bar{position:relative;height:14px;border-radius:7px;background:#2a2c30;margin-top:46px;overflow:hidden}
-.bar b{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--amber),#efe2c6);border-radius:7px}
-.bar .lim{position:absolute;left:80%;top:-6px;bottom:-6px;width:4px;background:var(--red)}
-#quote{margin-top:48px;font-size:36px;color:var(--red);font-weight:600;min-height:90px}
-#quote small{display:block;font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--mut);margin-top:12px;font-weight:500}
-/* outro */
-#d .center{position:absolute;left:0;right:0;top:270px;display:flex;flex-direction:column;align-items:center}
-#d svg{width:200px;height:200px}
-#d .word{font-size:120px;font-weight:700;letter-spacing:-.03em;margin-top:30px}
-#d .word span{color:var(--amber)}
-#d .tl{font-size:40px;color:var(--mut);margin-top:10px;font-weight:500}
+#stage{position:absolute;inset:0}
+svg{position:absolute;inset:0}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:20px;letter-spacing:.06em}
+.slam{position:absolute;left:0;right:0;top:50%;text-align:center;font-weight:900;font-size:150px;letter-spacing:-.02em;line-height:1;transform:translateY(-50%);opacity:0;text-transform:uppercase}
+.slam.small{font-size:110px}
+.slam em{font-style:normal;color:#0d5a3e}
+#center{position:absolute;left:0;right:0;top:250px;display:flex;flex-direction:column;align-items:center}
+#logo{width:190px;height:190px;opacity:0}
+.eyebrow{font-weight:700;letter-spacing:.24em;font-size:24px;color:var(--amber);margin-top:46px}
+#word{font-size:128px;font-weight:800;letter-spacing:-.03em;margin-top:8px;line-height:1.1}
+#word span{color:var(--amber)}
+#tl{font-size:44px;opacity:.9;margin-top:6px;font-weight:500}
+#foot{position:absolute;left:0;right:0;bottom:70px;text-align:center;font-size:24px;letter-spacing:.06em;color:var(--mut);opacity:0}
 </style></head><body>
-
-<section class="scene" id="a"><div class="glow"></div>
-  <div class="wrap"><div class="eyebrow" id="eb">NORTHFIELD ASSEMBLY PLANT</div><h1><span id="typed"></span><span class="caret" id="caret"></span></h1></div>
-  <div id="zone"><div class="hint" id="hint">Drop the documents that say how it runs.</div></div>
-</section>
-
-<section class="scene" id="b"><div class="glow"></div>
-  <div class="cap" id="bcap">The <span>Symbiotic Compiler</span> turns them into one checked model.</div>
-  <div class="tag" id="btag">Northfield Assembly Plant · compiled from 10 documents</div>
-  <div class="shot" id="bshot"><img id="bimg" src="../docs/images/screens/00-floor-3d.png"></div>
-</section>
-
-<section class="scene" id="c"><div class="glow"></div>
-  <div class="cap" id="ccap">The limits come from <span style="color:var(--red)">your documents</span>.</div>
-  <div class="card" id="ccard">
-    <div class="row"><span>Proposed</span><span class="pill">Change a speed setting</span><span class="pill">Station TR</span><span class="pill mono">max_speed_pct: 90</span></div>
-    <div class="scoreline"><div id="score">0</div><div class="outof">/ 100</div><div id="stamp">BLOCKED BY A HARD LIMIT</div></div>
-    <div class="bar"><b id="bar"></b><div class="lim"></div></div>
-    <div id="quote"><span id="qt"></span><small id="qsrc">02_sop_transfer_robot.md</small></div>
-  </div>
-</section>
-
-<section class="scene" id="d"><div class="glow"></div>
-  <div class="center">
-    <svg id="logo" viewBox="-24 -24 48 48"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" stroke-opacity=".35" stroke-width="2"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg>
-    <div class="eyebrow" id="eb2" style="margin-top:44px">SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0</div><div class="word" id="word" style="margin-top:14px">Tolerance<span>.</span></div>
-    <div class="tl" id="tl">A symbiotic compiler for factories.</div>
-  </div>
-</section>
-
+<div id="stage">
+<svg viewBox="0 0 1920 1080">
+  <defs>
+    <!-- metaballs: blur the blobs, sharpen the alpha, then light them so the liquid looks glossy -->
+    <filter id="goo" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11" result="g"/>
+      <feGaussianBlur in="g" stdDeviation="5" result="gb"/>
+      <feSpecularLighting in="gb" surfaceScale="7" specularConstant="1.1" specularExponent="28" lighting-color="#fff6e0" result="spec">
+        <fePointLight x="700" y="-300" z="500"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="g" operator="in" result="specIn"/>
+      <feComposite in="g" in2="specIn" operator="arithmetic" k1="0" k2="1" k3=".75" k4="0"/>
+    </filter>
+    <radialGradient id="vig" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".55"/></radialGradient>
+  </defs>
+  <!-- the host: the plant, drawn in thin lines -->
+  <g id="plant" fill="none" stroke="#5b6168" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M120 860H1800"/>
+    <!-- TR robot arm -->
+    <g id="m0"><path d="M300 860v-40h120v40M360 820v-70l90-110 80 40"/><circle cx="360" cy="750" r="14"/><circle cx="450" cy="640" r="12"/><path d="M530 680l30 10M530 680l20 26"/></g>
+    <!-- OVN1 oven -->
+    <g id="m1"><rect x="640" y="620" width="260" height="240" rx="10"/><path d="M820 620V470h50v150"/><rect x="680" y="670" width="180" height="110" rx="6"/></g>
+    <!-- C1 conveyor -->
+    <g id="m2"><path d="M960 780h400M960 820h400"/><circle cx="990" cy="800" r="18"/><circle cx="1090" cy="800" r="18"/><circle cx="1190" cy="800" r="18"/><circle cx="1290" cy="800" r="18"/><path d="M1000 820v40M1320 820v40"/><rect x="1060" y="740" width="70" height="40" rx="4"/></g>
+    <!-- WH1 racks -->
+    <g id="m3"><path d="M1440 860V560h300v300M1440 660h300M1440 760h300M1590 560v300"/><rect x="1470" y="610" width="60" height="50"/><rect x="1620" y="710" width="70" height="50"/></g>
+  </g>
+  <g class="lbl" fill="#5b6168">
+    <text id="l0" x="300" y="900">TR</text><text id="l1" x="640" y="900">OVN1</text><text id="l2" x="960" y="900">C1</text><text id="l3" x="1440" y="900">WH1</text>
+  </g>
+  <g id="liquid" filter="url(#goo)"></g>
+  <rect width="1920" height="1080" fill="url(#vig)"/>
+</svg>
+<div class="slam" id="s0">The factory<br>is the host.</div>
+<div class="slam" id="s1">It reads everything.</div>
+<div class="slam" id="s2">Wires into everything.</div>
+<div class="slam small" id="s3">Acts only when<br><em>you say so.</em></div>
+<div id="center">
+  <svg id="logo" viewBox="-24 -24 48 48" style="position:static"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" stroke-opacity=".35" stroke-width="2"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg>
+  <div class="eyebrow" id="eb">SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0</div>
+  <div id="word">Tolerance<span>.</span></div>
+  <div id="tl">A symbiotic compiler for factories.</div>
+</div>
+<div id="foot">Google Cloud AI Builder Cup 2026 · Manufacturing</div>
+</div>
 <script>
-const DOCS=['01_line_layout.md','02_sop_transfer_robot.md','03_vendor_manual_transfer_robot.md','04_sop_conveyors.md','05_agv_notes.md','06_order_email.eml','07_shift_handover.md','08_maintenance_log.md'];
-// final slots inside the zone (relative to page)
-const SLOTS=[[340,510],[720,510],[340,600],[340,690],[1170,510],[930,600],[760,690],[1170,690]];
-const zone=document.getElementById('zone');
-const docEls=DOCS.map((n,i)=>{const d=document.createElement('div');d.className='doc';d.innerHTML='<i></i>'+n;document.body.querySelector('#a').appendChild(d);return d});
 const $=id=>document.getElementById(id);
-const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
-const p=(t,s,e)=>cl((t-s)/(e-s));
-const eo=x=>1-Math.pow(1-x,3);
-const back=x=>{const c=1.7;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
-function vis(id,t,s,e,f=.3){ // dip in/out through bg
-  const o=Math.min(p(t,s,s+f),1-p(t,e-f,e));$(id).style.opacity=(t>=s&&t<e)?o:0;}
-function rise(el,k,dy=30){el.style.opacity=k;el.style.transform=`translateY(${(1-k)*dy}px)`}
-const HEAD='Now, show me how your plant works.';
-const QUOTE='“The arm must not run above 80 percent of its maximum speed.”';
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),p=(t,s,e)=>cl((t-s)/(e-s));
+const eo=x=>1-Math.pow(1-x,3),ei=x=>x*x*x,eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+// tendrils: [start, ctrl1, ctrl2, end on a machine, machine index, start time]
+const T=[
+ [[-80,300],[150,250],[250,560],[365,752],0,1.6],
+ [[-60,980],[150,900],[200,700],[450,642],0,2.0],
+ [[620,-80],[560,200],[900,300],[845,480],1,1.8],
+ [[300,-80],[400,300],[600,500],[700,680],1,2.3],
+ [[1300,-80],[1250,300],[1000,550],[1095,750],2,2.1],
+ [[1100,1160],[1000,1000],[1250,900],[1290,800],2,2.5],
+ [[2000,350],[1800,420],[1700,500],[1560,630],3,1.7],
+ [[2000,980],[1850,900],[1800,800],[1660,730],3,2.2],
+];
+const NB=46;
+const G=$("liquid"),NS='http://www.w3.org/2000/svg';
+const blobs=T.map(()=>[...Array(NB)].map(()=>{const c=document.createElementNS(NS,'circle');G.appendChild(c);return c}));
+const core=document.createElementNS(NS,'rect');G.appendChild(core);
+const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0],v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1]]};
+// colour of the liquid: sand at the body, amber in the tendrils, green once bonded
+function mix(a,b,k){return a.map((x,i)=>Math.round(x+(b[i]-x)*k))}
+const SAND=[255,211,145],AMB=[245,181,68],GRN=[40,150,104];
+const LX=960,LY=345;
+function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
+  el.style.opacity=on?1:0;const j=on&&t<s+.25?(Math.sin(t*170)*6):0;
+  el.style.transform=`translate(${j}px,-50%) scale(${1.25-.25*eo(k)})`;}
 window.render=function(t){
-  vis('a',t,0,3,.01); if(t>2.7)$('a').style.opacity=1-p(t,2.7,3);
-  rise($('eb'),eo(p(t,0.05,0.4)));
-  const n=Math.round(HEAD.length*p(t,0.25,1.25));$('typed').textContent=HEAD.slice(0,n);
-  $('caret').style.opacity=(t<1.25||Math.floor(t*3)%2==0)?1:0;
-  rise(zone,eo(p(t,0.2,0.6)),20);
-  $('hint').style.opacity=eo(p(t,0.3,0.6))*(1-p(t,1.15,1.35));
-  docEls.forEach((d,i)=>{const k=p(t,1.2+i*0.12,1.2+i*0.12+0.45);const e=back(k);
-    const [x,y]=SLOTS[i];d.style.left=x+'px';d.style.top=y+'px';
-    d.style.opacity=cl(k*3);d.style.transform=`translate(${(1-e)*(i%2?160:-160)}px,${(1-e)*-260}px) rotate(${(1-e)*(i%2?8:-8)}deg)`});
-  // compile
-  vis('b',t,3,7);
-  rise($('bcap'),eo(p(t,3.15,3.6)));rise($('btag'),eo(p(t,3.35,3.8)));
-  const s=eo(p(t,3.0,3.8));$('bshot').style.transform=`translateY(${(1-s)*120}px)`;$('bshot').style.opacity=s;
-  $('bimg').style.transform=`scale(${1.12-0.1*p(t,3,7)})`;
-  // warden
-  vis('c',t,7,11);
-  rise($('ccap'),eo(p(t,7.1,7.5)));rise($('ccard'),eo(p(t,7.2,7.65)),40);
-  const sc=eo(p(t,7.6,8.4));$('score').textContent=Math.round(82*sc);$('bar').style.width=(82*sc)+'%';
-  const st=p(t,8.5,8.75);$('stamp').style.opacity=st>0?1:0;$('stamp').style.transform=`scale(${1.6-0.6*eo(st)}) rotate(${-4*eo(st)}deg)`;
-  $('score').style.color=t>8.5?'var(--red)':'var(--ivory)';
-  $('qt').textContent=QUOTE.slice(0,Math.round(QUOTE.length*p(t,8.8,9.7)));
-  $('qsrc').style.opacity=p(t,9.6,9.9);
-  // outro
-  vis('d',t,11,15.1);
-  const L=back(p(t,11.1,11.6));$('logo').style.transform=`scale(${0.5+0.5*L})`;$('logo').style.opacity=cl(p(t,11.1,11.3));
-  rise($('eb2'),eo(p(t,11.4,11.8)));rise($('word'),eo(p(t,11.5,11.95)));rise($('tl'),eo(p(t,11.9,12.4)));
+  const grow=t2=>eo(p(t,t2,t2+1.5));
+  const flood=eio(p(t,5.0,5.9));           // liquid takes the whole screen
+  const pull=eio(p(t,8.9,9.8));            // and pulls back into the logo
+  T.forEach(([a,b,c,d,mi,ts],k)=>{
+    const g=grow(ts),bond=p(t,ts+1.4,ts+1.8);
+    blobs[k].forEach((el,i)=>{
+      const u=i/(NB-1)*g;
+      let [x,y]=bez(a,b,c,d,u);
+      const w=Math.sin(t*3.1+i*.35+k)*14*(1-u);x+=w;y+=Math.cos(t*2.7+i*.3+k)*10*(1-u);
+      let r=(26-16*(i/NB))*(g>0?1:0)*(0.85+.15*Math.sin(t*6+i));
+      if(i===NB-1)r+=8*bond;               // the tip swells as it latches on
+      r+=flood*(340+80*Math.sin(i+k));
+      // pull everything into the logo
+      x+=(LX-x)*pull;y+=(LY-y)*pull;r*=1-pull*.97;
+      el.setAttribute('cx',x);el.setAttribute('cy',y);el.setAttribute('r',Math.max(0,r));
+      const col=mix(mix(AMB,SAND,u*.4),GRN,bond*u*u);
+      el.setAttribute('fill',`rgb(${mix(col,SAND,cl(flood*1.6))})`);
+    });
+    // a bonded machine lights up
+    const on=bond*(1-flood);
+    $('m'+mi).style.stroke=on>0?`rgb(${mix([91,97,104],[159,230,191],on)})`:'';
+    $('l'+mi).style.fill=on>0?`rgb(${mix([91,97,104],[159,230,191],on)})`:'';
+    if(on>.9)$('l'+mi).textContent=['TR','OVN1','C1','WH1'][mi]+' · bonded';else $('l'+mi).textContent=['TR','OVN1','C1','WH1'][mi];
+  });
+  // core blob that becomes the logo tile
+  const cs=200*pull*(1-p(t,9.75,9.85));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
+  core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
+  $('plant').style.opacity=1-flood;
+  document.querySelector('.lbl').style.opacity=1-flood;
+  // the host is shown first, in the dark
+  $('stage').style.opacity=t<1.55?0:1;
+  if(t<1.55){$('stage').style.opacity=1;$('plant').style.opacity=p(t,1.0,1.5)*.9;}
+  slam('s0',t,.15,1.55);slam('s1',t,5.9,6.9);slam('s2',t,6.95,7.95);slam('s3',t,8.0,8.9);
+  ['s1','s2','s3'].forEach(id=>$(id).style.color='#14110b');
+  $('s0').style.color='var(--ivory)';
+  const L=back(p(t,9.8,10.25));$('logo').style.opacity=t>=9.8?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
+  const r=(id,s)=>{const k=eo(p(t,s,s+.5));$(id).style.opacity=k;$(id).style.transform=`translateY(${(1-k)*24}px)`};
+  r('eb',10.2);r('word',10.4);r('tl',11.0);r('foot',11.8);
+  document.body.style.opacity=1-p(t,14.3,15);
 };
-window.ready=document.fonts.ready.then(()=>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>i.onload=r))));
+window.ready=document.fonts.ready;
 render(0);
 </script></body></html>
