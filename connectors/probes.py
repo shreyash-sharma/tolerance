@@ -173,7 +173,7 @@ def _mqtt(p, password, topic, timeout):
         if str(got["rc"]) not in ("Success", "0"):
             raise ProbeError(f"The broker refused the login ({got['rc']}).")
         detail = {"connected": True}
-        if topic and ev2.wait(min(3, timeout)):
+        if topic and ev2.wait(min(8, timeout)):
             detail["sample"] = got["msg"]
         return detail
     finally:
@@ -244,7 +244,7 @@ def test(kind, url, secret="", query="", timeout=8):
             elif kind == "mongodb":
                 detail = _mongo(p, pw, query, timeout)
             elif kind == "mqtt":
-                detail = _mqtt(p, pw, query or p["database"], timeout)
+                detail = _mqtt(p, pw, query or p["database"], max(timeout, 20))   # a shared cloud broker can take a long while to answer
             elif kind == "kafka":
                 detail = _kafka(p, pw, query, timeout)
             else:

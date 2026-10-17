@@ -91,7 +91,8 @@ def mqtt_resource(params, nm):
             cl.username_pw_set(p["user"], pw or None)
         if p["scheme"] in ("mqtts", "ssl", "tls") or p["port"] == 8883:
             cl.tls_set()
-        cl.on_connect = lambda c, u, f, rc, props=None: c.subscribe(topic)
+        up = threading.Event()
+        cl.on_connect = lambda c, u, f, rc, props=None: (c.subscribe(topic), up.set())
 
         def on_message(c, u, m):
             body = m.payload.decode("utf8", "replace")
@@ -106,6 +107,7 @@ def mqtt_resource(params, nm):
         cl.on_message = on_message
         cl.connect(p["host"], p["port"], keepalive=10)
         cl.loop_start()
+        up.wait(25)     # a shared cloud broker can be slow to answer: the listening time starts once it has
         time.sleep(4)   # one sync listens for a few seconds; the live loop syncs again every few seconds
         cl.loop_stop()
         cl.disconnect()
