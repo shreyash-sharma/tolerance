@@ -9,6 +9,10 @@ G._ask = lambda system, payload, default: ({"options": ["EV battery packs"]}, "x
 assert G._goal_options() == ["EV battery packs"]
 G.DE.state = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
 assert G._goal_options() == []
+G._ask = lambda system, payload, default: (default, "rule")   # the model gives nothing: words in the documents still point at the product
+G.DE.state = lambda: {"docs": [], "claims": [], "conflicts": [], "ghosts": [], "guardrails": []}
+G.DE.list_docs = lambda include_seed=None: [{"name": "a.md", "text": "The reflow oven profile and the AOI result for the PCB line."}]
+assert G._goal_options() == ["Printed circuit boards"], G._goal_options()
 print("goal options never fatal ok")
 # a job that fails before saying anything runs twice
 import time

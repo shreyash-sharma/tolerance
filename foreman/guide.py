@@ -318,15 +318,37 @@ def ensure_data():
         return False
 
 
+# when the model gives nothing, words in the documents can still point at the product
+PRODUCT_WORDS = [
+    (r"pcb|printed circuit|smt|reflow|solder|aoi|circuit board", "Printed circuit boards"),
+    (r"battery|li-ion|lithium", "Battery packs"),
+    (r"weld|stamping|chassis|frame", "Welded metal parts"),
+    (r"paint|coating|powder coat", "Painted parts"),
+    (r"bottle|filling line|packaging", "Packaged goods"),
+    (r"tablet|pharma|gmp", "Pharmaceutical products"),
+    (r"cnc|lathe|milling|machined", "Machined parts"),
+]
+
+
+def _goal_from_words(texts):
+    import re
+    low = " ".join(texts).lower()
+    hits = sorted(((len(re.findall(rx, low)), label) for rx, label in PRODUCT_WORDS), reverse=True)
+    return [label for n, label in hits if n > 0][:3]
+
+
 def _goal_options():
     """Up to four short guesses of what the plant makes, taken only from the documents. An empty list when they do not say, or when anything goes wrong: this is a nicety and must never stop the flow."""
     try:
         st = DE.state()
-        facts = [f"{c['subject']} {str(c['predicate']).replace('_', ' ')} {c['value']}" for c in st["claims"][:60]]
-        out, _ = _ask(VOICE + " Say what products this plant might make, using only the documents. Give at most 4 short answers of 2 to 5 words each (for example: EV battery packs). If the documents do not show what is made, return an empty list. Reply as JSON: {\"options\": [\"...\"]}.",
-                      {"facts": facts}, {"options": []})
+        docs = DE.list_docs()
+        excerpts = [{"document": d["name"], "starts": str(d.get("text", ""))[:380]} for d in docs[:10]]
+        facts = [f"{c['subject']} {str(c['predicate']).replace('_', ' ')} {c['value']}" for c in st["claims"][:40]]
+        out, _ = _ask(VOICE + " Say what products this plant might make, using only the documents below (their names, how they start, and facts read from them). Give at most 4 short answers of 2 to 5 words each (for example: EV battery packs). If the documents do not show what is made, return an empty list. Reply as JSON: {\"options\": [\"...\"]}.",
+                      {"documents": excerpts, "facts": facts}, {"options": []})
         got = out.get("options") if isinstance(out, dict) else None
-        return [str(x).strip()[:60] for x in (got or []) if isinstance(x, str) and len(x.strip()) >= 3][:4]
+        opts = [str(x).strip()[:60] for x in (got or []) if isinstance(x, str) and len(x.strip()) >= 3][:4]
+        return opts or _goal_from_words([str(d.get("text", "")) for d in docs])
     except Exception:
         return []
 
