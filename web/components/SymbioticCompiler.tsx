@@ -181,7 +181,7 @@ export default function SymbioticCompiler() {
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      <p className="sub" style={{ margin: 0 }}>The Symbiotic Compiler turns {p.name}'s documents, data and answers into one checked model of the plant. Every fact keeps the exact words it came from. Give it more files and it compiles again.</p>
+      <p className="sub" style={{ margin: 0 }}>The Symbiotic Compiler turns your documents, your data and what you told the Guide into one checked model of the plant. Every fact keeps the exact words it came from. Give it more files and it compiles again.</p>
       <div className="grid g5">
         {tile(files.length, 'DOCUMENTS', pending.length ? `${pending.length} not compiled yet` : 'all compiled')}
         {tile(claims.length, 'FACTS', 'each with its quote')}
