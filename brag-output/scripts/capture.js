@@ -1,4 +1,4 @@
-// Usage: node capture.js [t1,t2,...]  (no args = all frames at 30fps for 15s)
+// Usage: node capture.js [t1,t2,...]  (no args = all frames at 60fps for 15s)
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const path = require('path');
 (async () => {
@@ -6,7 +6,7 @@ const path = require('path');
   const pg = await b.newPage({ viewport: { width: 1920, height: 1080 } });
   pg.on('pageerror',e=>console.log('ERR',e.message));await pg.goto('file://' + path.resolve(__dirname, '../composition.html'));
   await pg.evaluate(() => window.ready);
-  const ts = process.argv[2] ? process.argv[2].split(',').map(Number) : [...Array(450).keys()].map(i => i / 30);
+  const ts = process.argv[2] ? process.argv[2].split(',').map(Number) : [...Array(900).keys()].map(i => i / 60);
   const out = process.argv[2] ? 'stills' : 'frames';
   require('fs').mkdirSync(path.join(__dirname, out), { recursive: true });
   for (let i = 0; i < ts.length; i++) {
