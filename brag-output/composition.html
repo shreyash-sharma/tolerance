@@ -97,19 +97,19 @@ const $=id=>document.getElementById(id);
 const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),p=(t,s,e)=>cl((t-s)/(e-s)),lerp=(a,b,k)=>a+(b-a)*k;
 const eo=x=>1-Math.pow(1-x,3),ei=x=>x*x*x,eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
 const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
-// tendrils: [start, ctrl1, ctrl2, grip point, machine, start time, coil radius]
-// each one crawls in, draws back, strikes, then coils round a part of its machine and grips it
+// tentacles: [start on the Tolerance source, ctrl1, ctrl2, where the wrap starts, machine, start time, wrap: x0, y0, x1, y1, turns]
+// each one rises out of Tolerance at the bottom of the frame, reaches its machine, and winds round a part of it
 const T=[
- [[230,860],[160,700],[300,560],[430,630],0,1.6,[418,625,482,705,1]],        // TR forearm
- [[480,860],[530,800],[440,720],[345,745],0,2.0,[338,745,384,822,1.5]],      // TR column
- [[970,860],[1000,650],[930,440],[820,470],1,1.8,[820,470,870,620,2.5]],     // OVN1 chimney
- [[560,860],[500,760],[590,600],[640,640],1,2.3,[640,640,688,850,2]],        // OVN1 left side
- [[960,860],[930,760],[1000,720],[1030,775],2,2.1,[1020,772,1170,828,1]],    // C1 belt
- [[1410,860],[1440,760],[1300,720],[1230,775],2,2.5,[1210,772,1350,828,1]],  // C1 belt
- [[1800,860],[1830,700],[1700,520],[1580,570],3,1.7,[1580,570,1600,850,3]],  // WH1 upright
- [[1880,860],[1910,780],[1790,540],[1730,570],3,2.2,[1730,570,1750,850,3]],  // WH1 upright
- [[520,860],[440,600],[560,540],[640,620],1,8.0,[640,620,900,860,2]],        // cooling: round the whole oven
- [[1020,860],[1100,600],[980,540],[640,650],1,8.25,[640,650,900,860,2]],     // cooling: a second wind
+ [[820,950],[600,860],[420,560],[418,625],0,1.6,[418,625,482,705,1.5]],        // TR forearm
+ [[860,955],[560,930],[380,700],[338,745],0,2.0,[338,745,384,822,2]],          // TR column
+ [[940,945],[1000,700],[930,420],[820,470],1,1.8,[820,470,870,620,4]],         // OVN1 chimney
+ [[900,950],[700,900],[600,600],[640,640],1,2.3,[640,640,688,850,3.5]],        // OVN1 left side
+ [[1000,950],[1010,860],[1000,720],[1020,772],2,2.1,[1020,772,1170,828,1.5]],  // C1 belt
+ [[1060,955],[1200,900],[1240,720],[1210,772],2,2.5,[1210,772,1350,828,1.5]],  // C1 belt
+ [[1100,950],[1450,900],[1640,520],[1580,570],3,1.7,[1580,570,1600,850,5]],    // WH1 upright
+ [[1140,955],[1600,930],[1800,520],[1730,570],3,2.2,[1730,570,1750,850,5]],    // WH1 upright
+ [[880,948],[600,800],[560,560],[640,620],1,8.0,[640,620,900,860,3]],          // cooling: round the whole oven
+ [[1040,948],[1200,800],[980,540],[640,650],1,8.25,[640,650,900,860,3]],       // cooling: a second wind
 ];
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
@@ -126,9 +126,9 @@ const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+
 // F marks the bands that cross in front of the part; the rest pass behind it.
 const PATHS=T.map(([a,b,c,d,,,W])=>{
   const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
-  const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+10,h=y1-y0,N=Math.round(turns*48);
+  const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+4,h=y1-y0,N=Math.round(turns*48);
   for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_;
-    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+Math.max(18,hw*.35)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
+    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+Math.max(10,hw*.24)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   return {pts,F,L,len:L[L.length-1],ap:L[60]};
 });
@@ -170,8 +170,8 @@ function drawArms(t,sc,cx,cy,pull){
   AC.setTransform(sc,0,0,sc,960-cx*sc,540-cy*sc);
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
-    const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?11:small?6:8;
+    const P_=PATHS[k],g=reach(t,ts)*(1-eio(p(t,10.8,11.6)));if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?14:small?8:11;
     const pts=[],front=[];
     for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
       const wrapping=ss(apU-.03,apU+.02,u);
@@ -182,17 +182,17 @@ function drawArms(t,sc,cx,cy,pull){
       pts.push([x,y,w*(1-pull*.9)]);front.push(frontAt(P_,tip*u));}
     strands.push({pts,front,bond,cool,seed:k*7});
   });
-  // the puddles it rises out of, with flame-like licks round the rim
-  T.forEach(([a,,,,,ts],k)=>{const pv=eo(p(t,ts-.35,ts+.25))*(1-pull);if(pv<=0)return;const cool=k>=COOLK?1:0;
-    const rx=78*pv,ry=rx*.2,[x,y]=a,dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`;
+  // the source: a mound of goo with flame-like licks, Tolerance written across it
+  const rise=eo(p(t,1.2,1.7))*(1-eio(p(t,11.6,12.1)));
+  if(rise>0){const x=960,y=985+(1-rise)*120,rx=330*rise,ry=60*rise,dark='rgb(192,106,28)',lit='rgb(245,181,68)';
     AC.fillStyle=dark;AC.beginPath();AC.ellipse(x,y,rx,ry,0,0,7);AC.fill();
-    AC.fillStyle=lit;AC.beginPath();AC.ellipse(x-rx*.12,y-ry*.25,rx*.78,ry*.62,0,0,7);AC.fill();
-    for(let n=0;n<6;n++){const sx=x+(n/5-.5)*rx*1.5,h=(16+18*Math.abs(Math.sin(n*1.7+k)))*pv*(1+.25*Math.sin(t*5+n*2+k)),lean=Math.sin(t*3+n+k)*6;
-      AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-7,y);AC.quadraticCurveTo(sx-4+lean*.4,y-h*.6,sx+lean,y-h);AC.quadraticCurveTo(sx+4+lean*.4,y-h*.6,sx+7,y);AC.fill()}});
+    AC.fillStyle=lit;AC.beginPath();AC.ellipse(x-rx*.08,y-ry*.22,rx*.86,ry*.66,0,0,7);AC.fill();
+    for(let n=0;n<14;n++){const sx=x+(n/13-.5)*rx*1.7,h=(18+22*Math.abs(Math.sin(n*1.7)))*rise*(1+.25*Math.sin(t*5+n*2)),lean=Math.sin(t*3+n)*6,by=y-ry*.55*Math.sqrt(Math.max(0,1-Math.pow((sx-x)/rx,2)));
+      AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-8,by+4);AC.quadraticCurveTo(sx-4+lean*.4,by-h*.6,sx+lean,by-h);AC.quadraticCurveTo(sx+4+lean*.4,by-h*.6,sx+8,by+4);AC.fill()}}
   strands.forEach(st=>{
     const {pts,front,bond,cool}=st;
     celLimb(pts,bond,cool,st.seed,t);
-    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([40,18,4],[6,34,24],cool)},.62)`;
+    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([40,18,4],[6,34,24],cool)},.5)`;
     let i0=-1;for(let i=0;i<=front.length;i++){const back=i<front.length&&!front[i];
       if(back&&i0<0)i0=i;if(!back&&i0>=0){const a=Math.max(0,i0-1),b=Math.min(front.length-1,i);fillShape(B.Lf.slice(a,b+1),B.Rt.slice(a,b+1));i0=-1}}
     AC.restore();
@@ -215,12 +215,20 @@ function celLimb(pts,bond,cool,seed,t){{
       AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
   }
 }
+function drawSource(t){
+  const up=eio(p(t,11.7,12.4)),vis=eo(p(t,1.3,1.8));if(vis<=0)return;
+  const y=lerp(1003,596,up),size=lerp(96,128,up);
+  AC.save();AC.globalAlpha=vis;AC.font=`800 ${size}px Barlow`;AC.textBaseline='middle';AC.letterSpacing=`${-size*.03}px`;
+  const w1=AC.measureText('Tolerance').width,w2=AC.measureText('.').width,x=960-(w1+w2)/2;
+  AC.lineJoin='round';AC.lineWidth=size*.12*(1-up);AC.strokeStyle='rgba(60,26,4,.9)';if(up<1)AC.strokeText('Tolerance',x,y);
+  AC.fillStyle='#eef0f2';AC.fillText('Tolerance',x,y);AC.fillStyle='#f5b544';AC.fillText('.',x+w1,y);AC.restore();
+}
 function drawTile(t,pull){
   if(pull>0&&t<12.05){const cs=200*pull;AC.setTransform(1,0,0,1,0,0);AC.fillStyle='#ffd391';AC.beginPath();AC.roundRect(LX-cs/2,LY-cs/2,cs,cs,cs*.25);AC.fill()}
 }
 window.render=function(t){
   const flood=0;
-  const pull=eio(p(t,11.4,12.0));          // everything pulls back into the logo
+  const pull=0;
   const tips=[];FLOOD=Math.max(flood,pull);SH.setAttribute('opacity',.55*(1-flood));
   const fin=(x,y,r)=>{r+=flood*(340+80*Math.sin(x*.01+y*.013));x+=(LX-x)*pull;y+=(LY-y)*pull;r*=1-pull*.97;return [x,y,r]};
   T.forEach(([,,,,mi,ts],k)=>{
@@ -284,7 +292,7 @@ window.render=function(t){
   $('temp').style.color=t>9.8?'#9fe6bf':T_>250?`rgb(${mix([224,80,60],[255,150,110],.5+.5*Math.sin(t*10))})`:'var(--ivory)';
   $('tstate').textContent=t>9.8?'COOLED':t>8?'COOLING':T_>250?'OVER LIMIT':'RISING';$('tstate').style.color=t>8?'#9fe6bf':T_>250?'#ff8a6a':'var(--mut)';
   {const v=eo(p(t,10.0,10.5))*(1-p(t,11.2,11.5));$('card').style.opacity=v;$('card').style.transform=`translateX(${(1-eo(p(t,10.0,10.55)))*260}px)`}
-  drawArms(t,sc,ccx,ccy,pull);drawTile(t,pull);
+  drawArms(t,sc,ccx,ccy,pull);AC.setTransform(sc,0,0,sc,960-ccx*sc,540-ccy*sc);drawSource(t);
   // core blob that becomes the logo tile
   const cs=200*pull*(1-p(t,11.95,12.05));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
   core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
@@ -295,10 +303,10 @@ window.render=function(t){
   if(t<1.55){$('stage').style.opacity=1;$('plant').style.opacity=p(t,1.0,1.5)*.9;}
   slam('s0',t,.15,1.55);
   $('s0').style.color='var(--ivory)';
-  const L=back(p(t,12.0,12.45));$('logo').style.opacity=t>=12.0?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
+  const L=back(p(t,12.4,12.85));$('logo').style.opacity=t>=12.4?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
   const r=(id,s)=>{const k=eo(p(t,s,s+.5));$(id).style.opacity=k;$(id).style.transform=`translateY(${(1-k)*24}px)`};
-  r('eb',12.4);r('word',12.6);r('tl',13.1);r('foot',13.6);
-  $('world').style.opacity=t>=12.0?0:1;$('arms').style.opacity=t>=12.05?0:1;
+  r('eb',12.6);r('tl',13.0);r('foot',13.5);$('word').style.opacity=0;
+  $('world').style.opacity=1-p(t,11.7,12.2);
   document.body.style.opacity=1-p(t,14.3,15);
 };
 window.ready=document.fonts.ready;
