@@ -26,6 +26,8 @@ svg{position:absolute;inset:0}
 #word span{color:var(--amber)}
 #tl{font-size:44px;opacity:.9;margin-top:6px;font-weight:500}
 #foot{position:absolute;left:0;right:0;bottom:70px;text-align:center;font-size:24px;letter-spacing:.06em;color:var(--mut);opacity:0}
+#liquid,#shade,#webs{display:none}
+#arms{position:absolute;inset:0;width:1920px;height:1080px}
 </style></head><body>
 <div id="stage">
 <svg viewBox="0 0 1920 1080">
@@ -75,6 +77,7 @@ svg{position:absolute;inset:0}
   </g>
   <rect width="1920" height="1080" fill="url(#vig)"/>
 </svg>
+<canvas id="arms" width="1920" height="1080"></canvas>
 <div class="slam" id="s0">The factory<br>is the host.</div>
 <div class="cap" id="c1">Something got in.</div>
 <div class="cap" id="c2">And it tells you.</div>
@@ -124,7 +127,7 @@ const PATHS=T.map(([a,b,c,d,,,R])=>{
   const a0=Math.atan2(pts[60][1]-d[1],pts[60][0]-d[0]);
   for(let k=1;k<=40;k++){const an=a0+k/40*Math.PI*2.3;pts.push([d[0]+Math.cos(an)*R*1.6,d[1]+Math.sin(an)*R*1.2])}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
-  return {pts,L,len:L[L.length-1]};
+  return {pts,L,len:L[L.length-1],ap:L[60]};
 });
 function at(P_,s){ // point and direction at arc length s
   const {pts,L}=P_;s=cl(s,0,P_.len);let i=1;while(i<L.length-1&&L[i]<s)i++;
@@ -148,6 +151,64 @@ function put(pair,x,y,r,col){const [c,sh]=pair;r=Math.max(0,r);col=mix(col,SAND,
 function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
   el.style.opacity=on?1:0;const j=on&&t<s+.25?(Math.sin(t*170)*6):0;
   el.style.transform=`translate(${j}px,-50%) scale(${1.25-.25*eo(k)})`;}
+// ---------- the arms, painted as braided strands on a canvas that follows the camera ----------
+const AC=document.getElementById('arms').getContext('2d');
+// the cooling arms lace round the oven's outline instead of coiling on a point
+[COOLK,COOLK+1].forEach((k,n)=>{const [a,b,c]=T[k],pts=[];
+  for(let i=0;i<=40;i++)pts.push(bez(a,b,c,n?[920,600]:[620,600],i/40));
+  const box=[[620,600],[920,600],[920,880],[620,880]],ring=n?[1,2,3,0,1,2]:[0,3,2,1,0,3];
+  for(let r=0;r<ring.length-1;r++){const A=box[ring[r]],B=box[ring[r+1]];for(let i=1;i<=14;i++){const u=i/14,z=Math.sin(u*Math.PI)*(r%2?-26:26);
+    const dx=B[0]-A[0],dy=B[1]-A[1],l=Math.hypot(dx,dy);pts.push([A[0]+dx*u-dy/l*z,A[1]+dy*u+dx/l*z])}}
+  const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  PATHS[k]={pts,L,len:L[L.length-1],ap:L[40]};});
+const ss=(a,b,x)=>{const k=cl((x-a)/(b-a));return k*k*(3-2*k)};
+function strandShape(pts){ // left and right edges of a tapered strand
+  const n=pts.length,Lf=[],Rt=[];
+  for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)];let dx=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
+    const w=pts[i][2];Lf.push([pts[i][0]-dy*w,pts[i][1]+dx*w]);Rt.push([pts[i][0]+dy*w,pts[i][1]-dx*w])}
+  return {Lf,Rt};
+}
+function fillShape(Lf,Rt){AC.beginPath();AC.moveTo(Lf[0][0],Lf[0][1]);for(const q of Lf)AC.lineTo(q[0],q[1]);for(let i=Rt.length-1;i>=0;i--)AC.lineTo(Rt[i][0],Rt[i][1]);AC.closePath();AC.fill()}
+function drawArms(t,sc,cx,cy,pull){
+  AC.setTransform(1,0,0,1,0,0);AC.clearRect(0,0,1920,1080);
+  AC.setTransform(sc,0,0,sc,960-cx*sc,540-cy*sc);
+  const strands=[];
+  T.forEach(([,,,,mi,ts],k)=>{
+    const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
+    const N=4,M=110,base=k>=COOLK?9:13,apU=P_.ap/Math.max(tip,1);
+    for(let j=0;j<N;j++){const pts=[],jj=j-(N-1)/2;
+      for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
+        const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u);
+        const grip=ss(apU-.02,apU+.04,u);                                          // tight where it holds on
+        const braid=ss(.1,.55,u)*(jj*3.2+6*Math.sin(u*13+j*1.57+t*1.6+k))*(1-.65*grip);   // strands fused at the root, twisting apart further out
+        const fan=jj*26*ss(.86,1,u)*(.4+.6*bond);                                 // and fan out into claws at the tip
+        const o=whip+braid+fan;let x=x0-dy*o,y=y0+dx*o;
+        const w=(1.1+base*Math.pow(1-u,.9)*(1-.35*ss(.1,.5,u)))*(1+.1*Math.sin(t*4-u*12+j));   // a heavy trunk tapering to barbs
+        x+=(LX-x)*pull;y+=(LY-y)*pull;pts.push([x,y,w*(1-pull*.9)]);}
+      strands.push({pts,bond,cool,seed:k*7+j});}
+  });
+  // a soft cast shadow first, then the bodies
+  AC.save();AC.shadowColor='rgba(0,0,0,.55)';AC.shadowBlur=18;AC.shadowOffsetX=10;AC.shadowOffsetY=14;AC.fillStyle='rgba(0,0,0,.35)';
+  strands.forEach(st=>{const {Lf,Rt}=strandShape(st.pts);fillShape(Lf,Rt)});AC.restore();
+  strands.forEach(st=>{
+    const {pts,bond,cool}=st,{Lf,Rt}=strandShape(pts);
+    const edge=cool>0?`rgb(${mix([110,52,14],[30,110,80],cool)})`:'#6e340e',mid=cool>0?`rgb(${mix([226,150,48],[110,210,160],cool)})`:'#e2962f',hi=cool>0?`rgb(${mix([250,200,110],[190,245,215],cool)})`:'#f8c86c';
+    AC.fillStyle=edge;fillShape(Lf,Rt);
+    // the warm core, set towards the lit (upper) side
+    const core=pts.map((q,i)=>[q[0]+(Lf[i][1]<Rt[i][1]?Lf[i][0]-q[0]:Rt[i][0]-q[0])*.25,q[1]+(Lf[i][1]<Rt[i][1]?Lf[i][1]-q[1]:Rt[i][1]-q[1])*.25,q[2]*.62]);
+    const c1=strandShape(core);AC.fillStyle=mid;fillShape(c1.Lf,c1.Rt);
+    const c2=strandShape(core.map(q=>[q[0],q[1],q[2]*.45]));AC.fillStyle=hi;fillShape(c2.Lf,c2.Rt);
+    // a crisp highlight along the top edge
+    AC.save();AC.strokeStyle='rgba(255,250,235,.85)';AC.lineWidth=1.4;AC.lineCap='round';AC.beginPath();
+    for(let i=Math.floor(pts.length*.12);i<pts.length*.8;i++){const up=Lf[i][1]<Rt[i][1]?Lf[i]:Rt[i],q=pts[i],x=q[0]+(up[0]-q[0])*.7,y=q[1]+(up[1]-q[1])*.7;i==Math.floor(pts.length*.12)?AC.moveTo(x,y):AC.lineTo(x,y)}
+    AC.stroke();AC.restore();
+    // green veins once it has bonded
+    const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+st.seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
+      AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
+  });
+  // the tile it pulls itself into
+  if(pull>0&&t<12.05){const cs=200*pull;AC.setTransform(1,0,0,1,0,0);AC.fillStyle='#ffd391';AC.beginPath();AC.roundRect(LX-cs/2,LY-cs/2,cs,cs,cs*.25);AC.fill()}
+}
 window.render=function(t){
   const flood=0;
   const pull=eio(p(t,11.4,12.0));          // everything pulls back into the logo
@@ -214,6 +275,7 @@ window.render=function(t){
   $('temp').style.color=t>9.8?'#9fe6bf':T_>250?`rgb(${mix([224,80,60],[255,150,110],.5+.5*Math.sin(t*10))})`:'var(--ivory)';
   $('tstate').textContent=t>9.8?'COOLED':t>8?'COOLING':T_>250?'OVER LIMIT':'RISING';$('tstate').style.color=t>8?'#9fe6bf':T_>250?'#ff8a6a':'var(--mut)';
   {const v=eo(p(t,10.0,10.5))*(1-p(t,11.2,11.5));$('card').style.opacity=v;$('card').style.transform=`translateX(${(1-eo(p(t,10.0,10.55)))*260}px)`}
+  drawArms(t,sc,ccx,ccy,pull);
   // core blob that becomes the logo tile
   const cs=200*pull*(1-p(t,11.95,12.05));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
   core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
@@ -227,7 +289,7 @@ window.render=function(t){
   const L=back(p(t,12.0,12.45));$('logo').style.opacity=t>=12.0?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
   const r=(id,s)=>{const k=eo(p(t,s,s+.5));$(id).style.opacity=k;$(id).style.transform=`translateY(${(1-k)*24}px)`};
   r('eb',12.4);r('word',12.6);r('tl',13.1);r('foot',13.6);
-  $('world').style.opacity=t>=12.0?0:1;
+  $('world').style.opacity=t>=12.0?0:1;$('arms').style.opacity=t>=12.05?0:1;
   document.body.style.opacity=1-p(t,14.3,15);
 };
 window.ready=document.fonts.ready;
