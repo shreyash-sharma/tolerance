@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
-type Inc = { id: string; kind: string; title: string; detail: string; status: string; by?: string; via?: string; opened: number; scored: { label: string; score: number; decision: string; floor: number; limit: number; violations: string[] }; action: any };
+type Inc = { id: string; kind: string; target?: string; title: string; detail: string; status: string; by?: string; via?: string; opened: number; scored: { label: string; score: number; decision: string; floor: number; limit: number; violations: string[] }; action: any };
 type Over = { probes: { name: string; alive: boolean; where?: string; services?: Record<string, boolean>; readings?: Record<string, number> }[]; incidents: Inc[]; audit: { at: number; text: string }[] };
 
 const TONE: Record<string, string> = { waiting: '#f2b84b', applying: '#8fb4ff', resolved: '#7be0a6', rejected: '#ef6b57', refused: '#ef6b57', blocked: '#ef6b57' };
@@ -11,6 +11,43 @@ const UNIT_NAME: Record<string, string> = { mongod: 'MongoDB', mosquitto: 'the M
 const unitName = (u: string) => UNIT_NAME[u] || u;
 const fix = (a: any) => (a.kind === 'adjust_temperature' ? `set the oven to ${a.params?.max_temp_c} °C` : a.station === 'cloud_sql' ? 'start the Cloud SQL database again' : `restart ${unitName(a.station)}`);
 const at = (t: number) => new Date(t * 1000).toLocaleTimeString();
+
+/** The real progress of a Cloud SQL start: what Google says, the operation it runs, and the time so far. */
+function StartProgress({ since }: { since: number }) {
+  const [c, setC] = useState<any>(null);
+  const [now, setNow] = useState(Date.now() / 1000);
+  useEffect(() => {
+    const load = () => api<any>('/cloud').then((d) => setC(d.config)).catch(() => {});
+    load();
+    const a = setInterval(load, 3000), b = setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => { clearInterval(a); clearInterval(b); };
+  }, []);
+  const l = c?.last || {};
+  const t0 = c?.starting_since || since, el = Math.max(0, Math.round(now - t0));
+  const mm = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`;
+  const ready = l.state === 'RUNNABLE';
+  const steps: { text: string; state: 'done' | 'now' | 'next'; note?: string }[] = [
+    { text: 'Google accepted the start command', state: 'done' },
+    { text: 'Google brings the instance up', state: ready ? 'done' : 'now', note: l.state ? `Google says: ${l.state}${l.op ? ` · ${String(l.op.type).toLowerCase()} ${String(l.op.status).toLowerCase()}` : ''}` : undefined },
+    { text: 'The database answers on its port', state: l.up ? 'done' : ready ? 'now' : 'next' },
+    { text: 'The incident closes by itself', state: l.up ? 'now' : 'next' },
+  ];
+  const pct = l.up ? 100 : Math.min(95, Math.round((el / 660) * 100));
+  return (
+    <div style={{ borderTop: '1px solid #8fb4ff44', paddingTop: 8, display: 'grid', gap: 6 }}>
+      <div className="row sb" style={{ fontSize: 13 }}><b>Starting the Cloud SQL database</b><span className="mut">{mm} so far · usually about 11 minutes</span></div>
+      <div style={{ height: 6, borderRadius: 4, background: '#ffffff14', overflow: 'hidden' }}><div style={{ width: `${pct}%`, height: '100%', background: '#8fb4ff', transition: 'width 1s linear' }} /></div>
+      <div style={{ display: 'grid', gap: 3, fontSize: 13 }}>
+        {steps.map((s, k) => (
+          <div key={k} style={{ display: 'flex', gap: 8, alignItems: 'baseline', color: s.state === 'next' ? 'var(--dim)' : undefined }}>
+            <span style={{ width: 14, color: s.state === 'done' ? '#7be0a6' : '#8fb4ff' }}>{s.state === 'done' ? '✓' : s.state === 'now' ? '●' : '○'}</span>
+            <span>{s.text}</span>{s.note && s.state === 'now' && <span className="mut" style={{ fontSize: 12 }}>· {s.note}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** What a probe on a real server sees, the incidents it opened, and the fix Warden proposes. A person approves here or on Telegram. */
 export default function HostIncidents() {
@@ -41,6 +78,7 @@ export default function HostIncidents() {
             <div className="row sb"><b style={{ fontSize: 14.5 }}>{i.title}</b><span style={{ color: TONE[i.status], fontSize: 12.5, fontWeight: 700 }}>{WORD[i.status] || i.status}</span></div>
             <div className="mut" style={{ fontSize: 13 }}>{i.detail}</div>
             <div style={{ fontSize: 13.5 }}>Fix: <b>{fix(i.action)}</b>. Warden score <b>{i.scored.score}</b> of 100 (floor {i.scored.floor}, limit {i.scored.limit}).{i.scored.violations.length > 0 && <span style={{ color: '#ef6b57' }}> {i.scored.violations.join('; ')}</span>}</div>
+            {i.status === 'applying' && i.target === 'cloud_sql' && <StartProgress since={(i as any).decided || i.opened} />}
             {i.status === 'waiting' && <div className="row" style={{ gap: 8 }}><button className="btn sm" disabled={busy === i.id} onClick={() => decide(i.id, true)}>Approve</button><button className="btn g sm" disabled={busy === i.id} onClick={() => decide(i.id, false)}>Reject</button><span className="dim" style={{ fontSize: 12.5 }}>or tap Approve on Telegram</span></div>}
             {i.by && <div className="mut" style={{ fontSize: 12.5 }}>{i.status === 'rejected' ? 'Rejected' : i.via === 'its own score' || i.via === 'auto' ? 'Applied by Warden by itself' : 'Approved'} {i.via && i.via !== 'auto' && i.via !== 'its own score' ? `by ${i.by} through ${i.via}` : ''} at {at(i.opened)}</div>}
           </div>

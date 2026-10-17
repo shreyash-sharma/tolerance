@@ -137,6 +137,28 @@ def api_find(project, host):
     raise ValueError("No Cloud SQL instance in that project has this address. Check the project id.")
 
 
+def api_ops(project, instance):
+    """The newest operation Google is running on the instance: {type, status, start}. None when there is none or Google cannot say."""
+    try:
+        tok = _token()
+        r = httpx.get(f"https://sqladmin.googleapis.com/v1/projects/{project}/operations", params={"instance": instance, "maxResults": 3},
+                      headers={"Authorization": f"Bearer {tok}"}, timeout=10)
+        if r.status_code != 200:
+            return None
+        for o in r.json().get("items", []):
+            if o.get("status") in ("PENDING", "RUNNING"):
+                st = o.get("startTime") or o.get("insertTime") or ""
+                from datetime import datetime
+                try:
+                    start = datetime.fromisoformat(st.replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    start = None
+                return {"type": o.get("operationType", ""), "status": o.get("status", ""), "start": start}
+    except Exception:
+        pass
+    return None
+
+
 def api_start(project, instance):
     """The one change Tolerance may make: switch the instance on."""
     tok = _token()
@@ -185,7 +207,16 @@ def _loop(uid):
             try:
                 info = api_get(c["project"], c["instance"])
                 up = classify(info)
-                store.update(lambda d: d["cloud_sql"].update(last=dict(info, up=bool(up), starting=up is None, at=time.time(), error="")))
+                op = api_ops(c["project"], c["instance"]) if up is None else None   # while it starts, what Google is doing and since when
+
+                def _note(d, info=info, up=up, op=op):
+                    cs = d["cloud_sql"]
+                    cs["last"] = dict(info, up=bool(up), starting=up is None, at=time.time(), error="", op=op)
+                    if up is None:
+                        cs.setdefault("starting_since", (op or {}).get("start") or time.time())
+                    else:
+                        cs.pop("starting_since", None)
+                store.update(_note)
             except Exception as e:
                 up = None
                 store.update(lambda d: d["cloud_sql"].update(last=dict(d["cloud_sql"].get("last") or {}, error=str(e)[:160], at=time.time())))

@@ -13,6 +13,7 @@ C.api_get = lambda p, i: dict(state)
 def start(p, i):
     sent.append((p, i)); state.update(state="MAINTENANCE", policy="ALWAYS")   # it takes a while to boot
 C.api_start = start
+C.api_ops = lambda p, i: {"type": "UPDATE", "status": "RUNNING", "start": time.time() - 5}
 C.EVERY = 0.15
 H._tell = lambda *a, **k: None
 LIM = []
@@ -41,9 +42,12 @@ assert H.decide(i0["id"], True, "Shreyash (Owner)", "Telegram")["status"] == "ap
 assert wait(lambda: sent == [("demo-proj", "tolerance-erp")]), sent  # only the start, only this instance
 time.sleep(0.8)
 assert incs()[0]["status"] == "applying" and len(incs()) == 1, "booting is not 'back', and not a new incident"
+cs = store.load()["cloud_sql"]
+assert cs.get("starting_since") and (cs["last"].get("op") or {}).get("status") == "RUNNING", cs   # the card can show the real progress
 state.update(state="RUNNABLE")                                      # now it is running and the port answers
 assert wait(lambda: incs()[0]["status"] == "resolved"), incs()[0]["status"]
 assert len(incs()) == 1
+assert wait(lambda: "starting_since" not in store.load()["cloud_sql"]), "the start timer clears when it is up"
 audit = " | ".join(a["text"] for a in H._state(store.load())["audit"])
 assert "approved by Shreyash (Owner) through Telegram" in audit and "is back" in audit, audit
 store.update(lambda d: d.pop("cloud_sql", None))                   # the loop ends when the watch is removed
