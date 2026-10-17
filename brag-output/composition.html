@@ -111,7 +111,7 @@ const T=[
  [[880,948],[600,800],[560,560],[640,620],1,8.0,[640,615,900,735,1.25]],       // cooling: the top half of the oven
  [[1040,948],[1200,860],[700,800],[640,745],1,8.25,[640,745,900,862,1.25]],       // cooling: the bottom half
 ];
-T.forEach((a,k)=>{a[0]=[760+((k*37)%10)*44,965]});
+T.forEach((a,k)=>{a[0]=[760+((k*37)%10)*44,965];const d=a[3];a[1]=[(a[0][0]+d[0])/2,950];a[2]=[d[0]+(d[0]<a[0][0]?-30:30),Math.min(d[1]+170,905)]});
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
 const G=$("liquid"),SH=$("shade"),WB=$("webs"),NS='http://www.w3.org/2000/svg';
@@ -129,7 +129,7 @@ const PATHS=T.map(([a,b,c,d,,,W])=>{
   const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
   const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+4,h=y1-y0,N=Math.round(turns*48);
   for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_,q=s_/turns,uneven=q+.06*Math.sin(q*9.4+x0*.01);
-    pts.push([cx+hw*Math.cos(ph),y0+h*uneven+Math.max(14,hw*.42)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
+    pts.push([cx+hw*Math.cos(ph),y0+h*uneven+Math.min(Math.max(14,hw*.42),h*.32/turns)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   return {pts,F,L,len:L[L.length-1],ap:L[60]};
 });
@@ -172,7 +172,7 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts)*(1-eio(p(t,10.8,11.6)));if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?14:small?8:11;
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?10:11,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?14:small?8:11;
     const pts=[],front=[];
     for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
       const wrapping=ss(apU-.03,apU+.02,u);
