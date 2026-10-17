@@ -15,7 +15,7 @@ const dot = (c: string): React.CSSProperties => ({ width: 10, height: 10, backgr
 function Title({ t, k }: { t: string; k: string }) { return <div style={{ color: COL[k], fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', marginBottom: 2 }}>{t}</div>; }
 
 function TriggerNode({ data, selected }: NodeProps) {
-  return <div style={box('trigger', selected, data.hit)}><Title t="WHEN" k="trigger" />{data.event === 'reading' ? `${data.station}: ${data.signalLabel || 'a probe reports'}` : data.station === '*' ? 'Any station fails' : data.station ? `${data.station} fails` : <span style={{ opacity: 0.6 }}>Choose a station</span>}<Handle type="source" position={Position.Right} style={dot(COL.trigger)} /></div>;
+  return <div style={box('trigger', selected, data.hit)}><Title t="WHEN" k="trigger" />{data.event === 'reading' ? `${data.station}: ${data.signalLabel || 'a reading arrives'}` : data.station === '*' ? 'Any station fails' : data.station ? `${data.station} fails` : <span style={{ opacity: 0.6 }}>Choose a station</span>}<Handle type="source" position={Position.Right} style={dot(COL.trigger)} /></div>;
 }
 function CheckNode({ data, selected }: NodeProps) {
   const src = data.labels?.[data.source] || data.source;
@@ -198,7 +198,7 @@ export default function Playbooks() {
                 <div style={{ display: 'grid', gap: 6 }}>
                   <div className="dim" style={{ fontSize: 12.5 }}>2. This is what we watch from {d.station}. Pick what the playbook is for.</div>
                   {sigBusy && <div className="dim" style={{ fontSize: 12.5 }}>Looking…</div>}
-                  {!sigBusy && sigs && sigs.signals.length === 0 && <div className="card flat" style={{ padding: 10, fontSize: 13 }}>Nothing reports from {d.station} yet. Connect its data, or install a probe on its server (Probes page).</div>}
+                  {!sigBusy && sigs && sigs.signals.length === 0 && <div className="card flat" style={{ padding: 10, fontSize: 13 }}>Nothing reports from {d.station} yet. Connect its data (an MQTT stream, for example), or install a probe on its server (Probes page).</div>}
                   {!sigBusy && sigs && sigs.signals.map((g: any) => (
                     <button key={g.id} type="button" onClick={() => pickSignal(g)} className="card flat" style={{ textAlign: 'left', padding: '8px 10px', cursor: 'pointer', borderColor: d.signal === g.id ? 'var(--amber)' : undefined }}>
                       <b style={{ fontSize: 13.5 }}>{g.label}</b> <span className="mut" style={{ fontSize: 12.5 }}>· now {String(g.now)}{g.kind === 'reading' && g.unit ? ` ${g.unit}` : ''}</span>

@@ -152,6 +152,8 @@ def _mqtt(p, password, topic, timeout):
     cl = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if p["user"]:
         cl.username_pw_set(p["user"], password or None)
+    if p["scheme"] in ("mqtts", "ssl", "tls") or p["port"] == 8883:
+        cl.tls_set()   # a broker in the cloud (HiveMQ Cloud, EMQX Cloud) speaks TLS
 
     def on_connect(c, u, f, rc, props=None):
         got["rc"] = rc

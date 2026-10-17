@@ -38,6 +38,9 @@ def stations_list():
     """Every station a playbook can be about: the plant's stations, plus those a probe reading or a service it reports belongs to."""
     from server import hostops as HO, ws_api
     names = {s["name"] for s in (ws_api.twin_cached().get("stations") or []) if not str(s.get("id", "")).startswith("ghost:")}
+    for k in _mqtt_readings():
+        if k in HO.READINGS:
+            names.add(HO.READINGS[k]["station"])
     for p in _probes().values():
         for k in (p.get("readings") or {}):
             if k in HO.READINGS:
@@ -79,6 +82,12 @@ def signals(station):
             meta = HO.UNITS.get(u)
             if meta and low in [x.lower() for x in HO._affects(u, meta)]:
                 out.append({"id": "service:" + u, "kind": "service", "unit": u, "label": meta["label"], "now": "running" if up else "down", "source": f"probe {pname}", "carries": meta["what"]})
+    have = {x.get("key") for x in out if x["kind"] == "reading"}
+    for k, (v, where) in _mqtt_readings().items():
+        meta = HO.READINGS.get(k)
+        if meta and str(meta["station"]).lower() == low and k not in have:
+            lv = lim.get(meta.get("limit")) if meta.get("limit") else None
+            out.append({"id": "reading:" + k, "kind": "reading", "key": k, "label": meta["label"], "unit": meta["unit"], "now": round(float(v), 1), "source": where, "limit": lv, "op": "gt"})
     try:
         rules = [r["name"] for r in SV.public()["rules"] if station in (r.get("stations") or [])]
     except Exception:
@@ -153,9 +162,43 @@ def starter():
 
 
 # ---------------------------------------------------------------- running
-def _readings():
-    """The latest readings every probe of this plant reported, in one place: oven_temp_c and the like."""
+def _reading_key(topic):
+    """plant/pcb/oven/temp_c becomes oven_temp_c: the last two parts of the topic."""
+    import re
+    return re.sub(r"[^a-z0-9_]+", "_", "_".join(str(topic).strip("/").split("/")[-2:]).lower()).strip("_")
+
+
+def _mqtt_readings(window_s=90):
+    """The newest number on every topic of the MQTT streams this plant connected: {reading key: (value, where it came from)}."""
     out = {}
+    try:
+        from connectors import registry as CR
+        for s in store.load().get("sources", []):
+            if s.get("kind") != "mqtt_live":
+                continue
+            for t in (s.get("tables") or {}):
+                if t.startswith("_dlt"):
+                    continue
+                df = CR.lake_query(f'select topic, payload, ts from lake."{t}" where ts > {time.time() - window_s} qualify row_number() over (partition by topic order by ts desc) = 1')
+                for r in df.itertuples():
+                    try:
+                        v = float(str(r.payload).strip())
+                    except Exception:
+                        try:
+                            import json
+                            j = json.loads(str(r.payload))
+                            v = float(j["value"] if isinstance(j, dict) and "value" in j else j)
+                        except Exception:
+                            continue
+                    out[_reading_key(r.topic)] = (v, f"MQTT {s.get('name', '').split(' · ')[-1]}".strip())
+    except Exception:
+        pass
+    return out
+
+
+def _readings():
+    """The latest readings in one place: what every probe reported, and the newest number on each topic of a connected MQTT stream."""
+    out = {k: v for k, (v, _) in _mqtt_readings().items()}
     for p in ((store.load().get("host") or {}).get("probes") or {}).values():
         out.update({k: v for k, v in (p.get("readings") or {}).items() if v is not None})
     return out

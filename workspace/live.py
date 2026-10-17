@@ -89,6 +89,8 @@ def mqtt_resource(params, nm):
         cl = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         if p["user"]:
             cl.username_pw_set(p["user"], pw or None)
+        if p["scheme"] in ("mqtts", "ssl", "tls") or p["port"] == 8883:
+            cl.tls_set()
         cl.on_connect = lambda c, u, f, rc, props=None: c.subscribe(topic)
 
         def on_message(c, u, m):

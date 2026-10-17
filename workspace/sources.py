@@ -250,6 +250,12 @@ def sync(sid):
         except Exception as e:
             err = f"{type(e).__name__}: {str(e)[:260]}"
         n = sum(rc.values())
+        if n and s["kind"] == "mqtt_live":
+            try:   # new messages may be the reading a playbook waits for
+                from foreman import playbook as _pb
+                _pb.on_report({})
+            except Exception:
+                pass
 
         def f(d):
             x = next(z for z in d["sources"] if z["id"] == sid)
