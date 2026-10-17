@@ -100,16 +100,16 @@ const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
 // tendrils: [start, ctrl1, ctrl2, grip point, machine, start time, coil radius]
 // each one crawls in, draws back, strikes, then coils round a part of its machine and grips it
 const T=[
- [[230,860],[160,700],[300,560],[450,640],0,1.6,26],      // TR elbow
- [[480,860],[530,800],[440,720],[362,752],0,2.0,22],      // TR shoulder
- [[970,860],[1000,650],[930,470],[845,520],1,1.8,40],     // OVN1 chimney
- [[560,860],[500,760],[590,640],[660,700],1,2.3,30],      // OVN1 corner
- [[960,860],[930,760],[1020,690],[1090,800],2,2.1,26],    // C1 roller
- [[1410,860],[1440,760],[1350,700],[1290,800],2,2.5,26],  // C1 roller
- [[1800,860],[1830,700],[1700,540],[1590,600],3,1.7,36],  // WH1 upright
- [[1880,860],[1910,780],[1790,690],[1700,760],3,2.2,30],  // WH1 corner
- [[520,860],[470,640],[560,560],[648,618],1,8.0,0],       // cooling: clamps the oven's left top corner
- [[1020,860],[1070,640],[980,560],[892,618],1,8.25,0],     // cooling: clamps the right top corner
+ [[230,860],[160,700],[300,560],[430,630],0,1.6,[430,630,470,700,1.5]],      // TR forearm
+ [[480,860],[530,800],[440,720],[345,745],0,2.0,[345,745,377,820,2]],        // TR column
+ [[970,860],[1000,650],[930,440],[820,470],1,1.8,[820,470,870,620,2.5]],     // OVN1 chimney
+ [[560,860],[500,760],[590,600],[640,640],1,2.3,[640,640,688,850,2]],        // OVN1 left side
+ [[960,860],[930,760],[1000,720],[1030,775],2,2.1,[1030,775,1150,825,1.5]],  // C1 belt
+ [[1410,860],[1440,760],[1300,720],[1230,775],2,2.5,[1230,775,1340,825,1.5]],// C1 belt
+ [[1800,860],[1830,700],[1700,520],[1580,570],3,1.7,[1580,570,1600,850,3]],  // WH1 upright
+ [[1880,860],[1910,780],[1790,540],[1730,570],3,2.2,[1730,570,1750,850,3]],  // WH1 upright
+ [[520,860],[440,600],[560,540],[640,620],1,8.0,[640,620,900,860,2]],        // cooling: round the whole oven
+ [[1020,860],[1100,600],[980,540],[640,650],1,8.25,[640,650,900,860,2]],     // cooling: a second wind
 ];
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
@@ -122,11 +122,17 @@ const webs=[...Array(T.length)].map(()=>{const p=document.createElementNS(NS,'pa
 const core=document.createElementNS(NS,'rect');G.appendChild(core);
 const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0],v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1]]};
 // each path: the approach curve, then a coil round the grip point; sampled by arc length
-const PATHS=T.map(([a,b,c,d,,,R])=>{
-  const pts=[];for(let i=0;i<=60;i++)pts.push(bez(a,b,c,d,i/60));
+// each path: the approach from the puddle, then a spiral round the part, top to bottom.
+// F marks the bands that cross in front of the part; the rest pass behind it.
+const PATHS=T.map(([a,b,c,d,,,W])=>{
+  const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
+  const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+10,h=y1-y0,N=Math.round(turns*48);
+  for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_;
+    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+12*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
-  return {pts,L,len:L[L.length-1],ap:L[60]};
+  return {pts,F,L,len:L[L.length-1],ap:L[60]};
 });
+function frontAt(P_,s){const {L,F}=P_;let i=1;while(i<L.length-1&&L[i]<s)i++;return F[i]}
 function at(P_,s){ // point and direction at arc length s
   const {pts,L}=P_;s=cl(s,0,P_.len);let i=1;while(i<L.length-1&&L[i]<s)i++;
   const k=(s-L[i-1])/((L[i]-L[i-1])||1),x=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*k,y=pts[i-1][1]+(pts[i][1]-pts[i-1][1])*k;
@@ -165,24 +171,16 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const M=120,base=k>=COOLK?14:16,apU=P_.ap/Math.max(tip,1);
-    const point=(u,off)=>{const [x0,y0,dx,dy]=at(P_,tip*u);
-      const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u),o=whip+off;
-      let x=x0-dy*o,y=y0+dx*o;x+=(LX-x)*pull;y+=(LY-y)*pull;return [x,y]};
-    // one muscular trunk: heavy at the root, bulges rolling along it, thinning where the claws split off
-    const trunk=[];
-    for(let i=0;i<M;i++){const u=i/(M-1)*.9,[x,y]=point(u,0);
-      const grip=ss(apU-.02,apU+.05,u),muscle=1+.2*Math.sin(t*3.2-u*20+k)*(1-.5*grip);
-      const w=(2.5+base*Math.pow(1-u/.9,.6)*(1-.2*grip))*muscle;trunk.push([x,y,w*(1-pull*.9)])}
-    strands.push({pts:trunk,bond,cool,seed:k*7});
-    // the end splays into thick, flame-like fingers that drape over the part and droop round its edges
-    const [ex,ey,edx,edy]=at(P_,tip*.9),spread=eo(p(t,ts+1.05,ts+1.5)),NF_=3,base_=Math.atan2(edy,edx);
-    for(let c=0;c<NF_;c++){const pts=[],cc=c-(NF_-1)/2,len=(46+10*Math.abs(Math.sin(c*2.1+k)))*(.4+.6*spread)*(k>=COOLK?1.6:1);
-      let x=ex,y=ey,ang=base_+cc*.42*spread;
-      for(let i=0;i<26;i++){const v=i/25;const down=Math.atan2(1,0);ang+=(down-ang)*.09*spread+Math.sin(t*3+c+k)*.004;   // droops over the edge, pulled down
-        x+=Math.cos(ang)*len/25;y+=Math.sin(ang)*len/25+1.1*v*spread;
-        const xx=x+(LX-x)*pull,yy=y+(LY-y)*pull;pts.push([xx,yy,(1+(k>=COOLK?9:8)*Math.pow(1-v,.6))*(1-pull*.9)])}
-      strands.push({pts,bond,cool,seed:k*7+c+1});}
+    const M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?11:8;
+    const pts=[],front=[];
+    for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
+      const wrapping=ss(apU-.03,apU+.02,u);
+      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u))*(1-wrapping);   // only the free part whips
+      let x=x0-dy*whip,y=y0+dx*whip;x+=(LX-x)*pull;y+=(LY-y)*pull;
+      const approach=2.5+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),.6)*(1-.45*Math.min(u/apU,1));
+      const w=lerp(approach,band,wrapping)*cl((1-u)/.06,.15,1)*(1+.1*Math.sin(t*3.2-u*20+k));
+      pts.push([x,y,w*(1-pull*.9)]);front.push(frontAt(P_,tip*u));}
+    strands.push({pts,front,bond,cool,seed:k*7});
   });
   // the puddles it rises out of, with flame-like licks round the rim
   T.forEach(([a,,,,,ts],k)=>{const pv=eo(p(t,ts-.35,ts+.25))*(1-pull);if(pv<=0)return;const cool=k>=COOLK?1:0;
@@ -192,7 +190,14 @@ function drawArms(t,sc,cx,cy,pull){
     for(let n=0;n<6;n++){const sx=x+(n/5-.5)*rx*1.5,h=(16+18*Math.abs(Math.sin(n*1.7+k)))*pv*(1+.25*Math.sin(t*5+n*2+k)),lean=Math.sin(t*3+n+k)*6;
       AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-7,y);AC.quadraticCurveTo(sx-4+lean*.4,y-h*.6,sx+lean,y-h);AC.quadraticCurveTo(sx+4+lean*.4,y-h*.6,sx+7,y);AC.fill()}});
   strands.forEach(st=>{
-    const {pts,bond,cool}=st,{Lf,Rt}=strandShape(pts);
+    const {pts,front,bond,cool}=st;
+    AC.save();AC.globalAlpha=.8;AC.fillStyle=`rgb(${mix([140,72,18],[24,96,68],cool)})`;const B=strandShape(pts);fillShape(B.Lf,B.Rt);AC.restore();
+    const runs=[];let cur=null;front.forEach((f,i)=>{if(f){if(!cur){cur=[];runs.push(cur)}cur.push(pts[Math.max(0,i-1)],pts[i])}else cur=null});
+    runs.forEach(run=>{if(run.length>3)celLimb(run,bond,cool,st.seed,t)});
+  });
+}
+function celLimb(pts,bond,cool,seed,t){{
+    const {Lf,Rt}=strandShape(pts);
     const dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`,hi=`rgb(${mix([255,236,190],[220,255,236],cool)})`;
     const mid_=pts.length>>1,UP=Lf[mid_][1]<Rt[mid_][1]?Lf:Rt;      // one lit side for the whole limb
     AC.fillStyle=dark;fillShape(Lf,Rt);                               // the hard shadow side
@@ -200,14 +205,15 @@ function drawArms(t,sc,cx,cy,pull){
     const hs=strandShape(half);AC.fillStyle=lit;fillShape(hs.Lf,hs.Rt);
     // a crisp highlight along the lit edge
     AC.save();AC.strokeStyle=hi;AC.lineWidth=Math.max(1.4,pts[0][2]*.16);AC.lineCap='round';AC.beginPath();
-    const s0=Math.floor(pts.length*.14),s1=Math.floor(pts.length*.72);
+    const s0=Math.floor(pts.length*.08),s1=Math.floor(pts.length*.8);
     for(let i=s0;i<s1;i++){const q=pts[i],x=q[0]+(UP[i][0]-q[0])*.62,y=q[1]+(UP[i][1]-q[1])*.62;i==s0?AC.moveTo(x,y):AC.lineTo(x,y)}
     AC.stroke();AC.restore();
     // green veins once it has bonded
-    const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+st.seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
+    const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
       AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
-  });
-  // the tile it pulls itself into
+  }
+}
+function drawTile(t,pull){
   if(pull>0&&t<12.05){const cs=200*pull;AC.setTransform(1,0,0,1,0,0);AC.fillStyle='#ffd391';AC.beginPath();AC.roundRect(LX-cs/2,LY-cs/2,cs,cs,cs*.25);AC.fill()}
 }
 window.render=function(t){
@@ -276,7 +282,7 @@ window.render=function(t){
   $('temp').style.color=t>9.8?'#9fe6bf':T_>250?`rgb(${mix([224,80,60],[255,150,110],.5+.5*Math.sin(t*10))})`:'var(--ivory)';
   $('tstate').textContent=t>9.8?'COOLED':t>8?'COOLING':T_>250?'OVER LIMIT':'RISING';$('tstate').style.color=t>8?'#9fe6bf':T_>250?'#ff8a6a':'var(--mut)';
   {const v=eo(p(t,10.0,10.5))*(1-p(t,11.2,11.5));$('card').style.opacity=v;$('card').style.transform=`translateX(${(1-eo(p(t,10.0,10.55)))*260}px)`}
-  drawArms(t,sc,ccx,ccy,pull);
+  drawArms(t,sc,ccx,ccy,pull);drawTile(t,pull);
   // core blob that becomes the logo tile
   const cs=200*pull*(1-p(t,11.95,12.05));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
   core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
