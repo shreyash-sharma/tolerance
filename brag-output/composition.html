@@ -100,17 +100,18 @@ const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
 // tentacles: [start on the Tolerance source, ctrl1, ctrl2, where the wrap starts, machine, start time, wrap: x0, y0, x1, y1, turns]
 // each one rises out of Tolerance at the bottom of the frame, reaches its machine, and winds round a part of it
 const T=[
- [[820,950],[600,860],[420,560],[418,625],0,1.6,[418,625,482,705,1.5]],        // TR forearm
- [[860,955],[560,930],[380,700],[338,745],0,2.0,[338,745,384,822,2]],          // TR column
- [[940,945],[1000,700],[930,420],[820,470],1,1.8,[820,470,870,620,4]],         // OVN1 chimney
- [[900,950],[700,900],[600,600],[640,640],1,2.3,[640,640,688,850,3.5]],        // OVN1 left side
- [[1000,950],[1010,860],[1000,720],[1020,772],2,2.1,[1020,772,1170,828,1.5]],  // C1 belt
- [[1060,955],[1200,900],[1240,720],[1210,772],2,2.5,[1210,772,1350,828,1.5]],  // C1 belt
- [[1100,950],[1450,900],[1640,520],[1580,570],3,1.7,[1580,570,1600,850,5]],    // WH1 upright
- [[1140,955],[1600,930],[1800,520],[1730,570],3,2.2,[1730,570,1750,850,5]],    // WH1 upright
- [[880,948],[600,800],[560,560],[640,620],1,8.0,[640,620,900,860,3]],          // cooling: round the whole oven
- [[1040,948],[1200,800],[980,540],[640,650],1,8.25,[640,650,900,860,3]],       // cooling: a second wind
+ [[820,950],[600,860],[420,560],[418,625],0,1.6,[418,625,482,705,1]],        // TR forearm
+ [[860,955],[560,930],[380,700],[338,745],0,2.0,[338,745,384,822,1]],          // TR column
+ [[940,945],[1000,700],[930,420],[820,470],1,1.8,[820,470,870,620,1.5]],         // OVN1 chimney
+ [[900,950],[700,900],[600,600],[640,640],1,2.3,[640,640,688,850,1.5]],        // OVN1 left side
+ [[1000,950],[1010,860],[1000,720],[1020,772],2,2.1,[1020,772,1170,828,1]],  // C1 belt
+ [[1060,955],[1200,900],[1240,720],[1210,772],2,2.5,[1210,772,1350,828,1]],  // C1 belt
+ [[1100,950],[1450,900],[1640,520],[1580,570],3,1.7,[1580,570,1600,850,2]],    // WH1 upright
+ [[1140,955],[1600,930],[1800,520],[1730,570],3,2.2,[1730,570,1750,850,2]],    // WH1 upright
+ [[880,948],[600,800],[560,560],[640,620],1,8.0,[640,615,900,735,1.25]],       // cooling: the top half of the oven
+ [[1040,948],[1200,860],[700,800],[640,745],1,8.25,[640,745,900,862,1.25]],       // cooling: the bottom half
 ];
+T.forEach((a,k)=>{a[0]=[760+((k*37)%10)*44,965]});
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
 const G=$("liquid"),SH=$("shade"),WB=$("webs"),NS='http://www.w3.org/2000/svg';
@@ -127,8 +128,8 @@ const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+
 const PATHS=T.map(([a,b,c,d,,,W])=>{
   const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
   const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+4,h=y1-y0,N=Math.round(turns*48);
-  for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_;
-    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+Math.max(10,hw*.24)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
+  for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_,q=s_/turns,uneven=q+.06*Math.sin(q*9.4+x0*.01);
+    pts.push([cx+hw*Math.cos(ph),y0+h*uneven+Math.max(14,hw*.42)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   return {pts,F,L,len:L[L.length-1],ap:L[60]};
 });
@@ -178,21 +179,14 @@ function drawArms(t,sc,cx,cy,pull){
       const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u))*(1-wrapping);   // only the free part whips
       let x=x0-dy*whip,y=y0+dx*whip;x+=(LX-x)*pull;y+=(LY-y)*pull;
       const approach=2.5+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),.6)*(1-.45*Math.min(u/apU,1));
-      const w=lerp(approach,band,wrapping)*cl((1-u)/.06,.15,1)*(1+.1*Math.sin(t*3.2-u*20+k));
+      const w=lerp(approach,band*(1+.28*Math.sin(u*31+k)),wrapping)*cl((1-u)/.06,.15,1)*(1+.08*Math.sin(t*3.2-u*20+k));
       pts.push([x,y,w*(1-pull*.9)]);front.push(frontAt(P_,tip*u));}
     strands.push({pts,front,bond,cool,seed:k*7});
   });
-  // the source: a mound of goo with flame-like licks, Tolerance written across it
-  const rise=eo(p(t,1.2,1.7))*(1-eio(p(t,11.6,12.1)));
-  if(rise>0){const x=960,y=985+(1-rise)*120,rx=330*rise,ry=60*rise,dark='rgb(192,106,28)',lit='rgb(245,181,68)';
-    AC.fillStyle=dark;AC.beginPath();AC.ellipse(x,y,rx,ry,0,0,7);AC.fill();
-    AC.fillStyle=lit;AC.beginPath();AC.ellipse(x-rx*.08,y-ry*.22,rx*.86,ry*.66,0,0,7);AC.fill();
-    for(let n=0;n<14;n++){const sx=x+(n/13-.5)*rx*1.7,h=(18+22*Math.abs(Math.sin(n*1.7)))*rise*(1+.25*Math.sin(t*5+n*2)),lean=Math.sin(t*3+n)*6,by=y-ry*.55*Math.sqrt(Math.max(0,1-Math.pow((sx-x)/rx,2)));
-      AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-8,by+4);AC.quadraticCurveTo(sx-4+lean*.4,by-h*.6,sx+lean,by-h);AC.quadraticCurveTo(sx+4+lean*.4,by-h*.6,sx+8,by+4);AC.fill()}}
   strands.forEach(st=>{
     const {pts,front,bond,cool}=st;
     celLimb(pts,bond,cool,st.seed,t);
-    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([40,18,4],[6,34,24],cool)},.5)`;
+    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([12,10,8],[8,16,14],cool)},.82)`;
     let i0=-1;for(let i=0;i<=front.length;i++){const back=i<front.length&&!front[i];
       if(back&&i0<0)i0=i;if(!back&&i0>=0){const a=Math.max(0,i0-1),b=Math.min(front.length-1,i);fillShape(B.Lf.slice(a,b+1),B.Rt.slice(a,b+1));i0=-1}}
     AC.restore();
@@ -215,13 +209,27 @@ function celLimb(pts,bond,cool,seed,t){{
       AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
   }
 }
+// Tolerance is the creature: each letter is goo, cel-shaded like the tentacles; it breathes, wobbles, drips, and sprouts tendrils
+const WORD='Tolerance.';
 function drawSource(t){
-  const up=eio(p(t,11.7,12.4)),vis=eo(p(t,1.3,1.8));if(vis<=0)return;
-  const y=lerp(1003,596,up),size=lerp(96,128,up);
-  AC.save();AC.globalAlpha=vis;AC.font=`800 ${size}px Barlow`;AC.textBaseline='middle';AC.letterSpacing=`${-size*.03}px`;
-  const w1=AC.measureText('Tolerance').width,w2=AC.measureText('.').width,x=960-(w1+w2)/2;
-  AC.lineJoin='round';AC.lineWidth=size*.12*(1-up);AC.strokeStyle='rgba(60,26,4,.9)';if(up<1)AC.strokeText('Tolerance',x,y);
-  AC.fillStyle='#eef0f2';AC.fillText('Tolerance',x,y);AC.fillStyle='#f5b544';AC.fillText('.',x+w1,y);AC.restore();
+  const up=eio(p(t,11.7,12.4)),form=eo(p(t,1.2,1.8));if(form<=0)return;
+  const alive=1-up,size=lerp(96,128,up),y=lerp(1000,596,up)+(1-form)*90;
+  AC.save();AC.font=`800 ${size}px Barlow`;AC.textBaseline='middle';
+  const ws=[...WORD].map(c=>AC.measureText(c).width*.97),tot=ws.reduce((a,b)=>a+b,0);let x=960-tot/2;
+  [...WORD].forEach((ch,i)=>{const w=ws[i],cx=x+w/2,dot=ch=='.';
+    const by=y+Math.sin(t*2.6+i*.8)*4*alive,sx=1+.05*Math.sin(t*3.1+i*1.3)*alive,sy=1+.06*Math.sin(t*3.1+i*1.3+1.6)*alive;
+    // little tendrils licking up from the top of each letter
+    if(alive>0&&!dot)for(let n=0;n<2;n++){const hx=cx+(n-.5)*w*.45,h=(10+12*Math.abs(Math.sin(i*2.3+n)))*(1+.35*Math.sin(t*5+i+n*2))*alive*form,lean=Math.sin(t*3+i+n)*5;
+      AC.fillStyle=n?'rgb(192,106,28)':'rgb(245,181,68)';AC.beginPath();AC.moveTo(hx-6,by-size*.3);AC.quadraticCurveTo(hx-3+lean*.4,by-size*.3-h*.6,hx+lean,by-size*.3-h);AC.quadraticCurveTo(hx+3+lean*.4,by-size*.3-h*.6,hx+6,by-size*.3);AC.fill()}
+    // a drip hanging off the bottom
+    if(alive>0&&!dot&&i%2==0){const dl=(8+16*(.5+.5*Math.sin(t*1.7+i)))*alive*form;AC.fillStyle='rgb(192,106,28)';AC.beginPath();AC.moveTo(cx-5,by+size*.3);AC.quadraticCurveTo(cx-4,by+size*.3+dl,cx,by+size*.3+dl+6);AC.quadraticCurveTo(cx+4,by+size*.3+dl,cx+5,by+size*.3);AC.fill()}
+    AC.save();AC.translate(cx,by);AC.scale(sx*form,sy*form);
+    const shadow=dot?'#a8641a':'rgb(192,106,28)',lit=dot?'#f5b544':mix([245,181,68],[238,240,242],up).join?`rgb(${mix([245,181,68],[238,240,242],up)})`:'#f5b544';
+    AC.textAlign='center';AC.fillStyle=shadow;AC.fillText(ch,3*alive,4*alive);       // the hard shadow side
+    AC.fillStyle=lit;AC.fillText(ch,0,0);                                               // the lit body
+    if(alive>0){AC.save();AC.beginPath();AC.rect(-w,-size*.42,w*2,size*.13);AC.clip();AC.fillStyle=`rgba(255,240,205,${.85*alive})`;AC.fillText(ch,0,0);AC.restore()}  // a crisp highlight
+    AC.restore();x+=w;});
+  AC.restore();
 }
 function drawTile(t,pull){
   if(pull>0&&t<12.05){const cs=200*pull;AC.setTransform(1,0,0,1,0,0);AC.fillStyle='#ffd391';AC.beginPath();AC.roundRect(LX-cs/2,LY-cs/2,cs,cs,cs*.25);AC.fill()}
