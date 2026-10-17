@@ -100,12 +100,12 @@ const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
 // tendrils: [start, ctrl1, ctrl2, grip point, machine, start time, coil radius]
 // each one crawls in, draws back, strikes, then coils round a part of its machine and grips it
 const T=[
- [[230,860],[160,700],[300,560],[430,630],0,1.6,[430,630,470,700,1.5]],      // TR forearm
- [[480,860],[530,800],[440,720],[345,745],0,2.0,[345,745,377,820,2]],        // TR column
+ [[230,860],[160,700],[300,560],[430,630],0,1.6,[418,625,482,705,1]],        // TR forearm
+ [[480,860],[530,800],[440,720],[345,745],0,2.0,[338,745,384,822,1.5]],      // TR column
  [[970,860],[1000,650],[930,440],[820,470],1,1.8,[820,470,870,620,2.5]],     // OVN1 chimney
  [[560,860],[500,760],[590,600],[640,640],1,2.3,[640,640,688,850,2]],        // OVN1 left side
- [[960,860],[930,760],[1000,720],[1030,775],2,2.1,[1030,775,1150,825,1.5]],  // C1 belt
- [[1410,860],[1440,760],[1300,720],[1230,775],2,2.5,[1230,775,1340,825,1.5]],// C1 belt
+ [[960,860],[930,760],[1000,720],[1030,775],2,2.1,[1020,772,1170,828,1]],    // C1 belt
+ [[1410,860],[1440,760],[1300,720],[1230,775],2,2.5,[1210,772,1350,828,1]],  // C1 belt
  [[1800,860],[1830,700],[1700,520],[1580,570],3,1.7,[1580,570,1600,850,3]],  // WH1 upright
  [[1880,860],[1910,780],[1790,540],[1730,570],3,2.2,[1730,570,1750,850,3]],  // WH1 upright
  [[520,860],[440,600],[560,540],[640,620],1,8.0,[640,620,900,860,2]],        // cooling: round the whole oven
@@ -128,7 +128,7 @@ const PATHS=T.map(([a,b,c,d,,,W])=>{
   const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
   const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+10,h=y1-y0,N=Math.round(turns*48);
   for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_;
-    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+12*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
+    pts.push([cx+hw*Math.cos(ph),y0+h*s_/turns+Math.max(18,hw*.35)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   return {pts,F,L,len:L[L.length-1],ap:L[60]};
 });
@@ -171,7 +171,7 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?11:8;
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?13:15,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?11:small?6:8;
     const pts=[],front=[];
     for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
       const wrapping=ss(apU-.03,apU+.02,u);
@@ -191,15 +191,17 @@ function drawArms(t,sc,cx,cy,pull){
       AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-7,y);AC.quadraticCurveTo(sx-4+lean*.4,y-h*.6,sx+lean,y-h);AC.quadraticCurveTo(sx+4+lean*.4,y-h*.6,sx+7,y);AC.fill()}});
   strands.forEach(st=>{
     const {pts,front,bond,cool}=st;
-    AC.save();AC.globalAlpha=.8;AC.fillStyle=`rgb(${mix([140,72,18],[24,96,68],cool)})`;const B=strandShape(pts);fillShape(B.Lf,B.Rt);AC.restore();
-    const runs=[];let cur=null;front.forEach((f,i)=>{if(f){if(!cur){cur=[];runs.push(cur)}cur.push(pts[Math.max(0,i-1)],pts[i])}else cur=null});
-    runs.forEach(run=>{if(run.length>3)celLimb(run,bond,cool,st.seed,t)});
+    celLimb(pts,bond,cool,st.seed,t);
+    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([40,18,4],[6,34,24],cool)},.62)`;
+    let i0=-1;for(let i=0;i<=front.length;i++){const back=i<front.length&&!front[i];
+      if(back&&i0<0)i0=i;if(!back&&i0>=0){const a=Math.max(0,i0-1),b=Math.min(front.length-1,i);fillShape(B.Lf.slice(a,b+1),B.Rt.slice(a,b+1));i0=-1}}
+    AC.restore();
   });
 }
 function celLimb(pts,bond,cool,seed,t){{
     const {Lf,Rt}=strandShape(pts);
     const dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`,hi=`rgb(${mix([255,236,190],[220,255,236],cool)})`;
-    const mid_=pts.length>>1,UP=Lf[mid_][1]<Rt[mid_][1]?Lf:Rt;      // one lit side for the whole limb
+    const UP=Lf.map((q,i)=>q[1]<Rt[i][1]?q:Rt[i]);                  // the lit side is whichever edge faces up
     AC.fillStyle=dark;fillShape(Lf,Rt);                               // the hard shadow side
     const half=pts.map((q,i)=>[(q[0]+UP[i][0])/2,(q[1]+UP[i][1])/2,q[2]*.62]);  // the lit side, flat
     const hs=strandShape(half);AC.fillStyle=lit;fillShape(hs.Lf,hs.Rt);
