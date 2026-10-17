@@ -139,8 +139,8 @@ function at(P_,s){ // point and direction at arc length s
   const k=(s-L[i-1])/((L[i]-L[i-1])||1),x=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*k,y=pts[i-1][1]+(pts[i][1]-pts[i-1][1])*k;
   const dx=pts[i][0]-pts[i-1][0],dy=pts[i][1]-pts[i-1][1],dl=Math.hypot(dx,dy)||1;return [x,y,dx/dl,dy/dl];
 }
-function reach(t,ts){ // creep, draw back, strike (with a small overshoot), settle
-  const k=p(t,ts,ts+1.35);
+function reach(t,ts,dur=1.35){ // creep, draw back, strike (with a small overshoot), settle
+  const k=p(t,ts,ts+dur);
   if(k<.55)return .42*eo(k/.55);
   if(k<.68)return .42-.06*eo((k-.55)/.13);
   return Math.min(1,.36+.64*back((k-.68)/.32));
@@ -169,42 +169,68 @@ function fillShape(Lf,Rt){AC.beginPath();AC.moveTo(Lf[0][0],Lf[0][1]);for(const 
 function drawArms(t,sc,cx,cy,pull){
   AC.setTransform(1,0,0,1,0,0);AC.clearRect(0,0,1920,1080);
   AC.setTransform(sc,0,0,sc,960-cx*sc,540-cy*sc);
-  const strands=[];
+  const strands=[],drips_=[];
+  const ret=p(t,10.8,11.6);                                   // 8: the retreat at the end
   T.forEach(([,,,,mi,ts],k)=>{
-    const P_=PATHS[k],g=reach(t,ts)*(1-eio(p(t,10.8,11.6)));if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?5.5:5,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?7:small?4:5.5;
-    const pts=[],front=[];
+    const coolArm=k>=COOLK,P_=PATHS[k],g=reach(t,ts,coolArm?.8:1.35)*(1-eio(ret));if(g<=0)return;
+    const bond=p(t,ts+(coolArm?.8:1.3),ts+(coolArm?1.1:1.7)),tip=P_.len*g,cool=coolArm?1:(mi==1?p(t,8.3,9.0):0);
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=coolArm?5.5:5,apU=P_.ap/Math.max(tip,1),band=coolArm?7:small?4:5.5;
+    const cinch=1+.35*Math.sin(Math.PI*bond)*(bond<1?1:0)-.12*ss(.5,1,bond);   // 6: the wrap tightens as it closes
+    const stretch=1-.6*ret;                                                         // 8: it thins out as it pulls back
+    const push_=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5))),dim=mi==1?1:1-.6*push_;
+    // the spine of the tentacle
+    const spine=[];
     for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
-      const wrapping=ss(apU-.03,apU+.02,u);
-      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*3.1-u*26+k)*9*Math.sin(Math.PI*Math.min(u/Math.max(apU,.01),1)))*(1-wrapping);   // a travelling S-wave along the reach   // only the free part whips
-      let x=x0-dy*whip,y=y0+dx*whip;x+=(LX-x)*pull;y+=(LY-y)*pull;
+      const wrapping=ss(apU-.03,apU+.02,u),fury=coolArm?1.6:1;
+      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)*fury+Math.sin(t*3.1-u*26+k)*9*Math.sin(Math.PI*Math.min(u/Math.max(apU,.01),1)))*(1-wrapping);   // a travelling S-wave along the reach
+      let x=x0-dy*whip,y=y0+dx*whip;
       const approach=1.8+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),1.1);
-      const w=lerp(approach,band*(1+.28*Math.sin(u*31+k)),wrapping)*cl((1-u)/.06,.55,1)*(1+.08*Math.sin(t*3.2-u*20+k));
-      pts.push([x,y,w*(1-pull*.9)]);front.push(u>.9&&wrapping>.5?0:frontAt(P_,tip*u));}
-    const push_=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5)));
-    strands.push({pts,front,bond,cool,seed:k*7,dim:mi==1?1:1-.6*push_});
+      const w=lerp(approach,band*(1+.28*Math.sin(u*31+k))*cinch,wrapping)*cl((1-u)/.06,.55,1)*(1+.08*Math.sin(t*3.2-u*20+k))*stretch;
+      spine.push({x,y,dx,dy,w,u,wrapping,front:u>.9&&wrapping>.5?0:frontAt(P_,tip*u)});}
+    // 1: a bundle of strands braided round the spine, splitting apart into a forked tip
+    const NSTR=coolArm?4:3;
+    for(let j=0;j<NSTR;j++){const pts=[],front=[],ph=j*2*Math.PI/NSTR;
+      spine.forEach(q=>{const split=ss(.86,1,q.u)*(1-q.wrapping*.6),r=q.w*(.55+3.2*split);
+        const o=r*Math.sin(q.u*13+ph+t*1.4)*(1-.5*q.wrapping)+(j-(NSTR-1)/2)*split*14;
+        pts.push([q.x-q.dy*o,q.y+q.dx*o,Math.max(1,q.w*.85*(1-.35*split))]);front.push(q.front)});
+      strands.push({pts,front,bond,cool,seed:k*7+j,dim,barbs:j==0,pulse:bond>=1&&ret==0});}
+    // 4: a few small feelers sprouting off the reach, twitching
+    if(ret<.5)[.32,.55].forEach((uu,n)=>{const q=spine[Math.floor(uu*(M-1))];if(!q||q.wrapping>.2||g<.6)return;
+      const pts=[],side=n?1:-1,len=26*eo(p(t,ts+.6,ts+1.1));if(len<2)return;let ang=Math.atan2(q.dy,q.dx)+side*1.2;
+      for(let i=0;i<14;i++){const v=i/13;ang+=side*.09+Math.sin(t*7+k+n)*.03;pts.push([q.x+Math.cos(ang)*len*v,q.y+Math.sin(ang)*len*v,(2.6*(1-v)+.6)*stretch])}
+      strands.push({pts,front:pts.map(()=>1),bond,cool,seed:k*7+9+n,dim,barbs:false,pulse:false});});
+    // 8: drips falling from the thinning tentacle as it pulls back
+    if(ret>0&&ret<1)[.3,.5,.7].forEach((uu,n)=>{const q=spine[Math.floor(uu*(M-1))];if(!q)return;const fall=((ret*2+n*.3)%1);
+      drips_.push([q.x,q.y+fall*70,3.5*(1-fall)+1,cool]);});
   });
   strands.forEach(st=>{
     const {pts,front,bond,cool}=st;
-    AC.save();AC.globalAlpha=st.dim;celLimb(pts,bond,cool,st.seed,t);
+    AC.save();AC.globalAlpha=st.dim;celLimb(pts,bond,cool,st.seed,t,st);
     const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([12,10,8],[8,16,14],cool)},.82)`;
     let i0=-1;for(let i=0;i<=front.length;i++){const back=i<front.length&&!front[i];
       if(back&&i0<0)i0=i;if(!back&&i0>=0){const a=Math.max(0,i0-1),b=Math.min(front.length-1,i);fillShape(B.Lf.slice(a,b+1),B.Rt.slice(a,b+1));i0=-1}}
     AC.restore();AC.restore();
   });
+  drips_.forEach(([x,y,r,c])=>{AC.fillStyle=`rgb(${mix([168,88,20],[40,150,104],c)})`;AC.beginPath();AC.arc(x,y,r,0,7);AC.fill()});
 }
-function celLimb(pts,bond,cool,seed,t){{
+function celLimb(pts,bond,cool,seed,t,st={}){{
     const {Lf,Rt}=strandShape(pts);
-    const dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`,hi=`rgb(${mix([255,236,190],[220,255,236],cool)})`;
+    const dark=`rgb(${mix([110,50,10],[18,84,58],cool)})`,lit=`rgb(${mix([214,128,34],[60,190,135],cool)})`,hi=`rgb(${mix([255,214,130],[170,255,210],cool)})`;
     const UP=Lf.map((q,i)=>q[1]<Rt[i][1]?q:Rt[i]);                  // the lit side is whichever edge faces up
     AC.fillStyle=dark;fillShape(Lf,Rt);                               // the hard shadow side
     const half=pts.map((q,i)=>[(q[0]+UP[i][0])/2,(q[1]+UP[i][1])/2,q[2]*.62]);  // the lit side, flat
     const hs=strandShape(half);AC.fillStyle=lit;fillShape(hs.Lf,hs.Rt);
     // a crisp highlight along the lit edge
-    AC.save();AC.strokeStyle=hi;AC.lineWidth=Math.max(1.4,pts[0][2]*.16);AC.lineCap='round';AC.beginPath();
-    const s0=Math.floor(pts.length*.08),s1=Math.floor(pts.length*.8);
-    for(let i=s0;i<s1;i++){const q=pts[i],x=q[0]+(UP[i][0]-q[0])*.62,y=q[1]+(UP[i][1]-q[1])*.62;i==s0?AC.moveTo(x,y):AC.lineTo(x,y)}
+    AC.save();AC.strokeStyle=hi;AC.lineWidth=Math.max(1.2,pts[0][2]*.22);AC.lineCap='round';AC.beginPath();
+    const s0=Math.floor(pts.length*.04),s1=Math.floor(pts.length*.92);
+    for(let i=s0;i<s1;i++){const q=pts[i],x=q[0]+(UP[i][0]-q[0])*.86,y=q[1]+(UP[i][1]-q[1])*.86;i==s0?AC.moveTo(x,y):AC.lineTo(x,y)}
     AC.stroke();AC.restore();
+    // barbs: small backward spikes along the last stretch
+    if(st.barbs){AC.fillStyle=dark;for(let i=Math.floor(pts.length*.7);i<pts.length-4;i+=9){const a=pts[i-2],b=pts[i],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,sd=(i/9)%2?1:-1;
+      const nx=-dy/l*sd,ny=dx/l*sd,w=b[2]+5;AC.beginPath();AC.moveTo(b[0]+nx*b[2],b[1]+ny*b[2]);AC.lineTo(b[0]+nx*w-dx/l*7,b[1]+ny*w-dy/l*7);AC.lineTo(b[0]+nx*b[2]-dx/l*6,b[1]+ny*b[2]-dy/l*6);AC.fill()}}
+    // a heartbeat pulse travelling out along the bonded strands
+    if(st.pulse){const c=(t*.55+seed*.13)%1,i0=Math.floor(c*pts.length);AC.save();AC.strokeStyle=hi;AC.shadowColor=hi;AC.shadowBlur=14;AC.lineWidth=Math.max(2,pts[i0][2]*.9);AC.lineCap='round';
+      AC.beginPath();for(let i=Math.max(0,i0-8);i<Math.min(pts.length,i0+8);i++){i==Math.max(0,i0-8)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
     // green veins once it has bonded
     const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
       AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
