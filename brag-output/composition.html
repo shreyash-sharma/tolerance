@@ -319,6 +319,9 @@ window.render=function(t){
   $('word').style.opacity=0;
   $('world').style.opacity=1-p(t,11.7,12.2);
 };
+// story time: the opening card as is, the story 20% slower, and no end card; it ends on the living wordmark and fades
+const story=window.render;
+window.render=t=>{story(t<1.6?t:Math.min(11.65,1.6+(t-1.6)/1.2));document.body.style.opacity=1-p(t,14.3,15)};
 window.ready=document.fonts.ready;
 render(0);
 </script></body></html>
