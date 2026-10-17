@@ -172,13 +172,13 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts)*(1-eio(p(t,10.8,11.6)));if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?10:11,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?14:small?8:11;
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?5.5:5,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?7:small?4:5.5;
     const pts=[],front=[];
     for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
       const wrapping=ss(apU-.03,apU+.02,u);
-      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u))*(1-wrapping);   // only the free part whips
+      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*3.1-u*26+k)*9*Math.sin(Math.PI*Math.min(u/Math.max(apU,.01),1)))*(1-wrapping);   // a travelling S-wave along the reach   // only the free part whips
       let x=x0-dy*whip,y=y0+dx*whip;x+=(LX-x)*pull;y+=(LY-y)*pull;
-      const approach=2.5+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),.6)*(1-.45*Math.min(u/apU,1));
+      const approach=1.8+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),1.1);
       const w=lerp(approach,band*(1+.28*Math.sin(u*31+k)),wrapping)*cl((1-u)/.06,.55,1)*(1+.08*Math.sin(t*3.2-u*20+k));
       pts.push([x,y,w*(1-pull*.9)]);front.push(u>.9&&wrapping>.5?0:frontAt(P_,tip*u));}
     const push_=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5)));
