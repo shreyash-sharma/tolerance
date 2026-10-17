@@ -25,6 +25,7 @@ OVEN = "OVN1"
 READINGS = {
     "oven_temp_c": {"label": "Oven temperature", "unit": "\u00B0C", "station": OVEN, "limit": "max_temp_c"},
     "oven_target_c": {"label": "Oven setpoint", "unit": "\u00B0C", "station": OVEN},
+    "oven_setpoint_c": {"label": "Oven setpoint (MQTT)", "unit": "\u00B0C", "station": OVEN},
 }
 OVEN_SAFE = 235.0   # the setpoint a fix asks for
 
