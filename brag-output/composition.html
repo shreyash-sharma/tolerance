@@ -121,7 +121,8 @@ function reach(t,ts){ // creep, draw back, strike (with a small overshoot), sett
 function mix(a,b,k){return a.map((x,i)=>Math.round(x+(b[i]-x)*k))}
 const SAND=[255,211,145],AMB=[245,181,68],GRN=[40,150,104];
 const LX=960,LY=345;
-function put(pair,x,y,r,col){const [c,sh]=pair;r=Math.max(0,r);
+let FLOOD=0;
+function put(pair,x,y,r,col){const [c,sh]=pair;r=Math.max(0,r);col=mix(col,SAND,cl(FLOOD*1.6));
   c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',r);c.setAttribute('fill',`rgb(${col})`);
   sh.setAttribute('cx',x);sh.setAttribute('cy',y);sh.setAttribute('r',r);sh.setAttribute('fill','#000');}
 function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
@@ -130,7 +131,7 @@ function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
 window.render=function(t){
   const flood=eio(p(t,5.0,5.9));           // liquid takes the whole screen
   const pull=eio(p(t,8.9,9.8));            // and pulls back into the logo
-  const tips=[];
+  const tips=[];FLOOD=Math.max(flood,pull);SH.setAttribute('opacity',.55*(1-flood));
   const fin=(x,y,r)=>{r+=flood*(340+80*Math.sin(x*.01+y*.013));x+=(LX-x)*pull;y+=(LY-y)*pull;r*=1-pull*.97;return [x,y,r]};
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts),bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,live=g>0;
