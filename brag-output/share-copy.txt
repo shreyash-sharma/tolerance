@@ -1,1 +1,1 @@
-The factory is the host. Tolerance is the symbiote: it bonds to every machine, and when the oven runs past 250°C it cools it down and tells you what happened. A symbiotic compiler for factories.
+The factory is the host. Tolerance is the symbiote: it wraps every machine, and when the oven runs past 250°C it cools it down and tells you what happened. A symbiotic compiler for factories.
