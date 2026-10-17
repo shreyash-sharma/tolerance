@@ -1,0 +1,369 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700;800;900&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
+<style>
+:root{--bg:#0f1214;--ivory:#eef0f2;--mut:#9aa3ad;--amber:#f5b544;--sand:#ffd391;--mint:#9fe6bf;--green:#1c7a58}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);font-family:Barlow,sans-serif;color:var(--ivory)}
+#stage{position:absolute;inset:0}
+svg{position:absolute;inset:0}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:20px;letter-spacing:.06em}
+.slam{position:absolute;left:0;right:0;top:50%;text-align:center;font-weight:900;font-size:150px;letter-spacing:-.02em;line-height:1;transform:translateY(-50%);opacity:0;text-transform:uppercase}
+.slam.small{font-size:110px}
+.slam em{font-style:normal;color:#0d5a3e}
+.cap{position:absolute;left:0;right:0;top:90px;text-align:center;font-weight:800;font-size:64px;letter-spacing:.02em;text-transform:uppercase;opacity:0;text-shadow:0 0 30px #000,0 0 12px #000,0 4px 24px #000}
+#readout{position:absolute;left:70px;top:60px;padding:22px 30px;border-radius:22px;background:rgba(14,16,19,.88);border:1px solid rgba(255,211,145,.22);opacity:0}
+#readout .k{font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:.14em;color:var(--amber)}
+#readout .v{font-weight:800;font-size:120px;line-height:1.05;letter-spacing:.01em}
+#card{position:absolute;right:90px;top:190px;width:760px;padding:34px 38px;border-radius:26px;background:rgba(18,21,24,.94);border:1px solid rgba(255,211,145,.25);box-shadow:0 30px 80px rgba(0,0,0,.6);opacity:0}
+#card .hd{display:flex;gap:18px;align-items:center;margin-bottom:24px}#card .hd svg{position:static;width:60px;height:60px;flex:none}
+#card b{display:block;font-size:30px}#card i{font-style:normal;color:var(--mut);font-size:20px}
+#card .tt{font-weight:700;font-size:38px;color:#ff9a6a;margin-bottom:10px}#card .bd{font-size:29px;font-weight:500;line-height:1.35}#card .mut{color:var(--mut)}
+#center{position:absolute;left:0;right:0;top:250px;display:flex;flex-direction:column;align-items:center}
+#logo{width:190px;height:190px;opacity:0}
+.eyebrow{font-weight:700;letter-spacing:.24em;font-size:24px;color:#b5651d;margin-top:46px}
+#word{font-size:128px;font-weight:800;letter-spacing:-.03em;margin-top:8px;line-height:1.1}
+#word span{color:var(--amber)}
+#tl{font-size:44px;opacity:.9;margin-top:6px;font-weight:500}
+#foot{position:absolute;left:0;right:0;bottom:70px;text-align:center;font-size:24px;letter-spacing:.06em;color:var(--mut);opacity:0}
+#liquid,#shade,#webs{display:none}
+#arms{position:absolute;inset:0;width:1920px;height:1080px}
+/* Ghibli look: a painted golden-hour backdrop, ink-brown linework, warm parchment UI */
+html,body{background:#f3d9a4}
+.cap,.slam{color:#fff7e6!important;text-shadow:0 2px 0 #6b3e1e,0 0 18px rgba(80,40,10,.55)!important}
+#readout,#card{background:rgba(255,246,226,.92)!important;border:2px solid #7a4a28!important;color:#3a2414;box-shadow:0 18px 40px rgba(90,50,20,.35)!important}
+#readout .v{color:#3a2414}#card i,#card .mut{color:#7a5a40!important}#card .tt{color:#c2481e!important}
+#word,#tl{color:#3a2414}#foot{color:#7a5a40}
+#plant rect{fill:#e9c99a}#plant circle{fill:#cfae86}
+</style></head><body>
+<div id="stage">
+<svg viewBox="0 0 1920 1080">
+  <defs>
+    <!-- metaballs: blur the blobs, sharpen the alpha, then light them so the liquid looks glossy -->
+    <filter id="goo" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11" result="g"/>
+      <feGaussianBlur in="g" stdDeviation="5" result="gb"/>
+      <feSpecularLighting in="gb" surfaceScale="7" specularConstant="1.1" specularExponent="28" lighting-color="#fff6e0" result="spec">
+        <fePointLight x="700" y="-300" z="500"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="g" operator="in" result="specIn"/>
+      <feComposite in="g" in2="specIn" operator="arithmetic" k1="0" k2="1" k3=".75" k4="0"/>
+    </filter>
+    <filter id="gooFlat" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 26 -11" result="g"/>
+      <feGaussianBlur in="g" stdDeviation="8"/>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+    <radialGradient id="heatG"><stop offset="0" stop-color="#ff7a2a" stop-opacity=".55"/><stop offset="1" stop-color="#ff5a1a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="vig" cx="50%" cy="50%" r="72%"><stop offset="62%" stop-color="#5a2e10" stop-opacity="0"/><stop offset="100%" stop-color="#5a2e10" stop-opacity=".35"/></radialGradient>
+  </defs>
+  <g id="world">
+  <defs>
+    <linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa8d8"/><stop offset=".55" stop-color="#cfe3e8"/><stop offset=".85" stop-color="#f7d9a0"/><stop offset="1" stop-color="#f2b979"/></linearGradient>
+    <radialGradient id="gSun" cx="1450" cy="620" r="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff3c4" stop-opacity=".95"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gHill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fae63"/><stop offset="1" stop-color="#4f7d3f"/></linearGradient>
+    <linearGradient id="gField" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc46a"/><stop offset="1" stop-color="#5e8a3c"/></linearGradient>
+    <filter id="paint" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 .45  0 0 0 0 .32  0 0 0 0 .2  0 0 0 .13 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+    <filter id="cloudSoft"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <g id="painted">
+    <rect x="-400" y="-300" width="2720" height="1300" fill="url(#gSky)"/>
+    <rect x="-400" y="-300" width="2720" height="1300" fill="url(#gSun)"/>
+    <g filter="url(#cloudSoft)">
+      <g transform="translate(330 210)"><ellipse rx="230" ry="62" fill="#fffdf6"/><ellipse cx="-90" cy="-44" rx="110" ry="74" fill="#fffdf6"/><ellipse cx="60" cy="-70" rx="130" ry="96" fill="#fffdf6"/><ellipse cy="38" rx="225" ry="32" fill="#e6dcd0"/></g>
+      <g transform="translate(1250 150)"><ellipse rx="280" ry="70" fill="#fffdf6"/><ellipse cx="-120" cy="-50" rx="130" ry="80" fill="#fffdf6"/><ellipse cx="80" cy="-90" rx="160" ry="110" fill="#fffdf6"/><ellipse cy="44" rx="270" ry="34" fill="#e8dccd"/></g>
+      <g transform="translate(1760 330)"><ellipse rx="170" ry="44" fill="#fff7ea"/><ellipse cx="40" cy="-40" rx="100" ry="66" fill="#fff7ea"/><ellipse cy="26" rx="165" ry="22" fill="#ead7c4"/></g>
+    </g>
+    <path d="M-400 700 C 0 560, 300 640, 620 600 S 1200 520, 1500 590 S 2100 560, 2320 620 V 1000 H -400Z" fill="#9db7c4" opacity=".75"/>
+    <path d="M-400 780 C 100 680, 500 760, 900 720 S 1600 680, 2320 740 V 1000 H -400Z" fill="url(#gHill)"/>
+    <g fill="#3f6b33">
+      <ellipse cx="90" cy="770" rx="70" ry="90"/><ellipse cx="170" cy="790" rx="55" ry="70"/><ellipse cx="1830" cy="760" rx="80" ry="100"/><ellipse cx="1740" cy="790" rx="55" ry="70"/>
+    </g>
+    <rect x="-400" y="860" width="2720" height="500" fill="url(#gField)"/>
+    <path d="M-400 862 H 2320" stroke="#4a2e1c" stroke-width="3"/>
+    <rect x="-400" y="-300" width="2720" height="1660" filter="url(#paint)"/>
+  </g>
+  <circle id="heat" cx="770" cy="700" r="560" fill="url(#heatG)" opacity="0"/>
+  <!-- the host: the plant, drawn in thin lines -->
+  <g id="plant" fill="none" stroke="#4a2e1c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M120 860H1800"/>
+    <!-- TR robot arm -->
+    <g id="m0"><path d="M300 860v-40h120v40M360 820v-70l90-110 80 40"/><circle cx="360" cy="750" r="14"/><circle cx="450" cy="640" r="12"/><path d="M530 680l30 10M530 680l20 26"/></g>
+    <!-- OVN1 oven -->
+    <g id="m1"><rect x="640" y="620" width="260" height="240" rx="10"/><path d="M820 620V470h50v150"/><rect id="win" x="680" y="670" width="180" height="110" rx="6"/></g>
+    <!-- C1 conveyor -->
+    <g id="m2"><path d="M960 780h400M960 820h400"/><circle cx="990" cy="800" r="18"/><circle cx="1090" cy="800" r="18"/><circle cx="1190" cy="800" r="18"/><circle cx="1290" cy="800" r="18"/><path d="M1000 820v40M1320 820v40"/><rect x="1060" y="740" width="70" height="40" rx="4"/></g>
+    <!-- WH1 racks -->
+    <g id="m3"><path d="M1440 860V560h300v300M1440 660h300M1440 760h300M1590 560v300"/><rect x="1470" y="610" width="60" height="50"/><rect x="1620" y="710" width="70" height="50"/></g>
+  </g>
+  <g class="lbl" fill="#6b4a32">
+    <text id="l0" x="300" y="900">TR</text><text id="l1" x="640" y="900">OVN1</text><text id="l2" x="960" y="900">C1</text><text id="l3" x="1440" y="900">WH1</text>
+  </g>
+  <g id="fire" style="mix-blend-mode:screen"></g>
+  <g id="shade" filter="url(#gooFlat)" opacity=".55" transform="translate(12,16)"></g>
+  <g id="webs" fill="none" stroke="#f5b544" stroke-linecap="round"></g>
+  <g id="liquid" filter="url(#goo)"></g>
+  <g id="steam" filter="url(#soft)"></g>
+  </g>
+  <rect width="1920" height="1080" fill="url(#vig)"/>
+</svg>
+<canvas id="arms" width="1920" height="1080"></canvas>
+<div class="slam" id="s0">The factory<br>is the host.</div>
+<div class="cap" id="c1">Something got in.</div>
+<div class="cap" id="c2">And it tells you.</div>
+<div id="readout"><div class="k">OVN1 · LIMIT 250°C</div><div class="v" id="temp">238°C</div><div class="k" id="tstate">RISING</div></div>
+<div id="card"><div class="hd"><svg viewBox="-24 -24 48 48"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg><div><b>Tolerance</b><i>now</i></div></div>
+<div class="tt">⚠ OVN1 overheated · 268°C</div><div class="bd">I cooled it to 240°C and held the line.</div><div class="bd mut">Review the cause when you are ready.</div></div>
+<div id="center">
+  <svg id="logo" viewBox="-24 -24 48 48" style="position:static"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" stroke-opacity=".35" stroke-width="2"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg>
+  <div class="eyebrow" id="eb">SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0</div>
+  <div id="word">Tolerance<span>.</span></div>
+  <div id="tl">A symbiotic compiler for factories.</div>
+</div>
+<div id="foot">Google Cloud AI Builder Cup 2026 · Manufacturing</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),p=(t,s,e)=>cl((t-s)/(e-s)),lerp=(a,b,k)=>a+(b-a)*k;
+const eo=x=>1-Math.pow(1-x,3),ei=x=>x*x*x,eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+// tentacles: [start on the Tolerance source, ctrl1, ctrl2, where the wrap starts, machine, start time, wrap: x0, y0, x1, y1, turns]
+// each one rises out of Tolerance at the bottom of the frame, reaches its machine, and winds round a part of it
+const T=[
+ [[820,950],[600,860],[420,560],[418,625],0,1.6,[418,625,482,705,1]],        // TR forearm
+ [[860,955],[560,930],[380,700],[338,745],0,2.0,[338,745,384,822,1]],          // TR column
+ [[940,945],[1000,700],[930,420],[820,470],1,1.8,[820,470,870,620,1.5]],         // OVN1 chimney
+ [[900,950],[700,900],[600,600],[640,640],1,2.3,[640,640,688,850,1.5]],        // OVN1 left side
+ [[1000,950],[1010,860],[1000,720],[1020,772],2,2.1,[1020,772,1170,828,1]],  // C1 belt
+ [[1060,955],[1200,900],[1240,720],[1210,772],2,2.5,[1210,772,1350,828,1]],  // C1 belt
+ [[1100,950],[1450,900],[1640,520],[1580,570],3,1.7,[1580,570,1600,850,2]],    // WH1 upright
+ [[1140,955],[1600,930],[1800,520],[1730,570],3,2.2,[1730,570,1750,850,2]],    // WH1 upright
+ [[880,948],[600,800],[560,560],[640,620],1,8.0,[640,615,900,735,1.25]],       // cooling: the top half of the oven
+ [[1040,948],[1200,860],[700,800],[640,745],1,8.25,[640,745,900,862,1.25]],       // cooling: the bottom half
+];
+T.forEach((a,k)=>{a[0]=[760+((k*37)%10)*44,965];const d=a[3];a[1]=[(a[0][0]+d[0])/2,950];a[2]=[d[0]+(d[0]<a[0][0]?-30:30),Math.min(d[1]+170,905)]});
+const COOLK=8;   // arms from this index on are the ones that cool the oven
+const NB=90,NC=12,NF=3;
+const G=$("liquid"),SH=$("shade"),WB=$("webs"),NS='http://www.w3.org/2000/svg';
+const mk=g=>{const c=document.createElementNS(NS,'circle');g.appendChild(c);return c};
+const bodies=T.map(()=>[...Array(NB)].map(()=>[mk(G),mk(SH)]));
+const claws=T.map(()=>[...Array(NF*NC)].map(()=>[mk(G),mk(SH)]));
+const drips=[...Array(12)].map(()=>[mk(G),mk(SH)]);
+const webs=[...Array(T.length)].map(()=>{const p=document.createElementNS(NS,'path');WB.appendChild(p);return p});
+const core=document.createElementNS(NS,'rect');G.appendChild(core);
+const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0],v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1]]};
+// each path: the approach curve, then a coil round the grip point; sampled by arc length
+// each path: the approach from the puddle, then a spiral round the part, top to bottom.
+// F marks the bands that cross in front of the part; the rest pass behind it.
+const PATHS=T.map(([a,b,c,d,,,W])=>{
+  const pts=[],F=[];for(let i=0;i<=60;i++){pts.push(bez(a,b,c,d,i/60));F.push(1)}
+  const [x0,y0,x1,y1,turns]=W,cx=(x0+x1)/2,hw=(x1-x0)/2+4,h=y1-y0,N=Math.round(turns*48);
+  for(let i=1;i<=N;i++){const s_=i/N*turns,ph=Math.PI+2*Math.PI*s_,q=s_/turns,uneven=q+.06*Math.sin(q*9.4+x0*.01);
+    pts.push([cx+hw*Math.cos(ph),y0+h*uneven+Math.min(Math.max(14,hw*.42),h*.32/turns)*Math.sin(ph)]);F.push(Math.sin(ph)<=0?1:0)}
+  const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  return {pts,F,L,len:L[L.length-1],ap:L[60]};
+});
+function frontAt(P_,s){const {L,F}=P_;let i=1;while(i<L.length-1&&L[i]<s)i++;return F[i]}
+function at(P_,s){ // point and direction at arc length s
+  const {pts,L}=P_;s=cl(s,0,P_.len);let i=1;while(i<L.length-1&&L[i]<s)i++;
+  const k=(s-L[i-1])/((L[i]-L[i-1])||1),x=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*k,y=pts[i-1][1]+(pts[i][1]-pts[i-1][1])*k;
+  const dx=pts[i][0]-pts[i-1][0],dy=pts[i][1]-pts[i-1][1],dl=Math.hypot(dx,dy)||1;return [x,y,dx/dl,dy/dl];
+}
+function reach(t,ts){ // creep, draw back, strike (with a small overshoot), settle
+  const k=p(t,ts,ts+1.35);
+  if(k<.55)return .42*eo(k/.55);
+  if(k<.68)return .42-.06*eo((k-.55)/.13);
+  return Math.min(1,.36+.64*back((k-.68)/.32));
+}
+// colour of the liquid: sand at the body, amber in the tendrils, green once bonded
+function mix(a,b,k){return a.map((x,i)=>Math.round(x+(b[i]-x)*k))}
+const SAND=[255,211,145],AMB=[245,181,68],GRN=[40,150,104],MINT=[127,230,180];
+const LX=960,LY=345;
+let FLOOD=0;
+function put(pair,x,y,r,col){const [c,sh]=pair;r=Math.max(0,r);col=mix(col,SAND,cl(FLOOD*1.6));
+  c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',r);c.setAttribute('fill',`rgb(${col})`);
+  sh.setAttribute('cx',x);sh.setAttribute('cy',y);sh.setAttribute('r',r);sh.setAttribute('fill','#000');}
+function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
+  el.style.opacity=on?1:0;const j=on&&t<s+.25?(Math.sin(t*170)*6):0;
+  el.style.transform=`translate(${j}px,-50%) scale(${1.25-.25*eo(k)})`;}
+// ---------- the arms, painted as braided strands on a canvas that follows the camera ----------
+const AC=document.getElementById('arms').getContext('2d');
+const ss=(a,b,x)=>{const k=cl((x-a)/(b-a));return k*k*(3-2*k)};
+function strandShape(pts){ // left and right edges of a tapered strand
+  const n=pts.length,Lf=[],Rt=[];
+  for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)];let dx=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
+    const w=pts[i][2];Lf.push([pts[i][0]-dy*w,pts[i][1]+dx*w]);Rt.push([pts[i][0]+dy*w,pts[i][1]-dx*w])}
+  return {Lf,Rt};
+}
+function fillShape(Lf,Rt){AC.beginPath();AC.moveTo(Lf[0][0],Lf[0][1]);for(const q of Lf)AC.lineTo(q[0],q[1]);for(let i=Rt.length-1;i>=0;i--)AC.lineTo(Rt[i][0],Rt[i][1]);AC.closePath();AC.fill()}
+function drawArms(t,sc,cx,cy,pull){
+  AC.setTransform(1,0,0,1,0,0);AC.clearRect(0,0,1920,1080);
+  AC.setTransform(sc,0,0,sc,960-cx*sc,540-cy*sc);
+  const strands=[];
+  T.forEach(([,,,,mi,ts],k)=>{
+    const P_=PATHS[k],g=reach(t,ts)*(1-eio(p(t,10.8,11.6)));if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
+    const W_=T[k][6],small=(W_[3]-W_[1])<110,M=180,base=k>=COOLK?10:11,apU=P_.ap/Math.max(tip,1),band=k>=COOLK?14:small?8:11;
+    const pts=[],front=[];
+    for(let i=0;i<M;i++){const u=i/(M-1),[x0,y0,dx,dy]=at(P_,tip*u);
+      const wrapping=ss(apU-.03,apU+.02,u);
+      const whip=(Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u))*(1-wrapping);   // only the free part whips
+      let x=x0-dy*whip,y=y0+dx*whip;x+=(LX-x)*pull;y+=(LY-y)*pull;
+      const approach=2.5+base*Math.pow(1-Math.min(u,apU)/Math.max(apU,.01),.6)*(1-.45*Math.min(u/apU,1));
+      const w=lerp(approach,band*(1+.28*Math.sin(u*31+k)),wrapping)*cl((1-u)/.06,.55,1)*(1+.08*Math.sin(t*3.2-u*20+k));
+      pts.push([x,y,w*(1-pull*.9)]);front.push(u>.9&&wrapping>.5?0:frontAt(P_,tip*u));}
+    const push_=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5)));
+    strands.push({pts,front,bond,cool,seed:k*7,dim:mi==1?1:1-.6*push_});
+  });
+  strands.forEach(st=>{
+    const {pts,front,bond,cool}=st;
+    AC.save();AC.globalAlpha=st.dim;celLimb(pts,bond,cool,st.seed,t);
+    const B=strandShape(pts);AC.save();AC.fillStyle=`rgba(${mix([12,10,8],[8,16,14],cool)},.82)`;
+    let i0=-1;for(let i=0;i<=front.length;i++){const back=i<front.length&&!front[i];
+      if(back&&i0<0)i0=i;if(!back&&i0>=0){const a=Math.max(0,i0-1),b=Math.min(front.length-1,i);fillShape(B.Lf.slice(a,b+1),B.Rt.slice(a,b+1));i0=-1}}
+    AC.restore();AC.restore();
+  });
+}
+function celLimb(pts,bond,cool,seed,t){{
+    const {Lf,Rt}=strandShape(pts);
+    const dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`,hi=`rgb(${mix([255,236,190],[220,255,236],cool)})`;
+    const UP=Lf.map((q,i)=>q[1]<Rt[i][1]?q:Rt[i]);                  // the lit side is whichever edge faces up
+    AC.fillStyle=dark;fillShape(Lf,Rt);AC.save();AC.strokeStyle='rgba(74,40,18,.85)';AC.lineWidth=1.6;AC.lineJoin='round';AC.beginPath();AC.moveTo(Lf[0][0],Lf[0][1]);for(const q of Lf)AC.lineTo(q[0],q[1]);for(let i=Rt.length-1;i>=0;i--)AC.lineTo(Rt[i][0],Rt[i][1]);AC.closePath();AC.stroke();AC.restore();
+    const half=pts.map((q,i)=>[(q[0]+UP[i][0])/2,(q[1]+UP[i][1])/2,q[2]*.62]);  // the lit side, flat
+    const hs=strandShape(half);AC.fillStyle=lit;fillShape(hs.Lf,hs.Rt);
+    // a crisp highlight along the lit edge
+    AC.save();AC.strokeStyle=hi;AC.lineWidth=Math.max(1.4,pts[0][2]*.16);AC.lineCap='round';AC.beginPath();
+    const s0=Math.floor(pts.length*.08),s1=Math.floor(pts.length*.8);
+    for(let i=s0;i<s1;i++){const q=pts[i],x=q[0]+(UP[i][0]-q[0])*.62,y=q[1]+(UP[i][1]-q[1])*.62;i==s0?AC.moveTo(x,y):AC.lineTo(x,y)}
+    AC.stroke();AC.restore();
+    // green veins once it has bonded
+    const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
+      AC.beginPath();for(let i=Math.floor(pts.length*.25);i<pts.length*.95;i++){i==Math.floor(pts.length*.25)?AC.moveTo(pts[i][0],pts[i][1]):AC.lineTo(pts[i][0],pts[i][1])}AC.stroke();AC.restore();}
+  }
+}
+// Tolerance is the creature: each letter is goo, cel-shaded like the tentacles; it breathes, wobbles, drips, and sprouts tendrils
+const WORD='Tolerance.';
+function drawSource(t){
+  const up=Math.max(1-eio(p(t,.25,1.15)),eio(p(t,11.7,12.4))),form=1;
+  const alive=1-up,size=lerp(96,128,up),y=lerp(1000,596,up)+(1-form)*90;
+  AC.save();AC.font=`800 ${size}px Barlow`;AC.textBaseline='middle';
+  const ws=[...WORD].map(c=>AC.measureText(c).width*.97),tot=ws.reduce((a,b)=>a+b,0);let x=960-tot/2;
+  [...WORD].forEach((ch,i)=>{const w=ws[i],cx=x+w/2,dot=ch=='.';
+    const by=y+Math.sin(t*2.6+i*.8)*4*alive,sx=1+.05*Math.sin(t*3.1+i*1.3)*alive,sy=1+.06*Math.sin(t*3.1+i*1.3+1.6)*alive;
+    // little tendrils licking up from the top of each letter
+    if(alive>0&&!dot)for(let n=0;n<2;n++){const hx=cx+(n-.5)*w*.45,h=(10+12*Math.abs(Math.sin(i*2.3+n)))*(1+.35*Math.sin(t*5+i+n*2))*alive*form,lean=Math.sin(t*3+i+n)*5;
+      AC.fillStyle=n?'rgb(192,106,28)':'rgb(245,181,68)';AC.beginPath();AC.moveTo(hx-6,by-size*.3);AC.quadraticCurveTo(hx-3+lean*.4,by-size*.3-h*.6,hx+lean,by-size*.3-h);AC.quadraticCurveTo(hx+3+lean*.4,by-size*.3-h*.6,hx+6,by-size*.3);AC.fill()}
+    // a drip hanging off the bottom
+    if(alive>0&&!dot&&i%2==0){const dl=(8+16*(.5+.5*Math.sin(t*1.7+i)))*alive*form;AC.fillStyle='rgb(192,106,28)';AC.beginPath();AC.moveTo(cx-5,by+size*.3);AC.quadraticCurveTo(cx-4,by+size*.3+dl,cx,by+size*.3+dl+6);AC.quadraticCurveTo(cx+4,by+size*.3+dl,cx+5,by+size*.3);AC.fill()}
+    AC.save();AC.translate(cx,by);AC.scale(sx*form,sy*form);
+    const shadow=dot?'#a8641a':'rgb(192,106,28)',lit=dot?'#f5b544':mix([245,181,68],[58,36,20],up).join?`rgb(${mix([245,181,68],[58,36,20],up)})`:'#f5b544';
+    AC.textAlign='center';AC.fillStyle=shadow;AC.fillText(ch,3*alive,4*alive);       // the hard shadow side
+    AC.fillStyle=lit;AC.fillText(ch,0,0);                                               // the lit body
+    if(alive>0){AC.save();AC.beginPath();AC.rect(-w,-size*.42,w*2,size*.13);AC.clip();AC.fillStyle=`rgba(255,240,205,${.85*alive})`;AC.fillText(ch,0,0);AC.restore()}  // a crisp highlight
+    AC.restore();x+=w;});
+  AC.restore();
+}
+function drawTile(t,pull){
+  if(pull>0&&t<12.05){const cs=200*pull;AC.setTransform(1,0,0,1,0,0);AC.fillStyle='#ffd391';AC.beginPath();AC.roundRect(LX-cs/2,LY-cs/2,cs,cs,cs*.25);AC.fill()}
+}
+window.render=function(t){
+  const flood=0;
+  const pull=0;
+  const tips=[];FLOOD=Math.max(flood,pull);SH.setAttribute('opacity',.55*(1-flood));
+  const fin=(x,y,r)=>{r+=flood*(340+80*Math.sin(x*.01+y*.013));x+=(LX-x)*pull;y+=(LY-y)*pull;r*=1-pull*.97;return [x,y,r]};
+  T.forEach(([,,,,mi,ts],k)=>{
+    const P_=PATHS[k],g=reach(t,ts),bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,live=g>0;
+    // the body: thick at the root, a needle at the tip; the tip whips until it grips
+    bodies[k].forEach((pair,i)=>{
+      const u=i/(NB-1),[x0,y0,dx,dy]=at(P_,tip*u);
+      const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*6*(1-u);
+      const sArc=tip*u,taper=cl((tip-sArc)/140);   // only the last stretch thins to a needle
+      let r=live?(3+(lerp(26,8,Math.pow(sArc/P_.len,1.6))-3)*Math.pow(taper,.7))*(1+.06*Math.sin(t*5+i*.4)):0;
+      const [x,y,rr]=fin(x0-dy*whip,y0+dx*whip,r);
+      const cool=k>=COOLK?.75:(mi==1?.6*p(t,8.3,9.0):0);
+      put(pair,x,y,rr,mix(mix(mix(AMB,SAND,(1-u)*.5),GRN,bond*Math.pow(u,5)*.85),MINT,cool));
+      if(i==Math.round(NB*.62))tips[k]=[x,y,bond];
+    });
+    // three claws spread from the tip and curl round what it holds
+    const [tx,ty,tdx,tdy]=at(P_,tip),open=eo(p(t,ts+1.15,ts+1.5));
+    for(let f=0;f<NF;f++){let ang=Math.atan2(tdy,tdx)+(f-1)*1.25,x=tx,y=ty;const curl=(f-1||.6)*.2;
+      for(let j=0;j<NC;j++){const v=j/(NC-1);ang+=curl;const step=12*open;x+=Math.cos(ang)*step;y+=Math.sin(ang)*step;
+        const [xx,yy,rr]=fin(x,y,open>0?(7-5*v)*open:0);put(claws[k][f*NC+j],xx,yy,rr,mix(AMB,GRN,bond*.8))}}
+    // a bonded machine lights up (the cooling arms come later and leave the labels alone)
+    if(k>=COOLK)return;
+    const on=bond*(1-flood);
+    $('m'+mi).style.stroke=on>0?`rgb(${mix([91,97,104],[46,125,85],on)})`:'';
+    $('l'+mi).style.fill=on>0?`rgb(${mix([91,97,104],[46,125,85],on)})`:'';
+    if(on>.9)$('l'+mi).textContent=['TR','OVN1','C1','WH1'][mi]+' · bonded';else $('l'+mi).textContent=['TR','OVN1','C1','WH1'][mi];
+  });
+  // thin webbing stretched between neighbouring arms once both have gripped
+  webs.forEach((w,k)=>{const a=tips[k],b=tips[(k+1)%T.length];const on=a&&b?Math.min(a[2],b[2])*(1-flood)*(1-pull):0;
+    if(on<=0||k==T.length-1||Math.hypot(a[0]-b[0],a[1]-b[1])>420){w.setAttribute('d','');return}
+    const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2+40+10*Math.sin(t*2+k);
+    w.setAttribute('d',`M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}`);w.setAttribute('stroke-width',2.5*on);w.setAttribute('opacity',.7*on)});
+  // drops fall from the arms and splat on the floor
+  drips.forEach((pair,i)=>{const k=i%T.length,t0=2.6+i*.22,age=t-t0;if(age<0||age>1.2||t>4.9){put(pair,0,0,0,AMB);return}
+    const [x0,y0]=at(PATHS[k],PATHS[k].len*.45),y=Math.min(860,y0+.5*1800*age*age),land=y>=860;
+    const [xx,yy,rr]=fin(x0,y,land?9*(1-p(age,.6,1.2))*1.6:7);put(pair,xx,yy,rr,AMB)});
+  // the camera: wide, a slow push in on the oven, then back out for the logo
+  const push=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5))),sc=1+1.1*push,ccx=lerp(960,770,push),ccy=lerp(540,690,push);
+  $('world').setAttribute('transform',`translate(960 540) scale(${sc}) translate(${-ccx} ${-ccy})`);
+  // the oven heats from 5.0, catches fire, and is cooled from 8.0
+  const hh=Math.pow(p(t,5.0,8.0),1.25)*(1-p(t,8.3,9.6)),T_=t<8?lerp(238,268,Math.pow(p(t,5,8),1.3)):lerp(268,240,eio(p(t,8.3,9.8)));
+  $('heat').setAttribute('opacity',hh);
+  if(t>4.9){const hot=`rgb(${mix([91,97,104],[255,110,60],Math.min(1,hh*1.4))})`,cooled=p(t,8.6,9.4);
+    $('m1').style.stroke=cooled>0?`rgb(${mix([255,110,60],[46,125,85],cooled)})`:hot;}
+  $('win').style.fill=hh>0?`rgb(${mix([60,30,20],[255,236,190],hh)})`:'none';$('win').style.fillOpacity=hh>0?.9:0;
+  const FIRE=$('fire');while(FIRE.childNodes.length<70){const q=document.createElementNS(NS,FIRE.childNodes.length<50?'path':'circle');FIRE.appendChild(q)}
+  FIRE.style.mixBlendMode='normal';
+  [[684,780,172,250,1,8],[812,472,66,280,7,5]].forEach(([x0,y0,w,h0,seed,n],o)=>{
+    [['#c8361a',1,1.25],['#ff8a2a',.74,.95],['#ffe19a',.44,.6]].forEach(([col,ks,kw],l)=>{for(let i=0;i<n;i++){
+      const q=FIRE.childNodes[o*24+l*8+i],ph=i*2.3+seed,fl=.55+.28*Math.sin(t*5.3+ph)+.17*Math.sin(t*8.9+ph*1.4),fh=h0*hh*ks*fl;
+      if(fh<4){q.setAttribute('d','');continue}
+      const fx=x0+w*(i+.5)/n+Math.sin(t*2.1+ph)*5,bw=w/n*.75*kw+3,sw=Math.sin(t*3.3+ph)*bw*.9,tx=fx+sw,ty=y0-fh,r=bw*.42;
+      q.setAttribute('d',`M${fx-bw},${y0} Q${fx-bw*1.05},${y0-fh*.55} ${tx-r},${ty+r*1.6} Q${tx},${ty-r*.8} ${tx+r},${ty+r*1.6} Q${fx+bw*1.05},${y0-fh*.55} ${fx+bw},${y0}Z`);
+      q.setAttribute('fill',col);q.setAttribute('opacity',1)}})});
+  for(let i=0;i<20;i++){const q=FIRE.childNodes[50+i],k=(t*.8+i/20)%1,on=hh>.15;
+    q.setAttribute('cx',700+((i*67)%150)+Math.sin(t*3+i)*24*k);q.setAttribute('cy',700-k*380*(.6+.4*hh));q.setAttribute('r',on?3.2*(1-k)+1:0);
+    q.setAttribute('fill',i%2?'#ffd27a':'#ff8a2a');q.setAttribute('opacity',on?hh*(1-k):0)}
+  // 5: a mint ripple runs over the oven as the tentacles squeeze it cold
+  let RP=$('ripple');if(!RP){RP=document.createElementNS(NS,'rect');RP.id='ripple';FIRE.parentNode.insertBefore(RP,FIRE.nextSibling)}
+  const rk=p(t,8.2,9.4);RP.setAttribute('x',770-130*(1+.5*rk));RP.setAttribute('y',740-120*(1+.5*rk));RP.setAttribute('width',260*(1+.5*rk));RP.setAttribute('height',240*(1+.5*rk));
+  RP.setAttribute('rx',16);RP.setAttribute('fill','none');RP.setAttribute('stroke','#9fe6bf');RP.setAttribute('stroke-width',6*(1-rk)+1);RP.setAttribute('opacity',rk>0&&rk<1?.9*(1-rk):0);
+  const ST=$('steam');while(ST.childNodes.length<14){const q=document.createElementNS(NS,'circle');ST.appendChild(q)}
+  const sv=p(t,8.4,8.8)*(1-p(t,9.8,10.6));
+  ST.removeAttribute('filter');
+  ST.childNodes.forEach((q,i)=>{const k=((t*.45+i/14)%1);q.setAttribute('cx',700+((i*53)%160)+Math.sin(t*1.3+i)*34*k);q.setAttribute('cy',640-k*330);
+    q.setAttribute('r',Math.max(0,(18+46*k)*(1-k*k*.9)*sv));q.setAttribute('fill',i%3?'#e8f8f1':'#9fe6bf');q.setAttribute('opacity',1)});
+  const fade=(id,s0,e0)=>{const v=eo(p(t,s0,s0+.45))*(1-p(t,e0-.35,e0));$(id).style.opacity=v;$(id).style.transform=`translateY(${(1-v)*16}px)`};
+  fade('c1',1.9,4.5);fade('c2',10.4,11.5);fade('readout',5.2,11.0);
+  $('temp').textContent=`${T_.toFixed(0)}°C`;
+  $('temp').style.color=t>9.8?'#2e7d55':T_>250?`rgb(${mix([224,80,60],[255,150,110],.5+.5*Math.sin(t*10))})`:'#3a2414';
+  $('tstate').textContent=t>9.8?'COOLED':t>8?'COOLING':T_>250?'OVER LIMIT':'RISING';$('tstate').style.color=t>8?'#2e7d55':T_>250?'#ff8a6a':'var(--mut)';
+  {const v=eo(p(t,10.0,10.5))*(1-p(t,11.2,11.5));$('card').style.opacity=v;$('card').style.transform=`translateX(${(1-eo(p(t,10.0,10.55)))*260}px)`}
+  drawArms(t,sc,ccx,ccy,pull);AC.setTransform(sc,0,0,sc,960-ccx*sc,540-ccy*sc);drawSource(t);
+  // core blob that becomes the logo tile
+  const cs=200*pull*(1-p(t,11.95,12.05));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
+  core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
+  $('plant').style.opacity=1-flood;
+  document.querySelector('.lbl').style.opacity=p(t,.5,1.3);
+  // the host is shown first, in the dark
+  $('stage').style.opacity=1;
+  if(t<1.55)$('plant').style.opacity=p(t,.5,1.3)*.9;
+  slam('s0',t,1.15,2.4);
+  $('s0').style.color='var(--ivory)';
+  // the end card moves as one piece with the wordmark: at the bottom the tile and eyebrow are drawn into the word,
+  // the tagline and footer are below the frame; in the middle everything is in place
+  const up=Math.max(1-eio(p(t,.25,1.15)),eio(p(t,11.7,12.4))),off=404*(1-up),k=eo(up);
+  const mv=(id,dy,sc,op=1)=>{$(id).style.opacity=op;$(id).style.transform=`translateY(${dy}px) scale(${sc})`};
+  mv('logo',off+300*(1-k),k,k>0.02?1:0);mv('eb',off+150*(1-k),.6+.4*k,k);mv('tl',off+260*(1-up),1);mv('foot',360*(1-up),1);
+  $('word').style.opacity=0;
+  $('world').style.opacity=1-p(t,11.7,12.2);
+};
+// story time: the opening card as is, the story 20% slower, and no end card; it ends on the living wordmark and fades
+const story=window.render;
+window.render=t=>{const h=.6;story(t<1.6?t:t<1.6+h?1.6:Math.min(11.65,1.6+(t-1.6-h)/1.2));document.body.style.opacity=1-p(t,14.3,15)};
+window.ready=document.fonts.ready;
+render(0);
+</script></body></html>
