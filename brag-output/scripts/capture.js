@@ -4,7 +4,7 @@ const path = require('path');
 (async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 1920, height: 1080 } });
-  await pg.goto('file://' + path.resolve(__dirname, '../composition.html'));
+  pg.on('pageerror',e=>console.log('ERR',e.message));await pg.goto('file://' + path.resolve(__dirname, '../composition.html'));
   await pg.evaluate(() => window.ready);
   const ts = process.argv[2] ? process.argv[2].split(',').map(Number) : [...Array(450).keys()].map(i => i / 30);
   const out = process.argv[2] ? 'stills' : 'frames';
