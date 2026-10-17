@@ -11,6 +11,14 @@ svg{position:absolute;inset:0}
 .slam{position:absolute;left:0;right:0;top:50%;text-align:center;font-weight:900;font-size:150px;letter-spacing:-.02em;line-height:1;transform:translateY(-50%);opacity:0;text-transform:uppercase}
 .slam.small{font-size:110px}
 .slam em{font-style:normal;color:#0d5a3e}
+.cap{position:absolute;left:0;right:0;top:90px;text-align:center;font-weight:800;font-size:64px;letter-spacing:.02em;text-transform:uppercase;opacity:0;text-shadow:0 0 30px #000,0 0 12px #000,0 4px 24px #000}
+#readout{position:absolute;left:70px;top:60px;padding:22px 30px;border-radius:22px;background:rgba(14,16,19,.88);border:1px solid rgba(255,211,145,.22);opacity:0}
+#readout .k{font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:.14em;color:var(--amber)}
+#readout .v{font-weight:800;font-size:120px;line-height:1.05;letter-spacing:.01em}
+#card{position:absolute;right:90px;bottom:110px;width:760px;padding:34px 38px;border-radius:26px;background:rgba(18,21,24,.94);border:1px solid rgba(255,211,145,.25);box-shadow:0 30px 80px rgba(0,0,0,.6);opacity:0}
+#card .hd{display:flex;gap:18px;align-items:center;margin-bottom:24px}#card .hd svg{position:static;width:60px;height:60px;flex:none}
+#card b{display:block;font-size:30px}#card i{font-style:normal;color:var(--mut);font-size:20px}
+#card .tt{font-weight:700;font-size:38px;color:#ff9a6a;margin-bottom:10px}#card .bd{font-size:29px;font-weight:500;line-height:1.35}#card .mut{color:var(--mut)}
 #center{position:absolute;left:0;right:0;top:250px;display:flex;flex-direction:column;align-items:center}
 #logo{width:190px;height:190px;opacity:0}
 .eyebrow{font-weight:700;letter-spacing:.24em;font-size:24px;color:var(--amber);margin-top:46px}
@@ -38,15 +46,19 @@ svg{position:absolute;inset:0}
       <feColorMatrix in="b" mode="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 26 -11" result="g"/>
       <feGaussianBlur in="g" stdDeviation="8"/>
     </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+    <radialGradient id="heatG"><stop offset="0" stop-color="#ff7a2a" stop-opacity=".55"/><stop offset="1" stop-color="#ff5a1a" stop-opacity="0"/></radialGradient>
     <radialGradient id="vig" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".55"/></radialGradient>
   </defs>
+  <g id="world">
+  <circle id="heat" cx="770" cy="700" r="560" fill="url(#heatG)" opacity="0"/>
   <!-- the host: the plant, drawn in thin lines -->
   <g id="plant" fill="none" stroke="#5b6168" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
     <path d="M120 860H1800"/>
     <!-- TR robot arm -->
     <g id="m0"><path d="M300 860v-40h120v40M360 820v-70l90-110 80 40"/><circle cx="360" cy="750" r="14"/><circle cx="450" cy="640" r="12"/><path d="M530 680l30 10M530 680l20 26"/></g>
     <!-- OVN1 oven -->
-    <g id="m1"><rect x="640" y="620" width="260" height="240" rx="10"/><path d="M820 620V470h50v150"/><rect x="680" y="670" width="180" height="110" rx="6"/></g>
+    <g id="m1"><rect x="640" y="620" width="260" height="240" rx="10"/><path d="M820 620V470h50v150"/><rect id="win" x="680" y="670" width="180" height="110" rx="6"/></g>
     <!-- C1 conveyor -->
     <g id="m2"><path d="M960 780h400M960 820h400"/><circle cx="990" cy="800" r="18"/><circle cx="1090" cy="800" r="18"/><circle cx="1190" cy="800" r="18"/><circle cx="1290" cy="800" r="18"/><path d="M1000 820v40M1320 820v40"/><rect x="1060" y="740" width="70" height="40" rx="4"/></g>
     <!-- WH1 racks -->
@@ -55,15 +67,20 @@ svg{position:absolute;inset:0}
   <g class="lbl" fill="#5b6168">
     <text id="l0" x="300" y="900">TR</text><text id="l1" x="640" y="900">OVN1</text><text id="l2" x="960" y="900">C1</text><text id="l3" x="1440" y="900">WH1</text>
   </g>
+  <g id="fire" style="mix-blend-mode:screen"></g>
   <g id="shade" filter="url(#gooFlat)" opacity=".55" transform="translate(12,16)"></g>
   <g id="webs" fill="none" stroke="#f5b544" stroke-linecap="round"></g>
   <g id="liquid" filter="url(#goo)"></g>
+  <g id="steam" filter="url(#soft)"></g>
+  </g>
   <rect width="1920" height="1080" fill="url(#vig)"/>
 </svg>
 <div class="slam" id="s0">The factory<br>is the host.</div>
-<div class="slam" id="s1">It reads everything.</div>
-<div class="slam" id="s2">Wires into everything.</div>
-<div class="slam small" id="s3">Acts only when<br><em>you say so.</em></div>
+<div class="cap" id="c1">Something got in.</div>
+<div class="cap" id="c2">And it tells you.</div>
+<div id="readout"><div class="k">OVN1 · LIMIT 250°C</div><div class="v" id="temp">238°C</div><div class="k" id="tstate">RISING</div></div>
+<div id="card"><div class="hd"><svg viewBox="-24 -24 48 48"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg><div><b>Tolerance</b><i>now</i></div></div>
+<div class="tt">⚠ OVN1 overheated · 268°C</div><div class="bd">I cooled it to 240°C and held the line.</div><div class="bd mut">Review the cause when you are ready.</div></div>
 <div id="center">
   <svg id="logo" viewBox="-24 -24 48 48" style="position:static"><rect x="-22" y="-22" width="44" height="44" rx="11" fill="#ffd391"/><g fill="none" stroke-linecap="round"><path d="M-11 -9H11M0 -9V7" stroke="#0c1715" stroke-width="5.4"/><path d="M-15 -1H-6M6 -1H15" stroke="#0c1715" stroke-opacity=".35" stroke-width="2"/></g><circle cx="0" cy="14.5" r="3.4" fill="#1c7a58"/></svg>
   <div class="eyebrow" id="eb">SYMBIOTIC INTELLIGENCE FOR INDUSTRY 5.0</div>
@@ -88,7 +105,10 @@ const T=[
  [[1100,1160],[1000,1000],[1250,900],[1290,800],2,2.5,26],// C1 roller
  [[2000,350],[1800,420],[1700,500],[1590,600],3,1.7,36], // WH1 upright
  [[2000,980],[1850,900],[1800,800],[1700,760],3,2.2,30], // WH1 corner
+ [[200,-120],[300,250],[560,420],[770,745],1,8.0,88],    // cooling: wraps the whole oven
+ [[1500,-120],[1300,260],[1000,430],[770,735],1,8.25,80],// cooling: a second wrap
 ];
+const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
 const G=$("liquid"),SH=$("shade"),WB=$("webs"),NS='http://www.w3.org/2000/svg';
 const mk=g=>{const c=document.createElementNS(NS,'circle');g.appendChild(c);return c};
@@ -119,7 +139,7 @@ function reach(t,ts){ // creep, draw back, strike (with a small overshoot), sett
 }
 // colour of the liquid: sand at the body, amber in the tendrils, green once bonded
 function mix(a,b,k){return a.map((x,i)=>Math.round(x+(b[i]-x)*k))}
-const SAND=[255,211,145],AMB=[245,181,68],GRN=[40,150,104];
+const SAND=[255,211,145],AMB=[245,181,68],GRN=[40,150,104],MINT=[127,230,180];
 const LX=960,LY=345;
 let FLOOD=0;
 function put(pair,x,y,r,col){const [c,sh]=pair;r=Math.max(0,r);col=mix(col,SAND,cl(FLOOD*1.6));
@@ -129,8 +149,8 @@ function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
   el.style.opacity=on?1:0;const j=on&&t<s+.25?(Math.sin(t*170)*6):0;
   el.style.transform=`translate(${j}px,-50%) scale(${1.25-.25*eo(k)})`;}
 window.render=function(t){
-  const flood=eio(p(t,5.0,5.9));           // liquid takes the whole screen
-  const pull=eio(p(t,8.9,9.8));            // and pulls back into the logo
+  const flood=0;
+  const pull=eio(p(t,11.4,12.0));          // everything pulls back into the logo
   const tips=[];FLOOD=Math.max(flood,pull);SH.setAttribute('opacity',.55*(1-flood));
   const fin=(x,y,r)=>{r+=flood*(340+80*Math.sin(x*.01+y*.013));x+=(LX-x)*pull;y+=(LY-y)*pull;r*=1-pull*.97;return [x,y,r]};
   T.forEach(([,,,,mi,ts],k)=>{
@@ -142,7 +162,8 @@ window.render=function(t){
       const sArc=tip*u,taper=cl((tip-sArc)/140);   // only the last stretch thins to a needle
       let r=live?(3+(lerp(26,8,Math.pow(sArc/P_.len,1.6))-3)*Math.pow(taper,.7))*(1+.06*Math.sin(t*5+i*.4)):0;
       const [x,y,rr]=fin(x0-dy*whip,y0+dx*whip,r);
-      put(pair,x,y,rr,mix(mix(AMB,SAND,(1-u)*.5),GRN,bond*Math.pow(u,5)*.85));
+      const cool=k>=COOLK?.75:(mi==1?.6*p(t,8.3,9.0):0);
+      put(pair,x,y,rr,mix(mix(mix(AMB,SAND,(1-u)*.5),GRN,bond*Math.pow(u,5)*.85),MINT,cool));
       if(i==Math.round(NB*.62))tips[k]=[x,y,bond];
     });
     // three claws spread from the tip and curl round what it holds
@@ -150,7 +171,8 @@ window.render=function(t){
     for(let f=0;f<NF;f++){let ang=Math.atan2(tdy,tdx)+(f-1)*1.25,x=tx,y=ty;const curl=(f-1||.6)*.2;
       for(let j=0;j<NC;j++){const v=j/(NC-1);ang+=curl;const step=12*open;x+=Math.cos(ang)*step;y+=Math.sin(ang)*step;
         const [xx,yy,rr]=fin(x,y,open>0?(7-5*v)*open:0);put(claws[k][f*NC+j],xx,yy,rr,mix(AMB,GRN,bond*.8))}}
-    // a bonded machine lights up
+    // a bonded machine lights up (the cooling arms come later and leave the labels alone)
+    if(k>=COOLK)return;
     const on=bond*(1-flood);
     $('m'+mi).style.stroke=on>0?`rgb(${mix([91,97,104],[159,230,191],on)})`:'';
     $('l'+mi).style.fill=on>0?`rgb(${mix([91,97,104],[159,230,191],on)})`:'';
@@ -165,20 +187,47 @@ window.render=function(t){
   drips.forEach((pair,i)=>{const k=i%T.length,t0=2.6+i*.22,age=t-t0;if(age<0||age>1.2||t>4.9){put(pair,0,0,0,AMB);return}
     const [x0,y0]=at(PATHS[k],PATHS[k].len*.45),y=Math.min(860,y0+.5*1800*age*age),land=y>=860;
     const [xx,yy,rr]=fin(x0,y,land?9*(1-p(age,.6,1.2))*1.6:7);put(pair,xx,yy,rr,AMB)});
+  // the camera: wide, a slow push in on the oven, then back out for the logo
+  const push=eio(p(t,4.6,8.0))*(1-eio(p(t,10.9,11.5))),sc=1+1.1*push,ccx=lerp(960,770,push),ccy=lerp(540,690,push);
+  $('world').setAttribute('transform',`translate(960 540) scale(${sc}) translate(${-ccx} ${-ccy})`);
+  // the oven heats from 5.0, catches fire, and is cooled from 8.0
+  const hh=Math.pow(p(t,5.0,8.0),1.25)*(1-p(t,8.3,9.6)),T_=t<8?lerp(238,268,Math.pow(p(t,5,8),1.3)):lerp(268,240,eio(p(t,8.3,9.8)));
+  $('heat').setAttribute('opacity',hh);
+  if(t>4.9){const hot=`rgb(${mix([91,97,104],[255,110,60],Math.min(1,hh*1.4))})`,cooled=p(t,8.6,9.4);
+    $('m1').style.stroke=cooled>0?`rgb(${mix([255,110,60],[159,230,191],cooled)})`:hot;}
+  $('win').style.fill=hh>0?`rgb(${mix([60,30,20],[255,236,190],hh)})`:'none';$('win').style.fillOpacity=hh>0?.9:0;
+  const FIRE=$('fire');while(FIRE.childNodes.length<42){const q=document.createElementNS(NS,'path');FIRE.appendChild(q)}
+  [[690,778,160,230,1],[818,470,54,260,7]].forEach(([x0,y0,w,h0,seed],o)=>{
+    [['#d4401a',.75,1],['#ff9a3a',.85,.7],['#ffe9a8',.9,.4]].forEach(([col,al,ks],l)=>{for(let i=0;i<7;i++){
+      const q=FIRE.childNodes[o*21+l*7+i],ph=i*1.9+seed,fl=.55+.25*Math.sin(t*6.1+ph)+.2*Math.sin(t*9.7+ph*1.3),fh=h0*hh*ks*fl;
+      if(fh<3){q.setAttribute('d','');continue}
+      const fx=x0+w*(i+.5)/7+Math.sin(t*2.7+ph)*4,bw=w/7*1.4*ks+4,sw=Math.sin(t*3.9+ph)*bw*.6;
+      q.setAttribute('d',`M${fx-bw},${y0} C${fx-bw},${y0-fh*.5} ${fx+sw-bw*.2},${y0-fh*.8} ${fx+sw},${y0-fh} C${fx+sw+bw*.2},${y0-fh*.8} ${fx+bw},${y0-fh*.5} ${fx+bw},${y0}Z`);
+      q.setAttribute('fill',col);q.setAttribute('opacity',al)}})});
+  const ST=$('steam');while(ST.childNodes.length<14){const q=document.createElementNS(NS,'circle');ST.appendChild(q)}
+  const sv=p(t,8.4,8.8)*(1-p(t,9.8,10.6));
+  ST.childNodes.forEach((q,i)=>{const k=((t*.45+i/14)%1);q.setAttribute('cx',700+((i*53)%160)+Math.sin(t+i)*30*k);q.setAttribute('cy',640-k*320);
+    q.setAttribute('r',22+70*k);q.setAttribute('fill','#e6f7f0');q.setAttribute('opacity',sv*.45*(1-k))});
+  const fade=(id,s0,e0)=>{const v=eo(p(t,s0,s0+.45))*(1-p(t,e0-.35,e0));$(id).style.opacity=v;$(id).style.transform=`translateY(${(1-v)*16}px)`};
+  fade('c1',1.9,4.5);fade('c2',10.4,11.5);fade('readout',5.2,11.0);
+  $('temp').textContent=`${T_.toFixed(0)}°C`;
+  $('temp').style.color=t>9.8?'#9fe6bf':T_>250?`rgb(${mix([224,80,60],[255,150,110],.5+.5*Math.sin(t*10))})`:'var(--ivory)';
+  $('tstate').textContent=t>9.8?'COOLED':t>8?'COOLING':T_>250?'OVER LIMIT':'RISING';$('tstate').style.color=t>8?'#9fe6bf':T_>250?'#ff8a6a':'var(--mut)';
+  {const v=eo(p(t,10.0,10.5))*(1-p(t,11.2,11.5));$('card').style.opacity=v;$('card').style.transform=`translateX(${(1-eo(p(t,10.0,10.55)))*260}px)`}
   // core blob that becomes the logo tile
-  const cs=200*pull*(1-p(t,9.75,9.85));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
+  const cs=200*pull*(1-p(t,11.95,12.05));core.setAttribute('x',LX-cs/2);core.setAttribute('y',LY-cs/2);
   core.setAttribute('width',cs);core.setAttribute('height',cs);core.setAttribute('rx',cs*.25);core.setAttribute('fill','rgb(255,211,145)');
   $('plant').style.opacity=1-flood;
   document.querySelector('.lbl').style.opacity=1-flood;
   // the host is shown first, in the dark
   $('stage').style.opacity=t<1.55?0:1;
   if(t<1.55){$('stage').style.opacity=1;$('plant').style.opacity=p(t,1.0,1.5)*.9;}
-  slam('s0',t,.15,1.55);slam('s1',t,5.9,6.9);slam('s2',t,6.95,7.95);slam('s3',t,8.0,8.9);
-  ['s1','s2','s3'].forEach(id=>$(id).style.color='#14110b');
+  slam('s0',t,.15,1.55);
   $('s0').style.color='var(--ivory)';
-  const L=back(p(t,9.8,10.25));$('logo').style.opacity=t>=9.8?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
+  const L=back(p(t,12.0,12.45));$('logo').style.opacity=t>=12.0?1:0;$('logo').style.transform=`scale(${.85+.15*L})`;
   const r=(id,s)=>{const k=eo(p(t,s,s+.5));$(id).style.opacity=k;$(id).style.transform=`translateY(${(1-k)*24}px)`};
-  r('eb',10.2);r('word',10.4);r('tl',11.0);r('foot',11.8);
+  r('eb',12.4);r('word',12.6);r('tl',13.1);r('foot',13.6);
+  $('world').style.opacity=t>=12.0?0:1;
   document.body.style.opacity=1-p(t,14.3,15);
 };
 window.ready=document.fonts.ready;
