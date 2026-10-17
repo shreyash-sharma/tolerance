@@ -100,16 +100,16 @@ const back=x=>{const c=2.2;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
 // tendrils: [start, ctrl1, ctrl2, grip point, machine, start time, coil radius]
 // each one crawls in, draws back, strikes, then coils round a part of its machine and grips it
 const T=[
- [[-80,300],[150,250],[250,560],[450,640],0,1.6,26],     // TR elbow
- [[-60,980],[150,900],[200,700],[362,752],0,2.0,22],     // TR shoulder
- [[620,-80],[560,200],[900,300],[845,520],1,1.8,40],     // OVN1 chimney
- [[300,-80],[400,300],[600,500],[660,700],1,2.3,30],     // OVN1 corner
- [[1300,-80],[1250,300],[1000,550],[1090,800],2,2.1,26], // C1 roller
- [[1100,1160],[1000,1000],[1250,900],[1290,800],2,2.5,26],// C1 roller
- [[2000,350],[1800,420],[1700,500],[1590,600],3,1.7,36], // WH1 upright
- [[2000,980],[1850,900],[1800,800],[1700,760],3,2.2,30], // WH1 corner
- [[200,-120],[300,250],[560,420],[770,745],1,8.0,88],    // cooling: wraps the whole oven
- [[1500,-120],[1300,260],[1000,430],[770,735],1,8.25,80],// cooling: a second wrap
+ [[230,860],[160,700],[300,560],[450,640],0,1.6,26],      // TR elbow
+ [[480,860],[530,800],[440,720],[362,752],0,2.0,22],      // TR shoulder
+ [[970,860],[1000,650],[930,470],[845,520],1,1.8,40],     // OVN1 chimney
+ [[560,860],[500,760],[590,640],[660,700],1,2.3,30],      // OVN1 corner
+ [[960,860],[930,760],[1020,690],[1090,800],2,2.1,26],    // C1 roller
+ [[1410,860],[1440,760],[1350,700],[1290,800],2,2.5,26],  // C1 roller
+ [[1800,860],[1830,700],[1700,540],[1590,600],3,1.7,36],  // WH1 upright
+ [[1880,860],[1910,780],[1790,690],[1700,760],3,2.2,30],  // WH1 corner
+ [[540,860],[460,600],[600,500],[770,745],1,8.0,88],      // cooling: wraps the whole oven
+ [[1010,860],[1090,600],[940,500],[770,735],1,8.25,80],   // cooling: a second wrap
 ];
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
@@ -191,21 +191,24 @@ function drawArms(t,sc,cx,cy,pull){
         const [x,y]=point(u,curl);pts.push([x,y,(1.2+6.5*Math.pow(1-v,.8))*(1-pull*.9)])}
       strands.push({pts,bond,cool,seed:k*7+c+1});}
   });
-  // a soft cast shadow first, then the bodies
-  AC.save();AC.shadowColor='rgba(0,0,0,.55)';AC.shadowBlur=18;AC.shadowOffsetX=10;AC.shadowOffsetY=14;AC.fillStyle='rgba(0,0,0,.35)';
-  strands.forEach(st=>{const {Lf,Rt}=strandShape(st.pts);fillShape(Lf,Rt)});AC.restore();
+  // the puddles it rises out of, with flame-like licks round the rim
+  T.forEach(([a,,,,,ts],k)=>{const pv=eo(p(t,ts-.35,ts+.25))*(1-pull);if(pv<=0)return;const cool=k>=COOLK?1:0;
+    const rx=78*pv,ry=rx*.2,[x,y]=a,dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`;
+    AC.fillStyle=dark;AC.beginPath();AC.ellipse(x,y,rx,ry,0,0,7);AC.fill();
+    AC.fillStyle=lit;AC.beginPath();AC.ellipse(x-rx*.12,y-ry*.25,rx*.78,ry*.62,0,0,7);AC.fill();
+    for(let n=0;n<6;n++){const sx=x+(n/5-.5)*rx*1.5,h=(16+18*Math.abs(Math.sin(n*1.7+k)))*pv*(1+.25*Math.sin(t*5+n*2+k)),lean=Math.sin(t*3+n+k)*6;
+      AC.fillStyle=n%2?dark:lit;AC.beginPath();AC.moveTo(sx-7,y);AC.quadraticCurveTo(sx-4+lean*.4,y-h*.6,sx+lean,y-h);AC.quadraticCurveTo(sx+4+lean*.4,y-h*.6,sx+7,y);AC.fill()}});
   strands.forEach(st=>{
     const {pts,bond,cool}=st,{Lf,Rt}=strandShape(pts);
-    const edge=`rgb(${mix([92,40,10],[22,92,66],cool)})`,mid=`rgb(${mix([214,128,34],[96,200,150],cool)})`,hi=`rgb(${mix([248,196,104],[186,244,212],cool)})`;
-    AC.fillStyle=edge;fillShape(Lf,Rt);
-    // the warm core, set towards the lit (upper) side
+    const dark=`rgb(${mix([192,106,28],[30,130,90],cool)})`,lit=`rgb(${mix([245,181,68],[120,220,170],cool)})`,hi=`rgb(${mix([255,236,190],[220,255,236],cool)})`;
     const mid_=pts.length>>1,UP=Lf[mid_][1]<Rt[mid_][1]?Lf:Rt;      // one lit side for the whole limb
-    const core=pts.map((q,i)=>[q[0]+(UP[i][0]-q[0])*.25,q[1]+(UP[i][1]-q[1])*.25,q[2]*.62]);
-    const c1=strandShape(core);AC.fillStyle=mid;fillShape(c1.Lf,c1.Rt);
-    const c2=strandShape(core.map(q=>[q[0],q[1],q[2]*.45]));AC.fillStyle=hi;fillShape(c2.Lf,c2.Rt);
-    // a crisp highlight along the top edge
-    AC.save();AC.strokeStyle='rgba(255,250,235,.9)';AC.lineWidth=Math.max(1.4,pts[0][2]*.14);AC.lineCap='round';AC.beginPath();
-    for(let i=Math.floor(pts.length*.12);i<pts.length*.8;i++){const up=UP[i],q=pts[i],x=q[0]+(up[0]-q[0])*.7,y=q[1]+(up[1]-q[1])*.7;i==Math.floor(pts.length*.12)?AC.moveTo(x,y):AC.lineTo(x,y)}
+    AC.fillStyle=dark;fillShape(Lf,Rt);                               // the hard shadow side
+    const half=pts.map((q,i)=>[(q[0]+UP[i][0])/2,(q[1]+UP[i][1])/2,q[2]*.62]);  // the lit side, flat
+    const hs=strandShape(half);AC.fillStyle=lit;fillShape(hs.Lf,hs.Rt);
+    // a crisp highlight along the lit edge
+    AC.save();AC.strokeStyle=hi;AC.lineWidth=Math.max(1.4,pts[0][2]*.16);AC.lineCap='round';AC.beginPath();
+    const s0=Math.floor(pts.length*.14),s1=Math.floor(pts.length*.72);
+    for(let i=s0;i<s1;i++){const q=pts[i],x=q[0]+(UP[i][0]-q[0])*.62,y=q[1]+(UP[i][1]-q[1])*.62;i==s0?AC.moveTo(x,y):AC.lineTo(x,y)}
     AC.stroke();AC.restore();
     // green veins once it has bonded
     const vb=Math.max(bond*.9,cool);if(vb>0){AC.save();AC.strokeStyle=`rgba(80,255,170,${vb*(.55+.35*Math.sin(t*6+st.seed))})`;AC.shadowColor='#3dff9a';AC.shadowBlur=8;AC.lineWidth=1.3;
