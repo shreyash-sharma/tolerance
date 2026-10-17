@@ -165,7 +165,7 @@ function drawArms(t,sc,cx,cy,pull){
   const strands=[];
   T.forEach(([,,,,mi,ts],k)=>{
     const P_=PATHS[k],g=reach(t,ts);if(g<=0)return;const bond=p(t,ts+1.3,ts+1.7),tip=P_.len*g,cool=k>=COOLK?1:(mi==1?p(t,8.3,9.0):0);
-    const M=120,base=k>=COOLK?24:34,apU=P_.ap/Math.max(tip,1);
+    const M=120,base=k>=COOLK?14:16,apU=P_.ap/Math.max(tip,1);
     const point=(u,off)=>{const [x0,y0,dx,dy]=at(P_,tip*u);
       const whip=Math.sin(t*9-u*7+k)*22*u*u*(1-bond)+Math.sin(t*2.3+u*5+k)*5*(1-u),o=whip+off;
       let x=x0-dy*o,y=y0+dx*o;x+=(LX-x)*pull;y+=(LY-y)*pull;return [x,y]};
@@ -173,7 +173,7 @@ function drawArms(t,sc,cx,cy,pull){
     const trunk=[];
     for(let i=0;i<M;i++){const u=i/(M-1)*.9,[x,y]=point(u,0);
       const grip=ss(apU-.02,apU+.05,u),muscle=1+.2*Math.sin(t*3.2-u*20+k)*(1-.5*grip);
-      const w=(2+base*Math.pow(1-u/.9,.42)*(1-.3*grip))*muscle;trunk.push([x,y,w*(1-pull*.9)])}
+      const w=(2.5+base*Math.pow(1-u/.9,.6)*(1-.2*grip))*muscle;trunk.push([x,y,w*(1-pull*.9)])}
     strands.push({pts:trunk,bond,cool,seed:k*7});
     // the end splays into thick, flame-like fingers that drape over the part and droop round its edges
     const [ex,ey,edx,edy]=at(P_,tip*.9),spread=eo(p(t,ts+1.05,ts+1.5)),NF_=3,base_=Math.atan2(edy,edx);
@@ -181,7 +181,7 @@ function drawArms(t,sc,cx,cy,pull){
       let x=ex,y=ey,ang=base_+cc*.42*spread;
       for(let i=0;i<26;i++){const v=i/25;const down=Math.atan2(1,0);ang+=(down-ang)*.09*spread+Math.sin(t*3+c+k)*.004;   // droops over the edge, pulled down
         x+=Math.cos(ang)*len/25;y+=Math.sin(ang)*len/25+1.1*v*spread;
-        const xx=x+(LX-x)*pull,yy=y+(LY-y)*pull;pts.push([xx,yy,(1+(k>=COOLK?15:12)*Math.pow(1-v,.6))*(1-pull*.9)])}
+        const xx=x+(LX-x)*pull,yy=y+(LY-y)*pull;pts.push([xx,yy,(1+(k>=COOLK?9:8)*Math.pow(1-v,.6))*(1-pull*.9)])}
       strands.push({pts,bond,cool,seed:k*7+c+1});}
   });
   // the puddles it rises out of, with flame-like licks round the rim
