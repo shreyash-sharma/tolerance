@@ -166,6 +166,10 @@ def extract(doc, stations):
 _ST = store.PerUser(lambda: {"t": 0.0, "v": []})
 
 
+# a computer, a service or a broker the documents mention is not a station on the floor, so it is never offered as a missing station
+_NOT_A_STATION = __import__("re").compile(r"(service|server|computer|gateway|broker|database|host|network|instance|cluster)|\.[a-z]{2,}", __import__("re").I)
+
+
 def _stations():
     """Station names from the twin, cached for a minute: building the twin is expensive and names rarely change."""
     import time
@@ -223,7 +227,7 @@ def state():
         c["subject_resolved"] = resolve(c["subject"])
         c["known"] = c["subject_resolved"] in st or c["subject_resolved"] == "ORDER"
     ghosts = [{"name": n, "status": res.get(f"ghost:{n}", "proposed"), "claims": [c for c in claims if c["subject_resolved"] == n]}
-              for n in sorted({c["subject_resolved"] for c in claims if not c["known"] and c["predicate"] == "installed"})]
+              for n in sorted({c["subject_resolved"] for c in claims if not c["known"] and c["predicate"] == "installed" and not _NOT_A_STATION.search(str(c["subject_resolved"]))})]
     groups = {}
     for c in claims:
         if c["predicate"] in RULES or c["predicate"] == "rated_payload_kg":
