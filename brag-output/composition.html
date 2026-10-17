@@ -108,8 +108,8 @@ const T=[
  [[1410,860],[1440,760],[1350,700],[1290,800],2,2.5,26],  // C1 roller
  [[1800,860],[1830,700],[1700,540],[1590,600],3,1.7,36],  // WH1 upright
  [[1880,860],[1910,780],[1790,690],[1700,760],3,2.2,30],  // WH1 corner
- [[540,860],[460,600],[600,500],[770,745],1,8.0,88],      // cooling: wraps the whole oven
- [[1010,860],[1090,600],[940,500],[770,735],1,8.25,80],   // cooling: a second wrap
+ [[520,860],[470,640],[560,560],[648,618],1,8.0,0],       // cooling: clamps the oven's left top corner
+ [[1020,860],[1070,640],[980,560],[892,618],1,8.25,0],     // cooling: clamps the right top corner
 ];
 const COOLK=8;   // arms from this index on are the ones that cool the oven
 const NB=90,NC=12,NF=3;
@@ -123,9 +123,7 @@ const core=document.createElementNS(NS,'rect');G.appendChild(core);
 const bez=(a,b,c,d,u)=>{const v=1-u;return[v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0],v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1]]};
 // each path: the approach curve, then a coil round the grip point; sampled by arc length
 const PATHS=T.map(([a,b,c,d,,,R])=>{
-  const pts=[];for(let i=0;i<=60;i++)pts.push(bez(a,b,c,[d[0]-R*.2,d[1]-R],i/60));
-  const a0=Math.atan2(pts[60][1]-d[1],pts[60][0]-d[0]);
-  for(let k=1;k<=40;k++){const an=a0+k/40*Math.PI*2.3;pts.push([d[0]+Math.cos(an)*R*1.6,d[1]+Math.sin(an)*R*1.2])}
+  const pts=[];for(let i=0;i<=60;i++)pts.push(bez(a,b,c,d,i/60));
   const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   return {pts,L,len:L[L.length-1],ap:L[60]};
 });
@@ -153,14 +151,6 @@ function slam(id,t,s,e){const el=$(id),k=p(t,s,s+.12);const on=t>=s&&t<e;
   el.style.transform=`translate(${j}px,-50%) scale(${1.25-.25*eo(k)})`;}
 // ---------- the arms, painted as braided strands on a canvas that follows the camera ----------
 const AC=document.getElementById('arms').getContext('2d');
-// the cooling arms lace round the oven's outline instead of coiling on a point
-[COOLK,COOLK+1].forEach((k,n)=>{const [a,b,c]=T[k],pts=[];
-  for(let i=0;i<=40;i++)pts.push(bez(a,b,c,n?[920,600]:[620,600],i/40));
-  const box=[[620,600],[920,600],[920,880],[620,880]],ring=n?[1,2,3,0,1,2]:[0,3,2,1,0,3];
-  for(let r=0;r<ring.length-1;r++){const A=box[ring[r]],B=box[ring[r+1]];for(let i=1;i<=14;i++){const u=i/14,z=Math.sin(u*Math.PI)*(r%2?-26:26);
-    const dx=B[0]-A[0],dy=B[1]-A[1],l=Math.hypot(dx,dy);pts.push([A[0]+dx*u-dy/l*z,A[1]+dy*u+dx/l*z])}}
-  const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
-  PATHS[k]={pts,L,len:L[L.length-1],ap:L[40]};});
 const ss=(a,b,x)=>{const k=cl((x-a)/(b-a));return k*k*(3-2*k)};
 function strandShape(pts){ // left and right edges of a tapered strand
   const n=pts.length,Lf=[],Rt=[];
@@ -185,10 +175,13 @@ function drawArms(t,sc,cx,cy,pull){
       const grip=ss(apU-.02,apU+.05,u),muscle=1+.2*Math.sin(t*3.2-u*20+k)*(1-.5*grip);
       const w=(2+base*Math.pow(1-u/.9,.42)*(1-.3*grip))*muscle;trunk.push([x,y,w*(1-pull*.9)])}
     strands.push({pts:trunk,bond,cool,seed:k*7});
-    // three hooked claws out of the end
-    for(let c=0;c<3;c++){const pts=[],cc=c-1;
-      for(let i=0;i<34;i++){const v=i/33,u=.84+.16*v,curl=cc*34*ss(0,1,v)*(.45+.55*bond)+Math.sin(v*3.1)*8*(c==1?1:-cc);
-        const [x,y]=point(u,curl);pts.push([x,y,(1.2+6.5*Math.pow(1-v,.8))*(1-pull*.9)])}
+    // the end splays into thick, flame-like fingers that drape over the part and droop round its edges
+    const [ex,ey,edx,edy]=at(P_,tip*.9),spread=eo(p(t,ts+1.05,ts+1.5)),NF_=3,base_=Math.atan2(edy,edx);
+    for(let c=0;c<NF_;c++){const pts=[],cc=c-(NF_-1)/2,len=(46+10*Math.abs(Math.sin(c*2.1+k)))*(.4+.6*spread)*(k>=COOLK?1.6:1);
+      let x=ex,y=ey,ang=base_+cc*.42*spread;
+      for(let i=0;i<26;i++){const v=i/25;const down=Math.atan2(1,0);ang+=(down-ang)*.09*spread+Math.sin(t*3+c+k)*.004;   // droops over the edge, pulled down
+        x+=Math.cos(ang)*len/25;y+=Math.sin(ang)*len/25+1.1*v*spread;
+        const xx=x+(LX-x)*pull,yy=y+(LY-y)*pull;pts.push([xx,yy,(1+(k>=COOLK?15:12)*Math.pow(1-v,.6))*(1-pull*.9)])}
       strands.push({pts,bond,cool,seed:k*7+c+1});}
   });
   // the puddles it rises out of, with flame-like licks round the rim
