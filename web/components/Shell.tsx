@@ -19,7 +19,7 @@ const NAV: [string, string, string][] = [
   ['/safety', 'Warden', 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6zM9 12l2 2 4-4'],
   ['/agents', 'Agents', 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z'],
   ['/probes', 'Probes', 'M12 12m-2 0a2 2 0 104 0 2 2 0 10-4 0M12 12m-6 0a6 6 0 1012 0 6 6 0 10-12 0M12 12m-10 0a10 10 0 1020 0 10 10 0 10-20 0'],
-  ['/compile', 'Compiled model', 'M4 6h16M4 12h10M4 18h6M17 14l3 3-3 3'],
+  ['/compile', 'Symbiotic Compiler', 'M4 6h16M4 12h10M4 18h6M17 14l3 3-3 3'],
   ['/sentinel', 'Sentinel', 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5'],
   ['/playbooks', 'Playbooks', 'M5 5h5v5H5zM14 14h5v5h-5zM10 7.5h4a2 2 0 012 2V14'],
   ['/team', 'Team', 'M16 11a3 3 0 100-6 3 3 0 000 6zM8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5'],

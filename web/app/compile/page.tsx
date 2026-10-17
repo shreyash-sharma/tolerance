@@ -1,7 +1,7 @@
 'use client';
 import Shell from '@/components/Shell';
-import CompiledModel from '@/components/CompiledModel';
+import SymbioticCompiler from '@/components/SymbioticCompiler';
 
 export default function Page() {
-  return (<Shell><CompiledModel /></Shell>);
+  return (<Shell><SymbioticCompiler /></Shell>);
 }

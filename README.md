@@ -176,7 +176,7 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 3b. **Connect your systems.** A stepper goes through the databases, streams, files and alerts the documents name (see "The ingestion step").
 4. **The Guide talks with the owner.** It reads the documents, asks which data sources to connect, asks what the plant makes, and settles conflicts between documents, missing stations and hard limits, one question at a time.
 5. **The plant, drawn.** Gemini turns the confirmed understanding into a layout, and the Anatomy kit draws it.
-6. **A tour.** The menu grows one section at a time: Floor (3D), Operations, Warden, Agents, Probes, Compiled model. The Guide says what each is for, tied to what the plant makes.
+6. **A tour.** The menu grows one section at a time: Floor (3D), Operations, Warden, Agents, Probes, Symbiotic Compiler. The Guide says what each is for, tied to what the plant makes.
 
 Settings has "Show me around" and "Start over".
 

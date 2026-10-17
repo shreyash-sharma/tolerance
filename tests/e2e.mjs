@@ -184,7 +184,7 @@ await go("/agents");
 await step("19 Agent catalog", async () => { const t = await text(); return ["Guide", "Document Reader", "Connector Scout", "Plant Modeler", "Diagnosis", "Verifier", "Remediation Planner", "Warden", "Sentinel"].every((n) => t.includes(n)); });
 
 await go("/compile");
-await step("20 Compiled model: facts with their quotes", async () => { const ok = await waitText("FACTS", 30000); const t = await text(); return { ok: ok && t.includes("Northfield Assembly Plant"), note: "plant name and facts shown" }; });
+await step("20 Symbiotic Compiler: feed it files, the knowledge graph, the facts with their quotes", async () => { const ok = await waitText("FACTS", 30000); const t = await text(); return { ok: ok && t.includes("Northfield Assembly Plant") && t.includes("Knowledge graph") && t.includes("Feed the compiler"), note: "plant name, feed card, knowledge graph and facts shown" }; });
 await go("/deck");
 await step("21 Deck: title", async () => (await text()).includes("Tolerance"));
 for (const [k, n, needle] of [["3", "platform", "Nine agents"], ["5", "operations", "Verifier"], ["6", "warden", "two lines"], ["8", "gemma", "Gemma"]]) {
