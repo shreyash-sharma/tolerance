@@ -173,11 +173,21 @@ def gemini_key_remove():
     return j({"own": False, "tail": ""})
 
 
+def _where(url):
+    """host:port only, never a user name or password, for the server log."""
+    import re
+    m = re.search(r"@?([A-Za-z0-9._-]+)(?::(\d+))?(?:[/?]|$)", re.sub(r"^[a-z+]+://([^/@]*@)?", "", str(url)))
+    return f"{m.group(1)}:{m.group(2)}" if m and m.group(2) else (m.group(1) if m else "?")
+
+
 @router.post("/sources/test")
 def sources_test(b: ConnectBody):
     """The Test button: log in, run one safe read, say how long it took and what is there. Nothing is saved."""
     from connectors import probes as PB
-    return j(PB.test(b.type, b.url, b.secret, b.query or b.topic))
+    t0 = time.time()
+    r = PB.test(b.type, b.url, b.secret, b.query or b.topic)
+    print(f"[sources] test {b.type} {_where(b.url)}: ok={r.get('ok')} in {time.time() - t0:.1f}s ({str(r.get('message'))[:120]})", flush=True)
+    return j(r)
 
 
 @router.post("/sources/connect", dependencies=[Depends(rbac.need("connect_systems"))])
@@ -185,7 +195,9 @@ def sources_connect(b: ConnectBody):
     """Test it, then connect it for good: the password goes to the vault, the source loads once and then keeps up."""
     from connectors import probes as PB
     from workspace import vault, live as LV
+    t0 = time.time()
     t = PB.test(b.type, b.url, b.secret, b.query or b.topic)
+    print(f"[sources] connect {b.type} {_where(b.url)}: test ok={t.get('ok')} in {time.time() - t0:.1f}s ({str(t.get('message'))[:120]})", flush=True)
     if not t["ok"]:
         raise HTTPException(400, t["message"])
     clean, pw = PB.split_secret(b.type, b.url, b.secret)
@@ -203,7 +215,9 @@ def sources_connect(b: ConnectBody):
             raise HTTPException(400, "I cannot connect that kind of system yet.")
         s = SRC.add(kind, nm, url=clean, engine=b.type, secret_ref=ref, database=b.database, topic=b.topic or b.query, **extra)
     CR.set_own_lake()
+    t1 = time.time()
     r = SRC.sync(s["id"])
+    print(f"[sources] connect {b.type} {_where(b.url)}: first sync done in {time.time() - t1:.1f}s, total {time.time() - t0:.1f}s ({str(r)[:160]})", flush=True)
     SRC.LIVE.start()
     return j({"source": src_public(SRC.get(s["id"])), "sync": r, "test": t})
 

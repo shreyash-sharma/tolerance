@@ -58,6 +58,8 @@ def _state(d):
 def _audit(h, text):
     h["audit"].append({"at": time.time(), "text": text})
     del h["audit"][:-80]
+    print(f"[host] {text}", flush=True)
+    print(f"[host] {text}", flush=True)   # the server log shows the same story as the audit log
 
 
 def _limit(pred):

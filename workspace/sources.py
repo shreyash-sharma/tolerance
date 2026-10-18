@@ -174,10 +174,11 @@ def archive_resources():
 def sql_source(url, name):
     """All tables of a database. A table with an integer key named id/seq/rowid syncs incrementally; others are refreshed."""
     from sqlalchemy import create_engine, inspect
-    eng = create_engine(url)
+    remote = str(url).split(":", 1)[0].split("+")[0] in ("postgresql", "mysql", "mssql")
+    eng = create_engine(url, connect_args={"connect_timeout": 10} if remote else {})   # a database that does not answer must fail in seconds, not hang the sync
     insp = inspect(eng)
     tables = [t for t in insp.get_table_names() if not t.startswith("sqlite_")]
-    src = sql_database(url, table_names=tables)
+    src = sql_database(eng if remote else url, table_names=tables)
     for t in tables:
         cols = {c["name"]: c for c in insp.get_columns(t)}
         cur = next((c for c in ("id", "seq", "rowid") if c in cols and "INT" in str(cols[c]["type"]).upper()), None)
