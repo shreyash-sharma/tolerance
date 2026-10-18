@@ -216,6 +216,15 @@ def _pipeline(sid):
     return dlt.pipeline(pipeline_name="ws_" + sid, destination=dlt.destinations.duckdb(CR.lake_path()), dataset_name="lake", pipelines_dir=CR.pipes_dir())
 
 
+_SRC_LOCKS = {}
+_SRC_LOCKS_GUARD = threading.Lock()
+
+
+def _source_lock(sid):
+    with _SRC_LOCKS_GUARD:
+        return _SRC_LOCKS.setdefault(sid, threading.Lock())
+
+
 def sync(sid):
     """One pass for one source. There is one lock for the lake and the workspace (connectors/registry.py), so it is held only for the short write: the record is read and the data is
     fetched (a broker listened to, a database connected to) with no lock held."""
@@ -247,8 +256,11 @@ def sync(sid):
                 url = s["params"]["url"] if s["kind"] == "db_url" else "sqlite:///" + s["params"]["path"]
                 src = sql_source(url, nm)
             pipe = _pipeline(sid)
-            with CR.LOCK:
-                pipe.run(src)
+            with _source_lock(sid):   # one pass at a time for one source (the connect button and the live loop can meet)
+                pipe.extract(src)     # the slow part (a database or a broker over the network) holds no lock
+                pipe.normalize()
+                with CR.LOCK:         # the lock is held only to write into the lake file
+                    pipe.load()
             rc = {k: v for k, v in (pipe.last_trace.last_normalize_info.row_counts or {}).items() if not k.startswith("_dlt")}
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:260]}"
