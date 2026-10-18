@@ -46,6 +46,28 @@ function SourceNode({ data }: NodeProps) {
 const nodeTypes = { doc: DocNode, station: StationNode, source: SourceNode };
 
 /** The Symbiotic Compiler: what it knows about the plant, the knowledge graph of how it knows it, and a way to feed it more files. */
+/** Concept preview: ask about the plant. The answer is a lookup over the facts already on this page. No model and no server call. */
+function AskPreview({ claims }: { claims: any[] }) {
+  const [text, setText] = useState('');
+  const [asked, setAsked] = useState('');
+  const words = asked.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+  const hits = words.length ? claims.map((c) => ({ c, n: words.filter((w) => `${c.subject_resolved} ${c.predicate} ${c.value} ${c.quote} ${c.doc}`.toLowerCase().includes(w)).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 4) : [];
+  return (
+    <div className="card" style={{ display: 'grid', gap: 8 }}>
+      <div className="row sb"><h3 style={{ margin: 0 }}>Ask the plant model</h3><span className="tag v">Concept preview</span></div>
+      <div className="mut" style={{ fontSize: 13 }}>Ask about a station, a limit or a document. This preview only searches the facts above. A connected assistant that reasons over the graph is the next step.</div>
+      <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); setAsked(text); }}>
+        <input aria-label="Ask a question" placeholder="For example: what is the oven temperature limit?" value={text} onChange={(e) => setText(e.target.value)} style={{ flex: 1 }} />
+        <button className="btn sm" type="submit" disabled={!text.trim()}>Ask</button>
+      </form>
+      {asked && (hits.length === 0 ? <div className="mut" style={{ fontSize: 13.5 }}>No fact matches that. A connected assistant would say what is missing.</div> : (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {hits.map(({ c }) => <div key={c.id} className="card flat" style={{ padding: '8px 12px', fontSize: 13.5 }}><b>{c.subject_resolved}</b> · {String(c.predicate).replace(/_/g, ' ')}: <b>{String(c.value)}</b><div className="mut" style={{ fontSize: 12.5 }}>"{c.quote}" · {c.doc}</div></div>)}
+        </div>))}
+    </div>
+  );
+}
+
 export default function SymbioticCompiler() {
   const [pl, setPl] = useState<any>(null);
   const [docs, setDocs] = useState<any>(null);
@@ -189,6 +211,8 @@ export default function SymbioticCompiler() {
         {tile(stationCount, 'STATIONS', `${(docs.ghosts || []).filter((g: any) => g.status === 'proposed').length} only in the text`)}
         {tile(graph.edges.filter((e) => String(e.id).startsWith('f:')).length, 'FLOWS', 'how parts move')}
       </div>
+
+      <AskPreview claims={claims} />
 
       <div className="card" style={{ display: 'grid', gap: 10 }}>
         <div className="row sb"><h3 style={{ margin: 0 }}>Feed the compiler</h3>{pending.length > 0 && <span style={{ color: '#f2b84b', fontSize: 13 }}>{pending.length} new file{pending.length === 1 ? '' : 's'} waiting</span>}</div>

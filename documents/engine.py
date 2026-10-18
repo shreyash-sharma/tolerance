@@ -16,6 +16,8 @@ VOCAB = {
     "max_speed_pct": "upper speed limit as percent of rated speed",
     "max_speed_ms": "upper speed limit in metres per second",
     "max_temp_c": "upper temperature limit in degrees Celsius (an oven, furnace or heater)",
+    "slo_restore_minutes": "time within which a service must be restored after an outage, in minutes",
+    "slo_availability_pct": "monthly availability target of a system, percent",
     "belt_speed_ms": "conveyor belt speed limit in metres per second",
     "payload_max_kg": "payload limit in kilograms",
     "rated_payload_kg": "rated payload in kilograms",

@@ -16,6 +16,7 @@ import { useAttention } from '@/lib/attention';
 const NAV: [string, string, string][] = [
   ['/floor', 'Floor', 'M3 5h18v14H3zM3 12h18M9 5v14'],
   ['/operations', 'Operations', 'M13 3L4 14h7l-1 7 9-11h-7z'],
+  ['/reliability', 'Reliability', 'M3 17l5-5 4 4 8-9M15 7h5v5'],
   ['/safety', 'Warden', 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6zM9 12l2 2 4-4'],
   ['/agents', 'Agents', 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z'],
   ['/probes', 'Probes', 'M12 12m-2 0a2 2 0 104 0 2 2 0 10-4 0M12 12m-6 0a6 6 0 1012 0 6 6 0 10-12 0M12 12m-10 0a10 10 0 1020 0 10 10 0 10-20 0'],

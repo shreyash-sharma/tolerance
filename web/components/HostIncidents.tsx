@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
 type Inc = { id: string; kind: string; target?: string; title: string; detail: string; status: string; by?: string; via?: string; opened: number; scored: { label: string; score: number; decision: string; floor: number; limit: number; violations: string[] }; action: any };
-type Over = { probes: { name: string; alive: boolean; where?: string; services?: Record<string, boolean>; readings?: Record<string, number> }[]; incidents: Inc[]; audit: { at: number; text: string }[] };
+type Over = { probes: { name: string; alive: boolean; where?: string; services?: Record<string, boolean>; readings?: Record<string, number> }[]; incidents: Inc[]; verdicts?: Record<string, string>; audit: { at: number; text: string }[] };
 
 const TONE: Record<string, string> = { waiting: '#f2b84b', applying: '#8fb4ff', resolved: '#7be0a6', rejected: '#ef6b57', refused: '#ef6b57', blocked: '#ef6b57' };
 const WORD: Record<string, string> = { waiting: 'waits for a person', applying: 'fix is running', resolved: 'closed', rejected: 'rejected', refused: 'not applied', blocked: 'blocked by a hard limit' };
@@ -54,9 +54,11 @@ export default function HostIncidents() {
   const [d, setD] = useState<Over | null>(null);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const [toast, setToast] = useState('');
   const load = useCallback(() => api<Over>('/host').then(setD).catch(() => {}), []);
   useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [load]);
   const decide = async (id: string, ok: boolean) => { setBusy(id); setErr(''); try { await api(`/host/incidents/${id}/${ok ? 'approve' : 'reject'}`, { method: 'POST' }); } catch (e: any) { setErr(String(e.message || e)); } setBusy(''); load(); };
+  const answer = async (id: string, v: string) => { setErr(''); try { await api(`/host/incidents/${id}/feedback?verdict=${v}`, { method: 'POST' }); setToast('Recorded. Warden learns from it.'); setTimeout(() => setToast(''), 3000); } catch (e: any) { setErr(String(e.message || e)); } load(); };
   if (!d || (d.probes.length === 0 && d.incidents.length === 0)) return null;
   const open = d.incidents.filter((i) => i.status === 'waiting' || i.status === 'applying');
   return (
@@ -80,10 +82,14 @@ export default function HostIncidents() {
             <div style={{ fontSize: 13.5 }}>Fix: <b>{fix(i.action)}</b>. Warden score <b>{i.scored.score}</b> of 100 (floor {i.scored.floor}, limit {i.scored.limit}).{i.scored.violations.length > 0 && <span style={{ color: '#ef6b57' }}> {i.scored.violations.join('; ')}</span>}</div>
             {i.status === 'applying' && i.target === 'cloud_sql' && <StartProgress since={(i as any).decided || i.opened} />}
             {i.status === 'waiting' && <div className="row" style={{ gap: 8 }}><button className="btn sm" disabled={busy === i.id} onClick={() => decide(i.id, true)}>Approve</button><button className="btn g sm" disabled={busy === i.id} onClick={() => decide(i.id, false)}>Reject</button><span className="dim" style={{ fontSize: 12.5 }}>or tap Approve on Telegram</span></div>}
+            {i.status === 'resolved' && i.target === 'cloud_sql' && (d.verdicts?.[i.id]
+              ? <div style={{ fontSize: 13 }}>Confirmed by a person: <b>{({ yes: 'restored, everything works', partly: 'partly fixed', no: 'not fixed' } as Record<string, string>)[d.verdicts[i.id]]}</b></div>
+              : <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}><span style={{ fontSize: 13 }}>Was the problem solved?</span>{[['yes', 'Yes'], ['partly', 'Partly'], ['no', 'No']].map(([v, l]) => <button key={v} className="btn g sm" onClick={() => answer(i.id, v)}>{l}</button>)}</div>)}
             {i.by && <div className="mut" style={{ fontSize: 12.5 }}>{i.status === 'rejected' ? 'Rejected' : i.via === 'its own score' || i.via === 'auto' ? 'Applied by Warden by itself' : 'Approved'} {i.via && i.via !== 'auto' && i.via !== 'its own score' ? `by ${i.by} through ${i.via}` : ''} at {at(i.opened)}</div>}
           </div>
         ))}
       </div>
+      {toast && <div role="status" className="mut" style={{ fontSize: 13 }}>{toast}</div>}
       {d.audit.length > 0 && <details style={{ marginTop: 8 }}><summary className="mut" style={{ cursor: 'pointer', fontSize: 13 }}>Audit log</summary><div className="mut" style={{ fontSize: 12.5, display: 'grid', gap: 2, marginTop: 6 }}>{d.audit.slice(0, 12).map((a, k) => <div key={k}>{at(a.at)} · {a.text}</div>)}</div></details>}
     </div>
   );

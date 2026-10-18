@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from foreman import notify, safety
+from foreman import notify, outcomes, safety
 from server import rbac
 from workspace import store
 
@@ -51,6 +51,7 @@ def _state(d):
     h.setdefault("incidents", [])
     h.setdefault("commands", [])
     h.setdefault("audit", [])
+    h.setdefault("issues", [])
     return h
 
 
@@ -170,6 +171,157 @@ def _tell(inc, extra="", buttons=False):
             _audit(_state(store.load()), f"Could not tell {ch.get('name', ch['type'])}: {str(e)[:80]}")
 
 
+def _took(seconds):
+    m, s = divmod(int(seconds), 60)
+    return f"{m} min {s} s" if m else f"{s} s"
+
+
+def _followup_facts(inc):
+    """What happened, in plain words, for the message that asks the people how it went."""
+    res = outcomes.resolver_of(inc)
+    took = _took(max(0, (inc.get("resolved") or time.time()) - inc["opened"]))
+    if res == "tolerance":
+        how = f"Tolerance started it again, approved by {inc.get('by')} through {inc.get('via')}."
+    elif res == "plant":
+        how = "Someone fixed it outside Tolerance."
+    else:
+        how = "It came back by itself."
+    return how, took
+
+
+def _followup_tg(inc, note=""):
+    import html
+    e = html.escape
+    how, took = _followup_facts(inc)
+    lines = [f"\u2705 <b>{e(inc['title'].replace(' is down', ' is back'))}</b>", "\u2501" * 14, f"\U0001F4CB {e(inc['detail'])}", f"\U0001F6E0 {e(how)}",
+             f"\u23F1 Back after <b>{took}</b>. The automatic check says it answers."]
+    if note:
+        lines += ["", note]
+    else:
+        lines += ["", "<b>Is it restored, and is everything working?</b>"]
+    return "\n".join(lines)
+
+
+def _followup_text(inc):
+    how, took = _followup_facts(inc)
+    return f"{inc['title'].replace(' is down', ' is back')}\n{inc['detail']}\n{how}\nBack after {took}. The automatic check says it answers.\nIs it restored, and is everything working?"
+
+
+def _followup(iid):
+    """After a Cloud SQL database is back: ask the people if it is restored and everything works. The answer is kept as the outcome."""
+    with LOCK:
+        d = store.load()
+        inc = next((i for i in _state(d)["incidents"] if i["id"] == iid), None)
+        if not inc or inc.get("followup"):
+            return
+        inc["followup"] = time.time()
+        store.save(d)
+    for ch in list(notify._all()):
+        try:
+            if ch["type"] == "telegram":
+                notify.telegram_buttons(ch, _followup_tg(inc), [[("\u2705 Yes, all working", f"fb:{iid}:y"), ("\u26A0\uFE0F Partly", f"fb:{iid}:p"), ("\u274C Not fixed", f"fb:{iid}:n")]], html=True)
+                _watch(ch)
+            else:
+                notify.send_one(ch, "Tolerance", _followup_text(inc) + "\nAnswer in the app, on Operations.", notify.public_url())
+        except Exception as e:
+            _audit_note(f"Could not ask {ch.get('name', ch['type'])} how it went: {str(e)[:80]}")
+
+
+def _feedback_tap(cq, base, ch, uid):
+    import httpx
+    chat = str((cq.get("message") or {}).get("chat", {}).get("id", ""))
+
+    def say(text):
+        httpx.post(base + "/answerCallbackQuery", json={"callback_query_id": cq["id"], "text": text}, timeout=10)
+    if chat != str(ch["chat_id"]):
+        say("This chat is not allowed to answer.")
+        return
+    _, iid, v = cq["data"].split(":")
+    verdict = {"y": "yes", "p": "partly", "n": "no"}.get(v)
+    tok = store.UID.set(uid)
+    try:
+        person = rbac.member(telegram_id=(cq.get("from") or {}).get("id"))
+        if not person and not any(x.get("telegram_id") for x in rbac._state()["members"]):
+            person = rbac.link_owner((cq.get("from") or {}).get("id"), (cq.get("from") or {}).get("first_name"))
+        if not person or not rbac.allowed(person["id"], "run_checks"):
+            say("Your role may not answer this.")
+            return
+        who = rbac.label(person)
+        row = outcomes.feedback(iid, verdict, who, "Telegram")
+        inc = next((i for i in _state(store.load())["incidents"] if i["id"] == iid), None)
+        est = outcomes.record(*outcomes.counts(row["action"], row["station"])) if row else None
+    finally:
+        store.UID.reset(tok)
+    say("Recorded." if row else "No record for this.")
+    msg = cq.get("message") or {}
+    if row and inc and msg.get("message_id"):
+        import html
+        note = f"\U0001F9E0 <b>Recorded:</b> {html.escape(outcomes.VERDICTS[verdict][0])}, by {html.escape(who)}.\nWarden's record for this fix is now <b>{est * 100:.0f}%</b>."
+        httpx.post(base + "/editMessageText", json={"chat_id": ch["chat_id"], "message_id": msg["message_id"], "text": _followup_tg(inc, note), "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=10)
+
+
+def report_issue(title, target, details, by):
+    """A person opens an issue by hand. It joins the same record as the incidents Tolerance finds."""
+    with LOCK:
+        d = store.load()
+        h = _state(d)
+        iss = {"id": store.new_id("iss"), "title": str(title).strip()[:120], "target": str(target).strip()[:40], "details": str(details).strip()[:600], "by": by, "opened": time.time(), "status": "open", "resolver": None, "note": ""}
+        h["issues"].append(iss)
+        del h["issues"][:-60]
+        _audit(h, f"{by} reported an issue: {iss['title']}")
+        store.save(d)
+    try:
+        notify.dispatch("Issue reported", f"{by}: {iss['title']}" + (f" ({iss['target']})" if iss["target"] else ""))
+    except Exception:
+        pass
+    return iss
+
+
+def resolve_issue(iid, note, by):
+    """A person says what was done. The note is required: it is what Tolerance keeps and learns from."""
+    note = str(note or "").strip()
+    if len(note) < 5:
+        raise ValueError("Write what was done to resolve it.")
+    with LOCK:
+        d = store.load()
+        h = _state(d)
+        iss = next((i for i in h["issues"] if i["id"] == iid), None)
+        if not iss or iss["status"] != "open":
+            return None
+        now = time.time()
+        iss.update(status="resolved", resolver="plant", resolved=now, note=note[:600], resolved_by=by)
+        d.setdefault("outcomes", []).append({"id": store.new_id("out"), "incident": iid, "title": iss["title"], "kind": "manual", "target": iss["target"], "action": None, "station": iss["target"], "ctx": "manual:" + iss["target"],
+                                             "opened": iss["opened"], "resolved": now, "restore_s": round(now - iss["opened"]), "resolver": "plant", "by": by, "via": "the app", "auto_check": False,
+                                             "verdict": None, "verdict_by": None, "verdict_at": None, "note": note[:600]})
+        _audit(h, f"{by} resolved an issue: {iss['title']}")
+        store.save(d)
+    return iss
+
+
+def _issue_from_telegram(msg0, base, ch, uid):
+    import httpx
+    if str((msg0.get("chat") or {}).get("id", "")) != str(ch["chat_id"]):
+        return
+    text = str(msg0.get("text", "")).split(None, 1)
+    body = text[1].strip() if len(text) > 1 else ""
+    tok = store.UID.set(uid)
+    try:
+        person = rbac.member(telegram_id=(msg0.get("from") or {}).get("id"))
+        if not person or not rbac.allowed(person["id"], "run_checks"):
+            reply = "Your role may not report issues, or you are not linked. Send /link CODE first."
+        elif not body:
+            reply = "Write the issue after the command. For example: /issue WH1 conveyor jam"
+        else:
+            words = body.split(None, 1)
+            known = {s.lower() for s in list(UNITS) + ["AGV", "C1", "C2", "TR", "WH1", "WH2", "OVN1"]}
+            target, details = (words[0], words[1] if len(words) > 1 else "") if words[0].lower() in known else ("", body)
+            iss = report_issue(details or body, target, "", rbac.label(person))
+            reply = f"Issue opened: {iss['title']}" + (f" ({iss['target']})" if iss["target"] else "") + ". It is on the SLO and incidents page."
+    finally:
+        store.UID.reset(tok)
+    httpx.post(base + "/sendMessage", json={"chat_id": msg0["chat"]["id"], "text": reply}, timeout=10)
+
+
 def process(rep):
     """One report from a probe. Returns the commands it should run."""
     name = rep["name"]
@@ -180,7 +332,7 @@ def process(rep):
         prev = dict(pr.get("services") or {})
         pr.update(services=rep.get("services") or {}, readings=rep.get("readings") or {}, seen=time.time(), where=rep.get("where", ""))
         store.save(d)
-    notices = []
+    notices, followups = [], []
     with LOCK:
         d = store.load()
         h = _state(d)
@@ -213,8 +365,11 @@ def process(rep):
                     notices.append((inc, "I did not run it.", False))
             elif up and open_inc and open_inc["status"] in ("applying", "waiting"):
                 open_inc.update(status="resolved", resolved=time.time())
+                outcomes.on_resolved(d, open_inc)
                 _audit(h, f"{meta['label']} is back. Incident closed")
                 notices.append((open_inc, f"{meta['label']} is running again. Incident closed.", False))
+                if unit == "cloud_sql":
+                    followups.append(open_inc["id"])
         # the oven
         t = _num((rep.get("readings") or {}).get("oven_temp_c"))
         lim = _limit("max_temp_c")
@@ -232,6 +387,7 @@ def process(rep):
                     notices.append((inc, "A person must approve this fix." if sc["decision"] == "approve" else "I did not run it.", sc["decision"] == "approve"))
             elif t <= L and open_inc and open_inc["status"] == "applying":
                 open_inc.update(status="resolved", resolved=time.time())
+                outcomes.on_resolved(d, open_inc)
                 _audit(h, f"Oven is back at {t:.0f} C. Incident closed")
                 notices.append((open_inc, f"The oven is back at {t:.0f} C. Incident closed.", False))
         out = []
@@ -244,6 +400,8 @@ def process(rep):
         store.save(d)
     for inc, extra, buttons in notices:
         _tell(inc, extra, buttons)
+    for iid in followups:
+        _followup(iid)
     try:   # playbooks that start from a probe reading (the oven above a value, say)
         from foreman import playbook as _pb
         _pb.on_report(rep)
@@ -344,7 +502,13 @@ def _poll(ch, uid):
                         store.UID.reset(tok)
                     httpx.post(base + "/sendMessage", json={"chat_id": msg0["chat"]["id"], "text": (f"Linked. You are {who_['name']}, role {who_['role']}." if who_ else "That link code is not right.")}, timeout=10)
                     continue
+                if str(msg0.get("text", "")).startswith("/issue"):
+                    _issue_from_telegram(msg0, base, ch, uid)
+                    continue
                 cq = u.get("callback_query")
+                if cq and str(cq.get("data", "")).startswith("fb:"):
+                    _feedback_tap(cq, base, ch, uid)
+                    continue
                 if not cq or not str(cq.get("data", "")).startswith("hi:"):
                     continue
                 chat = str((cq.get("message") or {}).get("chat", {}).get("id", ""))
@@ -414,7 +578,117 @@ def overview():
     h = _state(d)
     now = time.time()
     probes = [dict(p, name=k, alive=now - p.get("seen", 0) < 20) for k, p in h["probes"].items()]
-    return JSONResponse({"probes": probes, "incidents": list(reversed(h["incidents"][-20:])), "audit": list(reversed(h["audit"][-30:]))})
+    return JSONResponse({"probes": probes, "incidents": list(reversed(h["incidents"][-20:])), "issues": list(reversed(h["issues"][-20:])), "audit": list(reversed(h["audit"][-30:])),
+                         "verdicts": {r["incident"]: r.get("verdict") for r in d.get("outcomes", []) if r.get("verdict")}})
+
+
+# ------------------------------------------------------------------ service levels: what the documents promise, and what the incidents show
+SLO_DEFAULTS = {"cloud_sql": (15, 99.5), "mosquitto": (5, 99.9), "mongod": (15, 99.5), "oven": (10, None)}
+SLO_NAMES = {"cloud_sql": "Cloud SQL database (ERP)", "mosquitto": "MQTT broker", "mongod": "MongoDB", "oven": "Reflow oven"}
+_SLO_WORDS = [("cloud_sql", r"cloud sql|erp|postgres|\bdatabase\b"), ("mosquitto", r"mqtt|mosquitto|broker"), ("mongod", r"mongo"), ("oven", r"oven|reflow|ovn")]
+
+
+def slo_targets():
+    """The service levels the documents state. Where they state none, a default is used and marked as one."""
+    out = {k: {"restore_min": v[0], "availability_pct": v[1], "from_docs": False, "quotes": []} for k, v in SLO_DEFAULTS.items()}
+    try:
+        import re
+        from documents import engine as DE
+        for c in DE.state().get("claims", []):
+            p = str(c.get("predicate", ""))
+            field = {"slo_restore_minutes": "restore_min", "slo_availability_pct": "availability_pct"}.get(p)
+            key = next((k for k, rx in _SLO_WORDS if re.search(rx, str(c.get("subject", "")).lower())), None)
+            v = _num(c.get("value"))
+            if field and key and v is not None:
+                out[key][field] = v
+                out[key]["from_docs"] = True
+                out[key]["quotes"].append({"doc": c.get("doc"), "quote": c.get("quote")})
+    except Exception:
+        pass
+    return out
+
+
+def slo_report(window_days=30):
+    now = time.time()
+    window = window_days * 86400.0
+    with LOCK:
+        d = store.load()
+        h = _state(d)
+        rows = list(d.get("outcomes", []))
+        incs, issues = list(h["incidents"]), list(h["issues"])
+    targets = slo_targets()
+    key_of = lambda i: "oven" if i["kind"] == "temp_high" else i["target"]
+    by_resolver = {k: 0 for k in outcomes.RESOLVERS}
+    for r in rows:
+        by_resolver[r["resolver"]] = by_resolver.get(r["resolver"], 0) + 1
+    verdicts = {r["incident"]: r.get("verdict") for r in rows}
+    per = []
+    for key in list(dict.fromkeys(["cloud_sql", "mosquitto", "oven"] + [key_of(i) for i in incs])):
+        mine = [i for i in incs if key_of(i) == key and now - i["opened"] <= window]
+        down = sum(((i.get("resolved") or now) - i["opened"]) for i in mine if i["status"] in ("resolved", "waiting", "applying"))
+        done = [r for r in rows if r["kind"] in ("service_down", "temp_high") and (("oven" if r["kind"] == "temp_high" else r["target"]) == key)]
+        t = targets.get(key) or {"restore_min": None, "availability_pct": None, "from_docs": False, "quotes": []}
+        last = done[-1]["restore_s"] if done else None
+        avail = round(100 * (1 - down / window), 3)
+        budget = (down / (window * (1 - t["availability_pct"] / 100.0)) * 100) if t.get("availability_pct") else None
+        per.append({"unit": key, "label": SLO_NAMES.get(key, key), "incidents": len(mine), "last_restore_s": last,
+                    "avg_restore_s": round(sum(r["restore_s"] for r in done) / len(done)) if done else None,
+                    "target_restore_min": t["restore_min"], "target_availability_pct": t["availability_pct"], "from_docs": t["from_docs"], "quotes": t["quotes"][:2],
+                    "within_target": (last <= t["restore_min"] * 60) if (last is not None and t["restore_min"]) else None,
+                    "availability_pct": avail, "budget_used_pct": round(budget, 1) if budget is not None else None})
+    recent = [{"kind": "auto", "id": i["id"], "title": i["title"], "status": i["status"], "opened": i["opened"], "resolved": i.get("resolved"), "restore_s": round(i["resolved"] - i["opened"]) if i.get("resolved") else None,
+               "resolver": outcomes.resolver_of(i) if i["status"] == "resolved" else None, "by": i.get("by"), "via": i.get("via"), "verdict": verdicts.get(i["id"]), "followup": bool(i.get("followup"))} for i in incs]
+    recent += [{"kind": "manual", "id": i["id"], "title": i["title"], "target": i["target"], "details": i["details"], "status": i["status"], "opened": i["opened"], "resolved": i.get("resolved"),
+                "restore_s": round(i["resolved"] - i["opened"]) if i.get("resolved") else None, "resolver": i.get("resolver"), "by": i.get("by"), "note": i.get("note"), "verdict": None} for i in issues]
+    recent.sort(key=lambda x: -x["opened"])
+    reported = len(incs) + len(issues)
+    resolved = sum(1 for i in incs if i["status"] == "resolved") + sum(1 for i in issues if i["status"] == "resolved")
+    openn = sum(1 for i in incs if i["status"] in ("waiting", "applying")) + sum(1 for i in issues if i["status"] == "open")
+    mttr = round(sum(r["restore_s"] for r in rows) / len(rows)) if rows else None
+    return {"window_days": window_days, "totals": {"reported": reported, "resolved": resolved, "open": openn, "not_applied": reported - resolved - openn},
+            "by_resolver": by_resolver, "resolver_names": outcomes.RESOLVERS, "mttr_s": mttr, "per_service": per, "recent": recent[:15], "learning": outcomes.learning(),
+            "confirmed": sum(1 for r in rows if r.get("verdict"))}
+
+
+class IssueBody(BaseModel):
+    title: str
+    target: str = ""
+    details: str = ""
+
+
+class ResolveBody(BaseModel):
+    note: str
+
+
+@router.get("/slo")
+def slo():
+    return JSONResponse(slo_report())
+
+
+@router.post("/incidents/{iid}/feedback")
+def incident_feedback(iid: str, verdict: str, m=Depends(rbac.need("run_checks"))):
+    row = outcomes.feedback(iid, verdict, rbac.label(m), "the app")
+    if not row:
+        raise HTTPException(404, "There is no finished incident with that id, or the answer is not one of yes, partly, no.")
+    return JSONResponse(row)
+
+
+@router.post("/issues")
+def new_issue(b: IssueBody, m=Depends(rbac.need("run_checks"))):
+    if len(b.title.strip()) < 4:
+        raise HTTPException(400, "Write a short title for the issue.")
+    return JSONResponse(report_issue(b.title, b.target, b.details, rbac.label(m)))
+
+
+@router.post("/issues/{iid}/resolve")
+def close_issue(iid: str, b: ResolveBody, m=Depends(rbac.need("run_checks"))):
+    try:
+        iss = resolve_issue(iid, b.note, rbac.label(m))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if not iss:
+        raise HTTPException(404, "There is no open issue with that id.")
+    return JSONResponse(iss)
 
 
 @router.post("/incidents/{iid}/approve")

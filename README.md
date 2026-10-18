@@ -172,7 +172,7 @@ A three-minute deck that runs in the browser at `/deck`, with the live app embed
 
 1. **Plant name.** The only question on the first screen. No menu, no panels.
 2. **A spark takes over the name.** A glowing spark sweeps across the typed plant name and the letters fill with colour. It lasts about four seconds and can be skipped.
-3. **Drop your documents.** A real drag-and-drop area. A sample pack of eight documents is available for people who have none.
+3. **Drop your documents.** A real drag-and-drop area. A sample pack of nine documents is available for people who have none.
 3b. **Connect your systems.** A stepper goes through the databases, streams, files and alerts the documents name (see "The ingestion step").
 4. **The Guide talks with the owner.** It reads the documents, asks which data sources to connect, asks what the plant makes, and settles conflicts between documents, missing stations and hard limits, one question at a time.
 5. **The plant, drawn.** Gemini turns the confirmed understanding into a layout, and the Anatomy kit draws it.

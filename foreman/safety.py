@@ -55,6 +55,19 @@ def _approvals(kind):
     return int(a.get("approved", 0)), int(a.get("rejected", 0))
 
 
+def _precedent(kind, station):
+    """What is known about this action in this context. Confirmed outcomes (see foreman/outcomes.py) come first, because they say the fix worked. With none, the people's earlier approvals and rejections stand in."""
+    try:
+        from foreman import outcomes
+        s, f = outcomes.counts(kind, station)
+    except Exception:
+        s = f = 0.0
+    if s + f > 0:
+        return s, f, True
+    ap, rj = _approvals(kind)
+    return ap, rj, False
+
+
 def record_person_decision(kind, approved):
     def f(d):
         a = d.setdefault("safety", {}).setdefault("approvals", {}).setdefault(kind, {"approved": 0, "rejected": 0})
@@ -126,8 +139,8 @@ def score_action(action, ctx):
     f_reach = 1.0 - meta["reach"] * min(1.0, n / 4.0)
     f_margin = min(1.0, min(margin_vals) / 0.25) if margin_vals else 1.0
     f_evid = max(0.0, min(1.0, float(ctx.get("evidence", 0.5))))
-    ap, rj = _approvals(kind)
-    f_prec = 0.5 + 0.5 * (ap - rj) / (ap + rj + 2.0)
+    ap, rj, learned = _precedent(kind, st)
+    f_prec = (1.0 + ap) / (2.0 + ap + rj)   # the Beta estimate with a uniform prior: 0.5 until something is known
     state = ctx.get("state", "unknown")
     f_state = 1.0 if (kind == "inspect" or state in ("failed", "idle")) else (0.6 if state == "busy" else 0.7)
 
@@ -136,7 +149,8 @@ def score_action(action, ctx):
              "reach": f"{n} station(s) or service(s) downstream" if meta["reach"] else "does not touch the flow",
              "margin": (f"{min(margin_vals) * 100:.0f}% below the nearest limit" if margin_vals else "no limited setting is changed"),
              "evidence": f"the Verifier supports the diagnosis at {f_evid * 100:.0f}%",
-             "precedent": f"people approved this action {ap} time(s) and rejected it {rj} time(s)" if (ap + rj) else "no one has approved or rejected this action yet",
+             "precedent": (f"in this situation the fix worked {ap:g} time(s) and failed {rj:g} time(s), as confirmed by people" if learned
+                          else f"people approved this action {ap} time(s) and rejected it {rj} time(s)" if (ap + rj) else "no one has approved or rejected this action yet"),
              "plant_state": f"station is {state}"}
     factors = [{"id": k, "label": LABELS[k], "value": round(vals[k], 2), "weight": WEIGHTS[k], "points": round(100 * WEIGHTS[k] * vals[k], 1), "note": notes[k]} for k in WEIGHTS]
     total = int(round(sum(100 * WEIGHTS[k] * vals[k] for k in WEIGHTS)))

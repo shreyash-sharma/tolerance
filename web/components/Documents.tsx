@@ -22,7 +22,7 @@ export default function Documents({ log }: { log: (agent: string, text: string, 
 
   const extract = async () => {
     setBusy(true); setErr(null);
-    log('Document agent', 'reading 8 documents, extracting claims with a quote for each…', true);
+    log('Document agent', 'reading 9 documents, extracting claims with a quote for each…', true);
     try {
       const d = await api('/ws/docs/extract', { method: 'POST' }); setSt(d);
       log('Document agent', `${d.claims.length} claims from ${d.docs.length} documents · ${d.injections.length} instruction${d.injections.length === 1 ? '' : 's'} aimed at the system removed`, true);
