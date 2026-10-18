@@ -217,10 +217,10 @@ def _pipeline(sid):
 
 
 def sync(sid):
+    s = get(sid)   # read the record BEFORE the lake lock: holding the lake lock while waiting for the workspace lock is what deadlocked with the Cloud SQL watcher
+    if not s:
+        raise KeyError(sid)
     with CR.LOCK:
-        s = get(sid)
-        if not s:
-            raise KeyError(sid)
         t0 = time.time()
         mode = "snapshot" if s["syncs"] == 0 else "live"
         err, rc = None, {}
