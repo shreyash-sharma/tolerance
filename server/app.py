@@ -45,6 +45,27 @@ def boot():
     _persist.start()
     S["compile_now"] = lambda: compile_now()
     WSRC.LIVE.start()
+    import threading as _th
+
+    def _watchdog():
+        """If the workspace lock cannot be taken for 5 seconds, something is stuck. Print what every thread is doing, so the server log says where."""
+        import sys, time, traceback
+        from workspace import store as _st
+        from connectors import registry as _cr
+        while True:
+            time.sleep(20)
+            for nm, lk in (("store", _st.LOCK), ("lake", _cr.LOCK)):
+                if lk.acquire(timeout=5):
+                    lk.release()
+                    continue
+                names = {t.ident: t.name for t in _th.enumerate()}
+                print(f"[watchdog] the {nm} lock has been held for more than 5 seconds. Threads:", flush=True)
+                for tid, fr in sys._current_frames().items():
+                    st = "".join(traceback.format_stack(fr)[-6:])
+                    if "lock" in st.lower() or "acquire" in st.lower() or "sleep" not in st.lower():
+                        print(f"[watchdog] --- {names.get(tid, tid)}", flush=True)
+                        print(st, flush=True)
+    _th.Thread(target=_watchdog, daemon=True, name="watchdog").start()
     try:   # a Cloud SQL database that was being watched is watched again after a restart (single-user mode)
         from server import cloudsql as _csql
         from workspace import store as _st
