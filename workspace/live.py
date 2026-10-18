@@ -83,34 +83,36 @@ def mqtt_resource(params, nm):
     P._guard(p["host"], p["port"])
     topic = params.get("topic") or p["database"] or "#"
 
+    got = []
+    cl = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    if p["user"]:
+        cl.username_pw_set(p["user"], pw or None)
+    if p["scheme"] in ("mqtts", "ssl", "tls") or p["port"] == 8883:
+        cl.tls_set()
+    up = threading.Event()
+    cl.on_connect = lambda c, u, f, rc, props=None: (c.subscribe(topic), up.set())
+
+    def on_message(c, u, m):
+        body = m.payload.decode("utf8", "replace")
+        row = {"ts": time.time(), "topic": m.topic, "payload": body[:2000]}
+        try:
+            j = json.loads(body)
+            if isinstance(j, dict):
+                row.update({k: v for k, v in _flat(j).items() if k not in row})
+        except Exception:
+            pass
+        got.append(row)
+    cl.on_message = on_message
+    # listen NOW, before the lock is taken: a shared broker can take many seconds, and nothing else may wait on the lake meanwhile
+    cl.connect(p["host"], p["port"], keepalive=10)
+    cl.loop_start()
+    up.wait(25)     # a shared cloud broker can be slow to answer: the listening time starts once it has
+    time.sleep(4)   # one sync listens for a few seconds; the live loop syncs again every few seconds
+    cl.loop_stop()
+    cl.disconnect()
+
     @dlt.resource(name=nm, write_disposition="append")
     def rows():
-        got, done = [], threading.Event()
-        cl = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        if p["user"]:
-            cl.username_pw_set(p["user"], pw or None)
-        if p["scheme"] in ("mqtts", "ssl", "tls") or p["port"] == 8883:
-            cl.tls_set()
-        up = threading.Event()
-        cl.on_connect = lambda c, u, f, rc, props=None: (c.subscribe(topic), up.set())
-
-        def on_message(c, u, m):
-            body = m.payload.decode("utf8", "replace")
-            row = {"ts": time.time(), "topic": m.topic, "payload": body[:2000]}
-            try:
-                j = json.loads(body)
-                if isinstance(j, dict):
-                    row.update({k: v for k, v in _flat(j).items() if k not in row})
-            except Exception:
-                pass
-            got.append(row)
-        cl.on_message = on_message
-        cl.connect(p["host"], p["port"], keepalive=10)
-        cl.loop_start()
-        up.wait(25)     # a shared cloud broker can be slow to answer: the listening time starts once it has
-        time.sleep(4)   # one sync listens for a few seconds; the live loop syncs again every few seconds
-        cl.loop_stop()
-        cl.disconnect()
         if got:
             yield got
     return rows()

@@ -45,7 +45,7 @@ def lake_path():
 
 def pipes_dir():
     return os.path.join(core.DATA, "users", "dlt_" + _safe(store.UID.get())) if own_lake() else PIPES
-LOCK = threading.RLock()
+LOCK = store.LOCK   # ONE lock for the lake and the workspace: two locks could be taken in opposite orders by two threads and wait for each other for ever
 
 
 # ------------------------------------------------------------------ custom resources

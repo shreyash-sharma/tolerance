@@ -217,39 +217,41 @@ def _pipeline(sid):
 
 
 def sync(sid):
-    s = get(sid)   # read the record BEFORE the lake lock: holding the lake lock while waiting for the workspace lock is what deadlocked with the Cloud SQL watcher
+    """One pass for one source. There is one lock for the lake and the workspace (connectors/registry.py), so it is held only for the short write: the record is read and the data is
+    fetched (a broker listened to, a database connected to) with no lock held."""
+    s = get(sid)
     if not s:
         raise KeyError(sid)
-    with CR.LOCK:
-        t0 = time.time()
-        mode = "snapshot" if s["syncs"] == 0 else "live"
-        err, rc = None, {}
-        try:
-            if s["kind"] == "builtin":
-                r = CR.sync(s["params"]["id"])
-                rc = r["tables"]
+    t0 = time.time()
+    mode = "snapshot" if s["syncs"] == 0 else "live"
+    err, rc = None, {}
+    try:
+        if s["kind"] == "builtin":
+            r = CR.sync(s["params"]["id"])
+            rc = r["tables"]
+        else:
+            nm = slug(s["name"])
+            if s["kind"] == "archive":
+                src = archive_resources()
+            elif s["kind"] == "csv":
+                src = csv_resource(s["params"]["path"], nm)
+            elif s["kind"] == "json":
+                src = mongo_resource(s["params"]["path"], nm)
+            elif s["kind"] in __import__("workspace.live", fromlist=["KINDS"]).KINDS:
+                from workspace import live as LV
+                src = LV.resource(s, nm)
+            elif s["kind"] == "api":
+                from workspace import vault as VT
+                src = api_resource(s["params"]["url"], nm, VT.get(s["params"].get("secret_ref")) or "")
             else:
-                nm = slug(s["name"])
-                if s["kind"] == "archive":
-                    src = archive_resources()
-                elif s["kind"] == "csv":
-                    src = csv_resource(s["params"]["path"], nm)
-                elif s["kind"] == "json":
-                    src = mongo_resource(s["params"]["path"], nm)
-                elif s["kind"] in __import__("workspace.live", fromlist=["KINDS"]).KINDS:
-                    from workspace import live as LV
-                    src = LV.resource(s, nm)
-                elif s["kind"] == "api":
-                    from workspace import vault as VT
-                    src = api_resource(s["params"]["url"], nm, VT.get(s["params"].get("secret_ref")) or "")
-                else:
-                    url = s["params"]["url"] if s["kind"] == "db_url" else "sqlite:///" + s["params"]["path"]
-                    src = sql_source(url, nm)
-                pipe = _pipeline(sid)
+                url = s["params"]["url"] if s["kind"] == "db_url" else "sqlite:///" + s["params"]["path"]
+                src = sql_source(url, nm)
+            pipe = _pipeline(sid)
+            with CR.LOCK:
                 pipe.run(src)
-                rc = {k: v for k, v in (pipe.last_trace.last_normalize_info.row_counts or {}).items() if not k.startswith("_dlt")}
-        except Exception as e:
-            err = f"{type(e).__name__}: {str(e)[:260]}"
+            rc = {k: v for k, v in (pipe.last_trace.last_normalize_info.row_counts or {}).items() if not k.startswith("_dlt")}
+    except Exception as e:
+        err = f"{type(e).__name__}: {str(e)[:260]}"
     # the lake lock is released here: the workspace update below must never wait for the workspace lock while holding the lake lock (another thread holds the first and wants the second)
     n = sum(rc.values())
     if n and s["kind"] == "mqtt_live":
