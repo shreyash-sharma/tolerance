@@ -335,6 +335,9 @@ def process(rep):
         pr.update(services=rep.get("services") or {}, readings=rep.get("readings") or {}, seen=time.time(), where=rep.get("where", ""))
         store.save(d)
     notices, followups = [], []
+    # the documents engine reads the data lake, which a live sync holds while it waits for the workspace lock: ask it BEFORE taking that lock, never inside it
+    lim = _limit("max_temp_c")
+    lctx = _limits_ctx()
     with LOCK:
         d = store.load()
         h = _state(d)
@@ -356,7 +359,7 @@ def process(rep):
                 aff = _affects(unit, meta)
                 action = {"kind": "restart_service", "station": unit, "params": {}, "why": f"{meta['label']} stopped on {rep.get('where') or name}"}
                 inc, sc = _open(h, "service_down", unit, f"{meta['label']} is down on {rep.get('where') or name}", f"It carries {meta['what']}. Data for {', '.join(aff)} is lost until it is back.", action,
-                                {"evidence": 0.9, "state": "failed", "n_affected": len(aff), "limits": _limits_ctx(), "consecutive_faults": 0})
+                                {"evidence": 0.9, "state": "failed", "n_affected": len(aff), "limits": lctx, "consecutive_faults": 0})
                 if sc["decision"] == "auto":
                     _queue(h, inc, "Warden", "auto")
                     notices.append((inc, "Warden fixed it by itself: the score is above the limit. I restart the service now.", False))
@@ -374,14 +377,13 @@ def process(rep):
                     followups.append(open_inc["id"])
         # the oven
         t = _num((rep.get("readings") or {}).get("oven_temp_c"))
-        lim = _limit("max_temp_c")
         if t is not None and lim and _num(lim["value"]):
             L = _num(lim["value"])
             open_inc = next((i for i in h["incidents"] if i["kind"] == "temp_high" and i["status"] in ("waiting", "applying")), None)
             if t > L and not open_inc:
                 action = {"kind": "adjust_temperature", "station": OVEN, "params": {"max_temp_c": OVEN_SAFE}, "why": f"The reflow oven reads {t:.0f} C"}
                 inc, sc = _open(h, "temp_high", OVEN, f"Reflow oven {t:.0f} C is above the limit of {L:g} C", f"The limit comes from the documents ({lim['doc']}: \"{lim['quote']}\").", action,
-                                {"evidence": 0.9, "state": "busy", "n_affected": 1, "limits": _limits_ctx(), "consecutive_faults": 0})
+                                {"evidence": 0.9, "state": "busy", "n_affected": 1, "limits": lctx, "consecutive_faults": 0})
                 if sc["decision"] == "auto":
                     _queue(h, inc, "Warden", "auto")
                     notices.append((inc, "Warden fixed it by itself.", False))
