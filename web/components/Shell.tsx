@@ -88,7 +88,8 @@ export default function Shell({ children, full = false }: { children: React.Reac
   const startTour = async () => { setMenu(false); setSkipped(false); setTour(0); await post('/jig/guide/layout/confirm', { ok: '1' }); reload(); };
   const startOver = async () => { if (!window.confirm('Start over? Your documents, answers and plan are removed. Warden’s two lines stay.')) return; await post('/jig/plant/reset'); try { sessionStorage.clear(); } catch {} window.location.href = '/'; };
   const touring = stage === 'tour' && !skipped;
-  const visible = touring ? NAV.filter((_, i) => i <= ti) : NAV;
+  const shown = new Set(steps.slice(0, ti + 1).map((x) => x.path));   // by path, so a section in the menu that the tour does not list never shifts the others
+  const visible = touring ? NAV.filter((n) => shown.has(n[0])) : NAV;
   const hl = touring ? steps[ti]?.path : null;
   const here = (path || '').replace(/\/+$/, '') || '/';   // the exported pages end with a slash
   const pageTitle = NAV.find((x) => x[0] === here)?.[1] ?? (here.startsWith('/floor') ? 'Floor' : 'Tolerance');
