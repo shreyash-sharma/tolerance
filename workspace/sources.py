@@ -250,26 +250,27 @@ def sync(sid):
                 rc = {k: v for k, v in (pipe.last_trace.last_normalize_info.row_counts or {}).items() if not k.startswith("_dlt")}
         except Exception as e:
             err = f"{type(e).__name__}: {str(e)[:260]}"
-        n = sum(rc.values())
-        if n and s["kind"] == "mqtt_live":
-            try:   # new messages may be the reading a playbook waits for
-                from foreman import playbook as _pb
-                _pb.on_report({})
-            except Exception:
-                pass
+    # the lake lock is released here: the workspace update below must never wait for the workspace lock while holding the lake lock (another thread holds the first and wants the second)
+    n = sum(rc.values())
+    if n and s["kind"] == "mqtt_live":
+        try:   # new messages may be the reading a playbook waits for
+            from foreman import playbook as _pb
+            _pb.on_report({})
+        except Exception:
+            pass
 
-        def f(d):
-            x = next(z for z in d["sources"] if z["id"] == sid)
-            x["syncs"] += 1
-            x["rows"] += n
-            x["last"] = time.time()
-            x["last_new"] = n
-            x["error"] = err
-            for t, c in rc.items():
-                x["tables"][t] = x["tables"].get(t, 0) + c
-            x["history"] = (x["history"] + [{"t": round(time.time(), 1), "mode": mode, "new": n, "err": bool(err)}])[-40:]
-        store.update(f)
-        return {"id": sid, "mode": mode, "new_rows": n, "tables": rc, "seconds": round(time.time() - t0, 2), "error": err}
+    def f(d):
+        x = next(z for z in d["sources"] if z["id"] == sid)
+        x["syncs"] += 1
+        x["rows"] += n
+        x["last"] = time.time()
+        x["last_new"] = n
+        x["error"] = err
+        for t, c in rc.items():
+            x["tables"][t] = x["tables"].get(t, 0) + c
+        x["history"] = (x["history"] + [{"t": round(time.time(), 1), "mode": mode, "new": n, "err": bool(err)}])[-40:]
+    store.update(f)
+    return {"id": sid, "mode": mode, "new_rows": n, "tables": rc, "seconds": round(time.time() - t0, 2), "error": err}
 
 
 def lag(s):

@@ -61,7 +61,7 @@ def boot():
                 names = {t.ident: t.name for t in _th.enumerate()}
                 print(f"[watchdog] the {nm} lock has been held for more than 5 seconds. Threads:", flush=True)
                 for tid, fr in sys._current_frames().items():
-                    st = "".join(traceback.format_stack(fr)[-6:])
+                    st = "".join(traceback.format_stack(fr)[-14:])
                     if "lock" in st.lower() or "acquire" in st.lower() or "sleep" not in st.lower():
                         print(f"[watchdog] --- {names.get(tid, tid)}", flush=True)
                         print(st, flush=True)
