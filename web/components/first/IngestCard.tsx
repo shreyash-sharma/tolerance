@@ -99,7 +99,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
   const body = { type: probe, url: val.trim(), secret, topic: topic.trim() };
   const doTest = async () => {
     setSt({ busy: 'test', err: '' }); setTest(null);
-    try { setTest(await acts.onTest(body)); } catch (e: any) { setTest({ ok: false, message: String(e.message || e) }); }
+    try { setTest(await within(acts.onTest(body), 40000, 'The test')); } catch (e: any) { setTest({ ok: false, message: String(e.message || e) }); }
     setSt({ busy: '', err: '' });
   };
   const doConnect = async () => {
@@ -111,7 +111,7 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
         const r = await acts.onMcp({ url: val.trim(), token: secret, name: n.name, quote: n.quotes[0]?.quote || '' });
         onOutcome({ state: 'connected', note: `${r.server?.tools?.length ?? 0} tools found, ${r.read_only ?? 0} read-only` });
       } else {
-        const r = await acts.onConnect({ ...body, name: n.name, system: n.system });
+        const r = await within(acts.onConnect({ ...body, name: n.name, system: n.system }), 75000, 'Connecting');
         const src = r?.source;
         if (src?.error) { setSt({ busy: '', err: src.error }); return; }
         onOutcome({ state: 'connected', note: `${Number(src?.rows || 0).toLocaleString()} rows read` });
@@ -188,6 +188,9 @@ export function NamedSystem({ n, disabled, outcome, onOutcome, onRemove, onAnoth
 }
 
 /** After the documents are read: what the Guide understood, then every kind of source it can reach and how far each goes today. */
+/** A read that gives up after a while, so a card never waits for ever on a slow system. */
+const within = <T,>(p: Promise<T>, ms: number, what: string): Promise<T> => new Promise((ok, no) => { const t = setTimeout(() => no(new Error(`${what} took longer than ${Math.round(ms / 1000)} seconds. The system may be slow or unreachable. Check the address and try again, or skip it for now.`)), ms); p.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); no(e); }); });
+
 export default function IngestCard({ understood: u, support, disabled, onGo, onUpload, onSample, onTest, onConnect, onMcp }: { understood: Understood; support: Group[]; disabled: boolean; onUpload: (f: File, system?: string, name?: string) => Promise<any>; onSample: () => Promise<any>; onTest: Acts['onTest']; onConnect: Acts['onConnect']; onMcp: Acts['onMcp']; onGo: (a: { ids: string[]; also: string[]; db_url: string; mcp_url: string; named: { name: string; state: string; note: string }[] }) => void }) {
   const live = support.flatMap((g) => g.items).filter((i) => i.status === 'live').map((i) => i.id);
   const [sel, setSel] = useState<string[]>(live);

@@ -99,7 +99,7 @@ function FilesStep({ data, reload }: { data: PlantData; reload: () => void }) {
         <svg style={{ display: "block", margin: "0 auto" }} width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" /></svg>
         <div style={{ fontSize: 22, fontWeight: 600, marginTop: 10 }}>Drop your documents here</div>
         <div className="mut" style={{ marginTop: 6 }}>or click to choose files · text, Markdown, PDF, email</div>
-        <input ref={input} type="file" multiple accept=".md,.txt,.pdf,.csv,.eml" hidden onChange={(e) => e.target.files && upload(e.target.files)} />
+        <input ref={input} type="file" multiple accept=".md,.txt,.pdf,.csv,.eml,.json,.docx" hidden onChange={(e) => e.target.files && upload(e.target.files)} />
       </div>
       {/* a fixed-height box: the list scrolls inside it, so the button below never moves */}
       <div aria-live="polite" style={{ marginTop: 16, height: 188, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 8, alignContent: 'start', padding: 2 }}>

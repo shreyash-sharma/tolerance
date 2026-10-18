@@ -220,7 +220,7 @@ export default function SymbioticCompiler() {
           onClick={() => input.current?.click()} role="button" tabIndex={0} aria-label="Add files for the compiler" onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current?.click()}
           style={{ border: `2px dashed ${over ? 'var(--amber)' : '#c9d1d94d'}`, background: over ? '#f2b84b14' : '#ffffff06', borderRadius: 16, padding: '18px 16px', textAlign: 'center', cursor: 'pointer' }}>
           <b>{busy === 'upload' ? 'Adding…' : 'Drop more documents here'}</b> <span className="mut">· work instructions, manuals, layout sheets, safety rules, emails (text, Markdown, PDF, CSV, email)</span>
-          <input ref={input} type="file" multiple accept=".md,.txt,.pdf,.csv,.eml" hidden onChange={(e) => e.target.files && void upload(e.target.files)} />
+          <input ref={input} type="file" multiple accept=".md,.txt,.pdf,.csv,.eml,.json,.docx" hidden onChange={(e) => e.target.files && void upload(e.target.files)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 8 }}>
           {files.map((f) => {
